@@ -1,0 +1,12 @@
+{
+    "name": "SnapPrint Admin",
+    "short_name": "Admin",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#2E7D32",
+    "theme_color": "#2E7D32",
+    "description": "SnapPrint Admin Dashboard",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": []
+}

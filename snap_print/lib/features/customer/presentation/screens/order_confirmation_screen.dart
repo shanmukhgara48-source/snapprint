@@ -1,0 +1,166 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_strings.dart';
+import '../../../../core/router/app_router.dart';
+import '../../../../core/widgets/custom_button.dart';
+import '../providers/orders_provider.dart';
+import '../widgets/order_status_chip.dart';
+
+class OrderConfirmationScreen extends ConsumerWidget {
+  const OrderConfirmationScreen({super.key, required this.orderId});
+  final String orderId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final orderAsync = ref.watch(orderDetailProvider(orderId));
+
+    return Scaffold(
+      appBar: AppBar(title: const Text(AppStrings.orderConfirmed)),
+      body: orderAsync.when(
+        loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.primary)),
+        error: (e, s) => _SuccessView(orderId: orderId, estimatedDelivery: null),
+        data: (order) => _SuccessView(
+          orderId: order.id,
+          estimatedDelivery: order.estimatedDelivery,
+          status: order.status,
+        ),
+      ),
+    );
+  }
+}
+
+class _SuccessView extends StatelessWidget {
+  const _SuccessView({
+    required this.orderId,
+    required this.estimatedDelivery,
+    this.status,
+  });
+  final String orderId;
+  final DateTime? estimatedDelivery;
+  final String? status;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          const SizedBox(height: 32),
+
+          // Success animation
+          Container(
+            width: 100,
+            height: 100,
+            decoration: const BoxDecoration(
+              color: AppColors.accentLight,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_circle_rounded,
+              size: 64,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          Text(
+            AppStrings.orderPlaced,
+            style: Theme.of(context).textTheme.displaySmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Your order has been placed successfully!',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+
+          // Order details card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _DetailRow(
+                  label: AppStrings.orderId,
+                  value: '#$orderId',
+                ),
+                if (status != null) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Status',
+                          style: Theme.of(context).textTheme.bodyMedium),
+                      OrderStatusChip(status: status!),
+                    ],
+                  ),
+                ],
+                if (estimatedDelivery != null) ...[
+                  const SizedBox(height: 12),
+                  _DetailRow(
+                    label: AppStrings.estimatedDelivery,
+                    value: DateFormat('dd MMM yyyy').format(estimatedDelivery!),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          CustomButton(
+            label: AppStrings.trackOrder,
+            icon: Icons.local_shipping_outlined,
+            onPressed: () => context.push(AppRoutes.orderHistory),
+          ),
+          const SizedBox(height: 12),
+          CustomButton(
+            label: AppStrings.continueShopping,
+            isOutlined: true,
+            onPressed: () => context.go(AppRoutes.customerHome),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: AppColors.textSecondary)),
+        Text(value,
+            style: const TextStyle(
+                fontWeight: FontWeight.w700, fontSize: 14)),
+      ],
+    );
+  }
+}

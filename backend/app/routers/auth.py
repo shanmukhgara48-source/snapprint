@@ -1,0 +1,216 @@
+import uuid
+from datetime import datetime, timedelta, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from jose import jwt
+from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..config import settings
+from ..database import get_db
+from ..dependencies import get_current_user
+from ..models import Coupon, User
+from ..schemas.auth import FirebaseAuthRequest, UserResponse
+from ..services.firebase_service import verify_firebase_token, get_firebase_app, set_user_role_claim
+
+limiter = Limiter(key_func=get_remote_address)
+
+
+class DevLoginRequest(BaseModel):
+    phone: str
+    secret: str
+
+
+class DevLoginResponse(BaseModel):
+    dev_token: str
+    firebase_uid: str
+    user: UserResponse
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AdminTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+@router.post("/admin/login", response_model=AdminTokenResponse)
+@limiter.limit("5/minute")
+async def admin_login(request: Request, payload: AdminLoginRequest):
+    """Username + password login for the admin panel."""
+    if payload.username != settings.admin_username or \
+       payload.password != settings.admin_password:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    token_data = {
+        "sub": "admin",
+        "role": "admin",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=8),
+    }
+    token = jwt.encode(token_data, settings.secret_key, algorithm=settings.algorithm)
+    return AdminTokenResponse(access_token=token)
+
+# Reward amounts for the referral program
+_REFERRAL_NEW_USER_DISCOUNT = 50.0   # ₹50 off for the new user's first order
+_REFERRAL_REFERRER_DISCOUNT = 50.0   # ₹50 off for the referrer's next order
+
+
+async def _create_referral_coupon(
+    db: AsyncSession,
+    for_user_id: str,
+    prefix: str,
+) -> Coupon:
+    """Creates a one-time ₹50 flat coupon valid for 90 days."""
+    code = f"{prefix}{str(uuid.uuid4())[:6].upper()}"
+    coupon = Coupon(
+        code=code,
+        discount_type="flat",
+        value=_REFERRAL_NEW_USER_DISCOUNT,
+        min_order=0,
+        max_uses=1,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=90),
+    )
+    db.add(coupon)
+    return coupon
+
+
+@router.post("/dev-login", response_model=DevLoginResponse)
+@limiter.limit("3/minute")
+async def dev_login(
+    request: Request,
+    payload: DevLoginRequest,
+    db: AsyncSession = Depends(get_db),
+) -> DevLoginResponse:
+    """Dev-only bypass login. Disabled when DEV_BYPASS_SECRET is not set."""
+    if not settings.dev_bypass_secret or payload.secret != settings.dev_bypass_secret:
+        raise HTTPException(status_code=403, detail="Dev login is disabled or secret is invalid")
+
+    result = await db.execute(select(User).where(User.phone == payload.phone))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        user = User(
+            firebase_uid=f"dev_{uuid.uuid4().hex[:16]}",
+            phone=payload.phone,
+            role="customer",
+            referral_code=str(uuid.uuid4())[:8].upper(),
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    dev_token = f"dev_{settings.dev_bypass_secret}_{user.firebase_uid}"
+    return DevLoginResponse(
+        dev_token=dev_token,
+        firebase_uid=user.firebase_uid,
+        user=UserResponse.model_validate(user),
+    )
+
+
+@router.post("/verify", response_model=UserResponse)
+@limiter.limit("10/minute")
+async def verify_user(
+    request: Request,
+    payload: FirebaseAuthRequest,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """
+    Called immediately after Firebase Phone OTP verification.
+    Requires a valid Firebase ID token to prove the caller owns the UID.
+    - Creates user if new (with auto-generated referral code).
+    - Handles referral: if referred_by_code is provided and valid, creates
+      a ₹50 coupon for the new user AND a ₹50 coupon for the referrer.
+    - Updates FCM token if user already exists.
+    """
+    try:
+        decoded = verify_firebase_token(payload.id_token)
+        firebase_uid: str = decoded["uid"]
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired Firebase ID token")
+
+    result = await db.execute(
+        select(User).where(User.firebase_uid == firebase_uid)
+    )
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        # New user registration
+        if payload.role not in ("customer", "delivery"):
+            raise HTTPException(status_code=400, detail="Invalid role")
+
+        # Resolve referral code
+        referrer: User | None = None
+        if payload.referred_by_code:
+            ref_result = await db.execute(
+                select(User).where(
+                    User.referral_code == payload.referred_by_code.strip().upper()
+                )
+            )
+            referrer = ref_result.scalar_one_or_none()
+
+        user = User(
+            firebase_uid=firebase_uid,
+            phone=payload.phone,
+            role=payload.role,
+            fcm_token=payload.fcm_token,
+            referral_code=str(uuid.uuid4())[:8].upper(),
+            referred_by_id=referrer.id if referrer else None,
+        )
+        db.add(user)
+        await db.flush()  # get user.id before creating coupons
+
+        # Set Firebase custom claim so Firestore rules can enforce role checks
+        try:
+            set_user_role_claim(firebase_uid, payload.role)
+        except Exception:
+            pass  # Non-fatal; rules fall back to DB-enforced access
+
+        if referrer:
+            # Reward: new user gets ₹50 off their first order
+            await _create_referral_coupon(db, user.id, prefix="WELCOME")
+            # Reward: referrer gets ₹50 off their next order
+            await _create_referral_coupon(db, referrer.id, prefix="REFER")
+
+    else:
+        # Existing user — just refresh FCM token
+        if payload.fcm_token:
+            user.fcm_token = payload.fcm_token
+
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@router.delete("/me", status_code=204)
+@limiter.limit("3/minute")
+async def delete_account(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    """
+    Permanently delete the authenticated user's account and all associated data.
+    Also deletes the Firebase Authentication user so they cannot sign back in
+    with the same phone number without re-registering.
+    Required by Google Play policy for apps with account creation.
+    """
+    import firebase_admin.auth as fb_auth
+
+    # Delete from Firebase Auth first (so they can't re-auth mid-deletion)
+    try:
+        get_firebase_app()
+        fb_auth.delete_user(current_user.firebase_uid)
+    except Exception:
+        pass  # Firebase deletion failure is non-fatal; proceed with DB cleanup
+
+    # Cascade deletes addresses and orders (via SQLAlchemy relationship)
+    await db.delete(current_user)
+    await db.commit()

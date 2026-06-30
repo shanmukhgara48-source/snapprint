@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ──────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Custom claim set by Firebase Admin SDK on the server
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.get('role', '') == 'admin';
+    }
+
+    function isDelivery() {
+      return isSignedIn() && request.auth.token.get('role', '') == 'delivery';
+    }
+
+    // ── Users ─────────────────────────────────────────────────────────────────
+    // Each user can read/write only their own document.
+    // Admins can read any user document.
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+            'phone', 'role', 'isActive', 'displayName',
+            'phoneVerified', 'createdAt', 'updatedAt', 'fcmToken'
+          ])
+        && request.resource.data.role in ['customer', 'delivery'];
+      allow update: if isOwner(uid)
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['role', 'isActive', 'phoneVerified'])
+        || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Products ──────────────────────────────────────────────────────────────
+    // Public read; only admins may write.
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── Categories ────────────────────────────────────────────────────────────
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── Orders ────────────────────────────────────────────────────────────────
+    // Customers can read their own orders; delivery can read orders assigned to them;
+    // admins can read/write all.
+    match /orders/{orderId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid)
+        || (isDelivery() && resource.data.deliveryPartnerId == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin()
+        || (isDelivery()
+            && resource.data.deliveryPartnerId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['status', 'updatedAt']));
+      allow delete: if false;
+    }
+
+    // ── Addresses ─────────────────────────────────────────────────────────────
+    match /addresses/{addressId} {
+      allow read, write: if isSignedIn()
+        && (resource == null || resource.data.userId == request.auth.uid);
+      allow delete: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // ── Delivery tracking (sub-collection) ───────────────────────────────────
+    match /orders/{orderId}/tracking/{eventId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid)
+        || (isDelivery() && get(/databases/$(database)/documents/orders/$(orderId)).data.deliveryPartnerId == request.auth.uid);
+      allow write: if isAdmin() || isDelivery();
+    }
+
+    // ── Default deny ─────────────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

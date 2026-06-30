@@ -1,0 +1,28 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "snapprint-5076c",
+          "appId": "1:204019052123:android:1bbdae20c59b5b1b20197e",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "snapprint-5076c",
+          "configurations": {
+            "android": "1:204019052123:android:1bbdae20c59b5b1b20197e"
+          }
+        }
+      }
+    }
+  }
+}

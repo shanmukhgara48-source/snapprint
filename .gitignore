@@ -1,0 +1,58 @@
+# ── Secrets / credentials ─────────────────────────────────────────────────────
+.env
+.env.*
+*.env
+!.env.example
+*-firebase-adminsdk-*.json
+*-serviceAccount.json
+service-account*.json
+firebase-admin*.json
+
+# ── Android signing ────────────────────────────────────────────────────────────
+*.keystore
+*.jks
+key.properties
+
+# ── Python / backend ───────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+dist/
+.pytest_cache/
+
+# ── Flutter ────────────────────────────────────────────────────────────────────
+build/
+.dart_tool/
+.pub-cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.snap
+snap_print/.dart_tool/
+snap_print/build/
+
+# ── Node ───────────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# ── macOS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+**/.DS_Store
+
+# ── IDE ────────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+
+# ── Logs ───────────────────────────────────────────────────────────────────────
+*.log
+nohup.out
+
+# ── Misc ───────────────────────────────────────────────────────────────────────
+"New Text Document.txt"
+*.txt
+!README.md

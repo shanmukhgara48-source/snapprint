@@ -1,0 +1,22 @@
+# Secrets — never commit
+.env
+.env.*
+*.env
+!.env.example
+
+# Firebase Admin SDK keys
+*-firebase-adminsdk-*.json
+*-serviceAccount.json
+service-account*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+.pytest_cache/
+
+# Alembic
+alembic/versions/*.pyc
