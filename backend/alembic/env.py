@@ -1,4 +1,5 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -13,6 +14,14 @@ import app.models  # noqa: F401 — import all models to populate Base.metadata
 
 # Alembic Config object
 config = context.config
+
+# Override DB URL from environment (required on Railway/cloud deployments)
+_db_url = os.environ.get("DATABASE_URL")
+if _db_url:
+    # Railway provides postgres:// — SQLAlchemy needs postgresql+asyncpg://
+    _db_url = _db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    _db_url = _db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    config.set_main_option("sqlalchemy.url", _db_url)
 
 # Configure Python logging from alembic.ini
 if config.config_file_name is not None:
