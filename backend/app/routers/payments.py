@@ -3,9 +3,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..database import get_db
 from ..dependencies import require_customer
-from ..models import User
+from ..models import PaymentAttempt, User
 from ..services.payment_service import create_razorpay_order, verify_razorpay_signature
 
 logger = logging.getLogger(__name__)
@@ -38,13 +40,25 @@ async def create_order(
 async def verify_payment(
     payload: RazorpayVerifyRequest,
     user: Annotated[User, Depends(require_customer)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
-    """Verify Razorpay HMAC signature. Returns ok=True on success."""
+    """Verify Razorpay HMAC signature. Returns ok=True on success.
+    Logs every attempt (success or failure) so admins can see failed payments —
+    an Order row is only ever created after a successful verify."""
     ok = verify_razorpay_signature(
         payload.razorpay_order_id,
         payload.razorpay_payment_id,
         payload.razorpay_signature,
     )
+    db.add(PaymentAttempt(
+        razorpay_order_id=payload.razorpay_order_id,
+        razorpay_payment_id=payload.razorpay_payment_id,
+        status="success" if ok else "failed",
+        reason=None if ok else "signature_mismatch",
+        user_id=user.id,
+    ))
+    await db.commit()
+
     if not ok:
         logger.warning(
             f"Signature mismatch: order={payload.razorpay_order_id} "

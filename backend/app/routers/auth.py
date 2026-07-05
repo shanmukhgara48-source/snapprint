@@ -12,9 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import settings
 from ..database import get_db
 from ..dependencies import get_current_user
-from ..models import Coupon, User
+from ..models import AdminLoginHistory, AdminUser, Coupon, User
 from ..schemas.auth import FirebaseAuthRequest, UserResponse
 from ..services.firebase_service import verify_firebase_token, get_firebase_app, set_user_role_claim
+from ..services.password import verify_password
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -44,15 +45,44 @@ class AdminTokenResponse(BaseModel):
 
 @router.post("/admin/login", response_model=AdminTokenResponse)
 @limiter.limit("5/minute")
-async def admin_login(request: Request, payload: AdminLoginRequest):
-    """Username + password login for the admin panel."""
-    if payload.username != settings.admin_username or \
-       payload.password != settings.admin_password:
+async def admin_login(
+    request: Request,
+    payload: AdminLoginRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Username + password login for the admin panel, backed by admin_users."""
+    ip = request.client.host if request.client else None
+
+    result = await db.execute(
+        select(AdminUser).where(AdminUser.username == payload.username)
+    )
+    admin = result.scalar_one_or_none()
+
+    valid = admin is not None and admin.is_active and verify_password(
+        payload.password, admin.password_hash
+    )
+
+    db.add(
+        AdminLoginHistory(
+            admin_user_id=admin.id if admin else None,
+            username_attempted=payload.username,
+            ip_address=ip,
+            success=valid,
+        )
+    )
+    await db.commit()
+
+    if not valid:
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
+    admin.last_login_at = datetime.now(timezone.utc)
+    await db.commit()
+
     token_data = {
-        "sub": "admin",
+        "sub": admin.username,
         "role": "admin",
+        "admin_user_id": admin.id,
+        "admin_role": admin.role,
         "exp": datetime.now(timezone.utc) + timedelta(hours=8),
     }
     token = jwt.encode(token_data, settings.secret_key, algorithm=settings.algorithm)
@@ -142,9 +172,10 @@ async def verify_user(
     user = result.scalar_one_or_none()
 
     if user is None:
-        # New user registration
-        if payload.role not in ("customer", "delivery"):
-            raise HTTPException(status_code=400, detail="Invalid role")
+        # New user registration — only customers can self-register via OTP
+        # Delivery accounts must be created by admin
+        if payload.role not in ("customer",):
+            raise HTTPException(status_code=400, detail="Invalid role. Self-registration is only available for customers.")
 
         # Resolve referral code
         referrer: User | None = None

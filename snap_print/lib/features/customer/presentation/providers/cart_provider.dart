@@ -90,8 +90,20 @@ class CartNotifier extends Notifier<CartState> {
   CartState build() => const CartState();
 
   void addItem(CartItemEntity item) {
+    // Photo items (with customization image) are always unique line items — never merge
+    final hasCustomization =
+        item.customizationImageUrl != null && item.customizationImageUrl!.isNotEmpty;
+    if (hasCustomization) {
+      state = state.copyWith(items: [...state.items, item]);
+      return;
+    }
+
+    // Non-photo items: merge by productId + selectedSize
     final existing = state.items.indexWhere(
-      (e) => e.productId == item.productId && e.selectedSize == item.selectedSize,
+      (e) =>
+          e.productId == item.productId &&
+          e.selectedSize == item.selectedSize &&
+          (e.customizationImageUrl == null || e.customizationImageUrl!.isEmpty),
     );
     if (existing >= 0) {
       final updated = List<CartItemEntity>.from(state.items);
@@ -145,6 +157,9 @@ class CartNotifier extends Notifier<CartState> {
     state = CartState(
       items: state.items,
       deliveryType: state.deliveryType,
+      deliveryTypeKey: state.deliveryTypeKey,
+      deliveryPrice: state.deliveryPrice,
+      // couponCode and discount reset to defaults (null / 0)
     );
   }
 

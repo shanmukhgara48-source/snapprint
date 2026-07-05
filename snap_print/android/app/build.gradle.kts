@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -18,8 +20,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
 
     defaultConfig {
@@ -40,7 +44,8 @@ android {
         create("release") {
             val keyPropsFile = rootProject.file("key.properties")
             if (keyPropsFile.exists()) {
-                val keyProps = java.util.Properties().also { it.load(keyPropsFile.inputStream()) }
+                val keyProps = Properties()
+                keyPropsFile.inputStream().use { keyProps.load(it) }
                 storeFile = file(keyProps.getProperty("storeFile") ?: "")
                 storePassword = keyProps.getProperty("storePassword")
                 this.keyAlias = keyProps.getProperty("keyAlias")

@@ -235,7 +235,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                                 color: AppColors.primary),
                           ),
                           title: Text(
-                            'Order #${order.id.substring(0, 8).toUpperCase()}',
+                            'Order #${order.id.length >= 8 ? order.id.substring(0, 8).toUpperCase() : order.id.toUpperCase()}',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600, fontSize: 14),
                           ),

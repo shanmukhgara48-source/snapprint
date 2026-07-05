@@ -1,23 +1,42 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import firebase_admin.storage
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..database import get_db
-from ..dependencies import require_admin_jwt as require_admin
+from ..dependencies import require_admin_jwt as require_admin, require_admin_role
 from ..config import settings
-from ..models import Coupon, Order, Product, User
+from ..models import (
+    AdminAuditLog,
+    AdminLoginHistory,
+    AdminUser,
+    AppSetting,
+    Coupon,
+    DeliveryTracking,
+    Order,
+    OrderItem,
+    PaymentAttempt,
+    Product,
+    User,
+)
 from ..models.delivery_setting import DeliverySetting
 from ..services.firebase_service import get_firebase_app
+from ..services.admin_audit import log_admin_action
+from ..services.password import hash_password
 from ..schemas.admin import CouponCreate, CouponOut
 from ..schemas.product import ProductCreate, ProductOut, ProductUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _client_ip(request: Request) -> str | None:
+    return request.client.host if request.client else None
 
 
 # ── Image Upload ──────────────────────────────────────────────────────────────
@@ -78,48 +97,58 @@ async def admin_list_categories(
 @router.get("/products", response_model=list[ProductOut])
 async def admin_list_products(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_admin)],
+    _: Annotated[dict, Depends(require_admin)],
+    q: str | None = None,
 ) -> list[Product]:
-    result = await db.execute(select(Product))
+    query = select(Product)
+    if q:
+        query = query.where(or_(Product.name.ilike(f"%{q}%"), Product.category.ilike(f"%{q}%")))
+    result = await db.execute(query)
     return list(result.scalars().all())
 
 
 @router.post("/products", response_model=ProductOut, status_code=201)
 async def admin_create_product(
+    request: Request,
     payload: ProductCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin)],
 ) -> Product:
     product = Product(**payload.model_dump())
     db.add(product)
     await db.commit()
     await db.refresh(product)
+    await log_admin_action(db, admin["admin_user_id"], "product.create", "product", product.id, ip_address=_client_ip(request))
     return product
 
 
 @router.put("/products/{product_id}", response_model=ProductOut)
 async def admin_update_product(
+    request: Request,
     product_id: str,
     payload: ProductUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin)],
 ) -> Product:
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
-    for field, value in payload.model_dump(exclude_none=True).items():
+    changes = payload.model_dump(exclude_none=True)
+    for field, value in changes.items():
         setattr(product, field, value)
     await db.commit()
     await db.refresh(product)
+    await log_admin_action(db, admin["admin_user_id"], "product.update", "product", product.id, details=changes, ip_address=_client_ip(request))
     return product
 
 
 @router.delete("/products/{product_id}", status_code=204)
 async def admin_delete_product(
+    request: Request,
     product_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin)],
 ) -> None:
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
@@ -127,6 +156,7 @@ async def admin_delete_product(
         raise HTTPException(status_code=404, detail="Product not found")
     await db.delete(product)
     await db.commit()
+    await log_admin_action(db, admin["admin_user_id"], "product.delete", "product", product_id, ip_address=_client_ip(request))
 
 
 # ── Orders ────────────────────────────────────────────────────────────────────
@@ -134,18 +164,21 @@ async def admin_delete_product(
 @router.get("/orders")
 async def admin_list_orders(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_admin)],
+    _: Annotated[dict, Depends(require_admin)],
     status: str | None = None,
+    q: str | None = None,
 ) -> list[dict]:
-    q = select(Order).options(
+    query = select(Order).options(
         selectinload(Order.items),
         selectinload(Order.address),
         selectinload(Order.customer),
     )
     if status:
-        q = q.where(Order.status == status)
-    q = q.order_by(Order.created_at.desc())
-    result = await db.execute(q)
+        query = query.where(Order.status == status)
+    if q:
+        query = query.join(User, Order.user_id == User.id).where(User.phone.ilike(f"%{q}%"))
+    query = query.order_by(Order.created_at.desc())
+    result = await db.execute(query)
     orders = result.scalars().all()
     return [
         {
@@ -167,10 +200,11 @@ class AssignDeliveryRequest(BaseModel):
 
 @router.post("/orders/{order_id}/assign")
 async def admin_assign_delivery(
+    request: Request,
     order_id: str,
     payload: AssignDeliveryRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin)],
 ) -> dict:
     result = await db.execute(select(Order).where(Order.id == order_id))
     order = result.scalar_one_or_none()
@@ -190,7 +224,96 @@ async def admin_assign_delivery(
 
     order.delivery_partner_id = payload.delivery_partner_id
     await db.commit()
+    await log_admin_action(db, admin["admin_user_id"], "order.assign_delivery", "order", order_id, details={"delivery_partner_id": payload.delivery_partner_id}, ip_address=_client_ip(request))
     return {"ok": True, "order_id": order_id, "delivery_partner_id": payload.delivery_partner_id}
+
+
+class OrderUpdateRequest(BaseModel):
+    status: str | None = None
+    notes: str | None = None
+
+
+@router.get("/orders/{order_id}")
+async def admin_get_order(
+    order_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+) -> dict:
+    result = await db.execute(
+        select(Order)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.product),
+            selectinload(Order.address),
+            selectinload(Order.customer),
+            selectinload(Order.tracking_events),
+        )
+        .where(Order.id == order_id)
+    )
+    order = result.scalar_one_or_none()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return {
+        "id": order.id,
+        "status": order.status,
+        "notes": order.notes,
+        "total_price": order.total_price,
+        "delivery_type": order.delivery_type,
+        "delivery_charge": order.delivery_charge,
+        "discount": order.discount,
+        "coupon_code": order.coupon_code,
+        "customer_phone": order.customer.phone if order.customer else None,
+        "delivery_partner_id": order.delivery_partner_id,
+        "address": (
+            f"{order.address.full_address}, {order.address.city} - {order.address.pincode}"
+            if order.address else None
+        ),
+        "razorpay_order_id": order.razorpay_order_id,
+        "razorpay_payment_id": order.razorpay_payment_id,
+        "created_at": order.created_at.isoformat(),
+        "estimated_delivery": order.estimated_delivery.isoformat() if order.estimated_delivery else None,
+        "items": [
+            {
+                "id": i.id,
+                "product_name": i.product.name if i.product else None,
+                "quantity": i.quantity,
+                "selected_size": i.selected_size,
+                "unit_price": i.unit_price,
+                "image_url": i.image_url,
+            }
+            for i in order.items
+        ],
+        "timeline": [
+            {"status": t.status, "timestamp": t.timestamp.isoformat(), "proof_url": t.proof_url}
+            for t in sorted(order.tracking_events, key=lambda t: t.timestamp)
+        ],
+    }
+
+
+@router.patch("/orders/{order_id}")
+async def admin_update_order(
+    request: Request,
+    order_id: str,
+    payload: OrderUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> dict:
+    result = await db.execute(select(Order).where(Order.id == order_id))
+    order = result.scalar_one_or_none()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    changes: dict = {}
+    if payload.notes is not None:
+        order.notes = payload.notes
+        changes["notes"] = payload.notes
+    if payload.status is not None:
+        order.status = payload.status
+        changes["status"] = payload.status
+        db.add(DeliveryTracking(order_id=order.id, status=payload.status))
+
+    await db.commit()
+    await log_admin_action(db, admin["admin_user_id"], "order.update", "order", order_id, details=changes, ip_address=_client_ip(request))
+    return {"ok": True, "order_id": order_id}
 
 
 # ── Users ─────────────────────────────────────────────────────────────────────
@@ -198,13 +321,16 @@ async def admin_assign_delivery(
 @router.get("/users")
 async def admin_list_users(
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_admin)],
+    _: Annotated[dict, Depends(require_admin)],
     role: str | None = None,
+    q: str | None = None,
 ) -> list[dict]:
-    q = select(User)
+    query = select(User)
     if role:
-        q = q.where(User.role == role)
-    result = await db.execute(q)
+        query = query.where(User.role == role)
+    if q:
+        query = query.where(User.phone.ilike(f"%{q}%"))
+    result = await db.execute(query)
     users = result.scalars().all()
     return [
         {
@@ -218,6 +344,62 @@ async def admin_list_users(
     ]
 
 
+@router.get("/users/{user_id}")
+async def admin_get_user(
+    user_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+) -> dict:
+    result = await db.execute(
+        select(User).options(selectinload(User.addresses), selectinload(User.orders)).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "id": user.id,
+        "phone": user.phone,
+        "role": user.role,
+        "is_active": user.is_active,
+        "referral_code": user.referral_code,
+        "created_at": user.created_at.isoformat(),
+        "addresses": [
+            {"id": a.id, "full_address": a.full_address, "city": a.city, "pincode": a.pincode, "is_default": a.is_default}
+            for a in user.addresses
+        ],
+        "orders": [
+            {"id": o.id, "status": o.status, "total_price": o.total_price, "created_at": o.created_at.isoformat()}
+            for o in sorted(user.orders, key=lambda o: o.created_at, reverse=True)
+        ],
+    }
+
+
+class UserUpdateRequest(BaseModel):
+    is_active: bool | None = None
+
+
+@router.patch("/users/{user_id}")
+async def admin_update_user(
+    request: Request,
+    user_id: str,
+    payload: UserUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> dict:
+    """Suspend/reactivate a customer or delivery-partner account."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    changes: dict = {}
+    if payload.is_active is not None:
+        user.is_active = payload.is_active
+        changes["is_active"] = payload.is_active
+    await db.commit()
+    await log_admin_action(db, admin["admin_user_id"], "user.update", "user", user_id, details=changes, ip_address=_client_ip(request))
+    return {"id": user.id, "is_active": user.is_active}
+
+
 @router.get("/delivery-partners")
 async def admin_delivery_partners(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -227,7 +409,47 @@ async def admin_delivery_partners(
         select(User).where(User.role == "delivery", User.is_active.is_(True))
     )
     partners = result.scalars().all()
-    return [{"id": p.id, "phone": p.phone} for p in partners]
+    return [{"id": p.id, "phone": p.phone, "display_name": p.display_name} for p in partners]
+
+
+@router.post("/delivery-partners/{user_id}/promote")
+async def admin_promote_to_delivery(
+    request: Request,
+    user_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> dict:
+    """Promote an existing customer account to delivery partner role."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.role == "delivery":
+        return {"id": user.id, "phone": user.phone, "role": user.role, "message": "Already a delivery partner"}
+    user.role = "delivery"
+    await db.commit()
+    await db.refresh(user)
+    await log_admin_action(db, admin["admin_user_id"], "user.promote", "user", user_id, details={"new_role": "delivery"}, ip_address=_client_ip(request))
+    return {"id": user.id, "phone": user.phone, "role": user.role, "message": "Promoted to delivery partner"}
+
+
+@router.post("/delivery-partners/{user_id}/demote")
+async def admin_demote_to_customer(
+    request: Request,
+    user_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> dict:
+    """Revert a delivery partner back to customer role."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.role = "customer"
+    await db.commit()
+    await db.refresh(user)
+    await log_admin_action(db, admin["admin_user_id"], "user.demote", "user", user_id, details={"new_role": "customer"}, ip_address=_client_ip(request))
+    return {"id": user.id, "phone": user.phone, "role": user.role, "message": "Demoted to customer"}
 
 
 # ── Coupons ────────────────────────────────────────────────────────────────────
@@ -243,9 +465,10 @@ async def admin_list_coupons(
 
 @router.post("/coupons", response_model=CouponOut, status_code=201)
 async def admin_create_coupon(
+    request: Request,
     payload: CouponCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin)],
 ) -> Coupon:
     existing = await db.execute(select(Coupon).where(Coupon.code == payload.code))
     if existing.scalar_one_or_none():
@@ -254,14 +477,16 @@ async def admin_create_coupon(
     db.add(coupon)
     await db.commit()
     await db.refresh(coupon)
+    await log_admin_action(db, admin["admin_user_id"], "coupon.create", "coupon", coupon.id, ip_address=_client_ip(request))
     return coupon
 
 
 @router.delete("/coupons/{coupon_id}", status_code=204)
 async def admin_delete_coupon(
+    request: Request,
     coupon_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin)],
 ) -> None:
     result = await db.execute(select(Coupon).where(Coupon.id == coupon_id))
     coupon = result.scalar_one_or_none()
@@ -269,6 +494,7 @@ async def admin_delete_coupon(
         raise HTTPException(status_code=404, detail="Coupon not found")
     await db.delete(coupon)
     await db.commit()
+    await log_admin_action(db, admin["admin_user_id"], "coupon.delete", "coupon", coupon_id, ip_address=_client_ip(request))
 
 
 # ── Delivery Settings ─────────────────────────────────────────────────────────
@@ -301,10 +527,11 @@ async def admin_list_delivery_settings(
 
 @router.put("/delivery-settings/{delivery_type}", response_model=DeliverySettingOut)
 async def admin_update_delivery_setting(
+    request: Request,
     delivery_type: str,
     payload: DeliverySettingUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin)],
 ) -> DeliverySetting:
     result = await db.execute(
         select(DeliverySetting).where(DeliverySetting.type == delivery_type)
@@ -312,8 +539,334 @@ async def admin_update_delivery_setting(
     setting = result.scalar_one_or_none()
     if setting is None:
         raise HTTPException(status_code=404, detail="Delivery setting not found")
-    for field, value in payload.model_dump(exclude_none=True).items():
+    changes = payload.model_dump(exclude_none=True)
+    for field, value in changes.items():
         setattr(setting, field, value)
     await db.commit()
     await db.refresh(setting)
+    await log_admin_action(db, admin["admin_user_id"], "delivery_setting.update", "delivery_setting", delivery_type, details=changes, ip_address=_client_ip(request))
     return setting
+
+
+# ── Payments ──────────────────────────────────────────────────────────────────
+
+@router.get("/payments")
+async def admin_list_payments(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+    status: str | None = None,
+) -> list[dict]:
+    q = select(PaymentAttempt).order_by(PaymentAttempt.created_at.desc())
+    if status:
+        q = q.where(PaymentAttempt.status == status)
+    result = await db.execute(q)
+    attempts = result.scalars().all()
+    return [
+        {
+            "id": p.id,
+            "razorpay_order_id": p.razorpay_order_id,
+            "razorpay_payment_id": p.razorpay_payment_id,
+            "status": p.status,
+            "reason": p.reason,
+            "user_id": p.user_id,
+            "created_at": p.created_at.isoformat(),
+        }
+        for p in attempts
+    ]
+
+
+# ── Settings ──────────────────────────────────────────────────────────────────
+
+class SettingUpdate(BaseModel):
+    value: dict
+
+
+@router.get("/settings")
+async def admin_list_settings(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+) -> list[dict]:
+    result = await db.execute(select(AppSetting))
+    return [{"key": s.key, "value": s.value, "updated_at": s.updated_at.isoformat()} for s in result.scalars().all()]
+
+
+@router.put("/settings/{key}")
+async def admin_update_setting(
+    request: Request,
+    key: str,
+    payload: SettingUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> dict:
+    result = await db.execute(select(AppSetting).where(AppSetting.key == key))
+    setting = result.scalar_one_or_none()
+    if setting is None:
+        setting = AppSetting(key=key, value=payload.value)
+        db.add(setting)
+    else:
+        setting.value = payload.value
+    await db.commit()
+    await log_admin_action(db, admin["admin_user_id"], "setting.update", "setting", key, details=payload.value, ip_address=_client_ip(request))
+    return {"key": key, "value": payload.value}
+
+
+# ── Audit logs & login history ──────────────────────────────────────────────
+
+@router.get("/audit-logs")
+async def admin_list_audit_logs(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
+    admin_user_id: str | None = None,
+    action: str | None = None,
+) -> list[dict]:
+    q = select(AdminAuditLog).order_by(AdminAuditLog.created_at.desc()).limit(500)
+    if admin_user_id:
+        q = q.where(AdminAuditLog.admin_user_id == admin_user_id)
+    if action:
+        q = q.where(AdminAuditLog.action == action)
+    result = await db.execute(q)
+    logs = result.scalars().all()
+    return [
+        {
+            "id": l.id,
+            "admin_user_id": l.admin_user_id,
+            "action": l.action,
+            "resource_type": l.resource_type,
+            "resource_id": l.resource_id,
+            "details": l.details,
+            "ip_address": l.ip_address,
+            "created_at": l.created_at.isoformat(),
+        }
+        for l in logs
+    ]
+
+
+@router.get("/login-history")
+async def admin_list_login_history(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
+) -> list[dict]:
+    result = await db.execute(
+        select(AdminLoginHistory).order_by(AdminLoginHistory.created_at.desc()).limit(200)
+    )
+    return [
+        {
+            "id": h.id,
+            "admin_user_id": h.admin_user_id,
+            "username_attempted": h.username_attempted,
+            "ip_address": h.ip_address,
+            "success": h.success,
+            "created_at": h.created_at.isoformat(),
+        }
+        for h in result.scalars().all()
+    ]
+
+
+# ── Admin user management (super_admin only) ────────────────────────────────
+
+class AdminUserCreate(BaseModel):
+    username: str
+    password: str
+    role: str  # super_admin | manager | support_staff | printing_staff | delivery_staff
+
+
+class AdminUserUpdate(BaseModel):
+    role: str | None = None
+    is_active: bool | None = None
+    password: str | None = None
+
+
+_VALID_ADMIN_ROLES = {"super_admin", "manager", "support_staff", "printing_staff", "delivery_staff"}
+
+
+@router.get("/admins")
+async def admin_list_admins(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin_role("super_admin"))],
+) -> list[dict]:
+    result = await db.execute(select(AdminUser).order_by(AdminUser.created_at))
+    return [
+        {
+            "id": a.id,
+            "username": a.username,
+            "role": a.role,
+            "is_active": a.is_active,
+            "last_login_at": a.last_login_at.isoformat() if a.last_login_at else None,
+            "created_at": a.created_at.isoformat(),
+        }
+        for a in result.scalars().all()
+    ]
+
+
+@router.post("/admins", status_code=201)
+async def admin_create_admin(
+    request: Request,
+    payload: AdminUserCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin"))],
+) -> dict:
+    if payload.role not in _VALID_ADMIN_ROLES:
+        raise HTTPException(status_code=400, detail=f"role must be one of {sorted(_VALID_ADMIN_ROLES)}")
+    existing = await db.execute(select(AdminUser).where(AdminUser.username == payload.username))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Username already exists")
+    new_admin = AdminUser(
+        username=payload.username,
+        password_hash=hash_password(payload.password),
+        role=payload.role,
+    )
+    db.add(new_admin)
+    await db.commit()
+    await db.refresh(new_admin)
+    await log_admin_action(db, admin["admin_user_id"], "admin.create", "admin_user", new_admin.id, details={"role": payload.role}, ip_address=_client_ip(request))
+    return {"id": new_admin.id, "username": new_admin.username, "role": new_admin.role}
+
+
+@router.patch("/admins/{admin_id}")
+async def admin_update_admin(
+    request: Request,
+    admin_id: str,
+    payload: AdminUserUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin"))],
+) -> dict:
+    result = await db.execute(select(AdminUser).where(AdminUser.id == admin_id))
+    target = result.scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    changes: dict = {}
+    if payload.role is not None:
+        if payload.role not in _VALID_ADMIN_ROLES:
+            raise HTTPException(status_code=400, detail=f"role must be one of {sorted(_VALID_ADMIN_ROLES)}")
+        target.role = payload.role
+        changes["role"] = payload.role
+    if payload.is_active is not None:
+        target.is_active = payload.is_active
+        changes["is_active"] = payload.is_active
+    if payload.password:
+        target.password_hash = hash_password(payload.password)
+        changes["password"] = "changed"
+    await db.commit()
+    await log_admin_action(db, admin["admin_user_id"], "admin.update", "admin_user", admin_id, details=changes, ip_address=_client_ip(request))
+    return {"id": target.id, "username": target.username, "role": target.role, "is_active": target.is_active}
+
+
+# ── Analytics ─────────────────────────────────────────────────────────────────
+
+@router.get("/analytics/dashboard")
+async def admin_analytics_dashboard(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+) -> dict:
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = today_start - timedelta(days=today_start.weekday())
+    month_start = today_start.replace(day=1)
+    year_start = today_start.replace(month=1, day=1)
+
+    async def revenue_since(since: datetime) -> float:
+        r = await db.execute(
+            select(func.coalesce(func.sum(Order.total_price), 0)).where(Order.created_at >= since)
+        )
+        return float(r.scalar_one())
+
+    revenue_today = await revenue_since(today_start)
+    revenue_week = await revenue_since(week_start)
+    revenue_month = await revenue_since(month_start)
+    revenue_year = await revenue_since(year_start)
+
+    status_counts_result = await db.execute(
+        select(Order.status, func.count(Order.id)).group_by(Order.status)
+    )
+    status_counts = {status: count for status, count in status_counts_result.all()}
+
+    orders_today_result = await db.execute(
+        select(func.count(Order.id)).where(Order.created_at >= today_start)
+    )
+    orders_today = orders_today_result.scalar_one()
+
+    total_users_result = await db.execute(select(func.count(User.id)).where(User.role == "customer"))
+    total_users = total_users_result.scalar_one()
+
+    new_users_result = await db.execute(
+        select(func.count(User.id)).where(User.role == "customer", User.created_at >= month_start)
+    )
+    new_users_this_month = new_users_result.scalar_one()
+
+    failed_payments_result = await db.execute(
+        select(func.count(PaymentAttempt.id)).where(PaymentAttempt.status == "failed")
+    )
+    failed_payments = failed_payments_result.scalar_one()
+
+    photos_uploaded_result = await db.execute(
+        select(func.count(OrderItem.id)).where(OrderItem.image_url.is_not(None))
+    )
+    total_photos_uploaded = photos_uploaded_result.scalar_one()
+
+    top_products_result = await db.execute(
+        select(Product.name, func.sum(OrderItem.quantity).label("qty"))
+        .join(OrderItem, OrderItem.product_id == Product.id)
+        .group_by(Product.name)
+        .order_by(func.sum(OrderItem.quantity).desc())
+        .limit(5)
+    )
+    top_products = [{"name": name, "quantity": int(qty)} for name, qty in top_products_result.all()]
+
+    return {
+        "revenue": {
+            "today": revenue_today,
+            "week": revenue_week,
+            "month": revenue_month,
+            "year": revenue_year,
+        },
+        "orders": {
+            "today": orders_today,
+            "by_status": status_counts,
+        },
+        "users": {
+            "total": total_users,
+            "new_this_month": new_users_this_month,
+        },
+        "payments": {
+            "failed": failed_payments,
+        },
+        "photos": {
+            "total_uploaded": total_photos_uploaded,
+        },
+        "top_products": top_products,
+    }
+
+
+@router.get("/analytics/charts")
+async def admin_analytics_charts(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+    days: int = 30,
+) -> dict:
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    revenue_result = await db.execute(
+        select(func.date(Order.created_at), func.sum(Order.total_price))
+        .where(Order.created_at >= since)
+        .group_by(func.date(Order.created_at))
+        .order_by(func.date(Order.created_at))
+    )
+    revenue_series = [{"date": str(d), "revenue": float(r)} for d, r in revenue_result.all()]
+
+    orders_result = await db.execute(
+        select(func.date(Order.created_at), func.count(Order.id))
+        .where(Order.created_at >= since)
+        .group_by(func.date(Order.created_at))
+        .order_by(func.date(Order.created_at))
+    )
+    orders_series = [{"date": str(d), "orders": int(c)} for d, c in orders_result.all()]
+
+    users_result = await db.execute(
+        select(func.date(User.created_at), func.count(User.id))
+        .where(User.created_at >= since, User.role == "customer")
+        .group_by(func.date(User.created_at))
+        .order_by(func.date(User.created_at))
+    )
+    users_series = [{"date": str(d), "new_users": int(c)} for d, c in users_result.all()]
+
+    return {"revenue": revenue_series, "orders": orders_series, "users": users_series}

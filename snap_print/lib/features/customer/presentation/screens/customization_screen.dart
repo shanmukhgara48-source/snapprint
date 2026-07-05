@@ -283,14 +283,24 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
 
   // ── Add to cart ────────────────────────────────────────────────────────────
 
-  void _addToCart(List<dynamic> sizes) {
+  Future<void> _addToCart(List<dynamic> sizes) async {
     if (!_requireAuth()) return;
+    if (_selectedImages.isEmpty) {
+      showErrorSnackbar(context, 'Please select a photo first');
+      return;
+    }
     if (_isUploading) {
       showErrorSnackbar(context, 'Please wait for upload to complete');
       return;
     }
+    // If images are selected but upload failed/didn't complete, retry now
+    if (_uploadedUrls.length < _selectedImages.length) {
+      final missing = _selectedImages.sublist(_uploadedUrls.length);
+      await _uploadImages(missing);
+      if (!mounted) return;
+    }
     if (_uploadedUrls.isEmpty) {
-      showErrorSnackbar(context, 'Please upload a photo first');
+      showErrorSnackbar(context, 'Upload failed — check your connection and try again');
       return;
     }
     if (_selectedSize == null && sizes.isNotEmpty) {

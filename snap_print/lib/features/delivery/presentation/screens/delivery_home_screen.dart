@@ -63,9 +63,9 @@ class DeliveryHomeScreen extends ConsumerWidget {
 
             return TabBarView(
               children: [
-                _OrderList(orders: assigned, emptyMessage: AppStrings.noAssignedOrders),
-                _OrderList(orders: inProgress, emptyMessage: 'No orders in progress'),
-                _OrderList(orders: completed, emptyMessage: 'No completed orders'),
+                _OrderList(orders: assigned, emptyMessage: AppStrings.noAssignedOrders, onRefresh: () async => ref.invalidate(assignedOrdersProvider)),
+                _OrderList(orders: inProgress, emptyMessage: 'No orders in progress', onRefresh: () async => ref.invalidate(assignedOrdersProvider)),
+                _OrderList(orders: completed, emptyMessage: 'No completed orders', onRefresh: () async => ref.invalidate(assignedOrdersProvider)),
               ],
             );
           },
@@ -76,9 +76,10 @@ class DeliveryHomeScreen extends ConsumerWidget {
 }
 
 class _OrderList extends StatelessWidget {
-  const _OrderList({required this.orders, required this.emptyMessage});
+  const _OrderList({required this.orders, required this.emptyMessage, required this.onRefresh});
   final List orders;
   final String emptyMessage;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +100,7 @@ class _OrderList extends StatelessWidget {
 
     return RefreshIndicator(
       color: AppColors.primary,
-      onRefresh: () async {},
+      onRefresh: onRefresh,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: orders.length,

@@ -28,6 +28,7 @@ class Order(Base):
     coupon_code: Mapped[str | None] = mapped_column(String, nullable=True)
     razorpay_order_id: Mapped[str | None] = mapped_column(String, nullable=True)
     razorpay_payment_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

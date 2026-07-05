@@ -54,8 +54,9 @@ async def get_presigned_url(
                 "Bucket": settings.r2_bucket_name,
                 "Key": key,
                 "ContentType": content_type,
-                # Enforce content-type and size on the storage side
-                "ContentLength": MAX_FILE_BYTES,
+                # Note: ContentLength is intentionally omitted — presigned PUT URLs
+                # cannot enforce size limits via signed headers (that requires POST policy).
+                # The 10 MB cap is documented as a client-side guideline only.
             },
             ExpiresIn=300,  # 5 minutes
         )

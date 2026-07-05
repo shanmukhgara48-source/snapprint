@@ -19,9 +19,11 @@ logging.basicConfig(
 
 from app.config import settings
 from app.database import AsyncSessionLocal, Base, engine
+from app.models.admin_user import AdminUser
 from app.models.delivery_setting import DeliverySetting
 from app.models.product import Product
 from app.routers import admin, addresses, auth, cart, coupons, delivery, delivery_options, orders, payments, products, upload
+from app.services.password import hash_password
 
 _IS_PROD = os.getenv("ENV", "development").lower() == "production"
 
@@ -152,6 +154,17 @@ async def lifespan(app: FastAPI):
             )
             if existing.scalar_one_or_none() is None:
                 db.add(product)
+
+        # Bootstrap a super_admin from env credentials if no admin exists yet.
+        # Subsequent admin management happens via the admin panel (AdminUser table),
+        # not .env — ADMIN_USERNAME/ADMIN_PASSWORD only seed the very first account.
+        existing_admin = await db.execute(select(AdminUser).limit(1))
+        if existing_admin.scalar_one_or_none() is None:
+            db.add(AdminUser(
+                username=settings.admin_username,
+                password_hash=hash_password(settings.admin_password),
+                role="super_admin",
+            ))
 
         await db.commit()
 

@@ -78,15 +78,34 @@ async def require_admin(
 async def require_admin_jwt(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
 ) -> dict:
-    """Verify the admin JWT issued by POST /auth/admin/login."""
+    """Verify the admin JWT issued by POST /auth/admin/login. Payload contains
+    admin_user_id, username, and admin_role (super_admin|manager|support_staff|
+    printing_staff|delivery_staff)."""
     try:
         payload = jwt.decode(
             credentials.credentials,
             settings.secret_key,
             algorithms=[settings.algorithm],
         )
-        if payload.get("role") != "admin":
+        if payload.get("role") != "admin" or not payload.get("admin_user_id"):
             raise ValueError("Not an admin token")
         return payload
     except (JWTError, ValueError):
         raise HTTPException(status_code=401, detail="Invalid or expired admin token")
+
+
+def require_admin_role(*allowed_roles: str):
+    """Dependency factory: restrict an admin endpoint to specific admin_role values.
+    Usage: Depends(require_admin_role("super_admin", "manager"))"""
+
+    async def _check(
+        payload: Annotated[dict, Depends(require_admin_jwt)],
+    ) -> dict:
+        if payload.get("admin_role") not in allowed_roles:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Requires one of roles: {', '.join(allowed_roles)}",
+            )
+        return payload
+
+    return _check

@@ -103,7 +103,10 @@ class _AuthInterceptor extends Interceptor {
     if (user != null) {
       try {
         final token = await user.getIdToken();
-        options.headers['Authorization'] = 'Bearer $token';
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        // If null/empty, proceed without token; server will return 401
       } catch (_) {
         // Proceed without token; server will return 401
       }

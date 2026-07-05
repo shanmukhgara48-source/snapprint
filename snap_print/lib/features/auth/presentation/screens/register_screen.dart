@@ -19,7 +19,7 @@ class RegisterScreen extends ConsumerStatefulWidget {
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _nameController = TextEditingController();
-  String _role = 'customer';
+  final String _role = 'customer'; // Always customer; delivery accounts are admin-created
   bool _isLoading = false;
 
   @override
@@ -212,33 +212,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    const _FieldLabel('Account Type'),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _RoleChip(
-                            label: 'Customer',
-                            icon: Icons.shopping_bag_outlined,
-                            value: 'customer',
-                            groupValue: _role,
-                            onChanged: (v) =>
-                                setState(() => _role = v),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _RoleChip(
-                            label: 'Delivery',
-                            icon: Icons.delivery_dining_outlined,
-                            value: 'delivery',
-                            groupValue: _role,
-                            onChanged: (v) =>
-                                setState(() => _role = v),
-                          ),
-                        ),
-                      ],
-                    ),
                     const SizedBox(height: 24),
 
                     SizedBox(
@@ -308,63 +281,3 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
-class _RoleChip extends StatelessWidget {
-  const _RoleChip({
-    required this.label,
-    required this.icon,
-    required this.value,
-    required this.groupValue,
-    required this.onChanged,
-  });
-  final String label;
-  final IconData icon;
-  final String value;
-  final String groupValue;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = value == groupValue;
-    return GestureDetector(
-      onTap: () => onChanged(value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppColors.primary
-              : const Color(0xFFF7F7F7),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected
-                ? AppColors.primary
-                : const Color(0xFFE5E5E5),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon,
-                color: selected
-                    ? Colors.white
-                    : const Color(0xFF888888),
-                size: 18),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected
-                    ? Colors.white
-                    : const Color(0xFF1A1A1A),
-                fontWeight: selected
-                    ? FontWeight.w700
-                    : FontWeight.w500,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
