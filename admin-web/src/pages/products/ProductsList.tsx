@@ -10,10 +10,27 @@ type ProductForm = {
   category: string;
   base_price: string;
   description: string;
-  image_url: string;
+  images: string;
+  stock_quantity: string;
+  is_trending: boolean;
 };
 
-const emptyForm: ProductForm = { name: "", category: "", base_price: "", description: "", image_url: "" };
+const emptyForm: ProductForm = {
+  name: "",
+  category: "",
+  base_price: "",
+  description: "",
+  images: "",
+  stock_quantity: "0",
+  is_trending: false,
+};
+
+function parseImages(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export default function ProductsList() {
   const qc = useQueryClient();
@@ -35,7 +52,9 @@ export default function ProductsList() {
         base_price: Number(payload.base_price),
         sizes: [],
         description: payload.description || null,
-        image_url: payload.image_url || "",
+        images: parseImages(payload.images),
+        stock_quantity: Number(payload.stock_quantity) || 0,
+        is_trending: payload.is_trending,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
@@ -73,7 +92,9 @@ export default function ProductsList() {
       category: p.category,
       base_price: String(p.base_price),
       description: p.description ?? "",
-      image_url: p.image_url ?? "",
+      images: (p.images ?? []).join(", "),
+      stock_quantity: String(p.stock_quantity ?? 0),
+      is_trending: p.is_trending ?? false,
     });
     setModalOpen(true);
   }
@@ -87,7 +108,9 @@ export default function ProductsList() {
           category: form.category,
           base_price: Number(form.base_price),
           description: form.description || null,
-          image_url: form.image_url || null,
+          images: parseImages(form.images),
+          stock_quantity: Number(form.stock_quantity) || 0,
+          is_trending: form.is_trending,
         },
       });
     } else {
@@ -119,6 +142,7 @@ export default function ProductsList() {
               <Th>Name</Th>
               <Th>Category</Th>
               <Th>Base price</Th>
+              <Th>Stock</Th>
               <Th>Status</Th>
               <Th>Actions</Th>
             </tr>
@@ -129,8 +153,13 @@ export default function ProductsList() {
                 <Td>{p.name}</Td>
                 <Td className="capitalize">{p.category}</Td>
                 <Td>₹{p.base_price}</Td>
+                <Td>{p.stock_quantity}</Td>
                 <Td>
-                  <Badge tone={p.is_active ? "success" : "neutral"}>{p.is_active ? "Active" : "Disabled"}</Badge>
+                  <div className="flex gap-1">
+                    <Badge tone={p.is_active ? "success" : "neutral"}>{p.is_active ? "Active" : "Disabled"}</Badge>
+                    {p.is_featured && <Badge tone="success">Featured</Badge>}
+                    {p.is_trending && <Badge tone="success">Trending</Badge>}
+                  </div>
                 </Td>
                 <Td>
                   <div className="flex gap-2">
@@ -142,6 +171,12 @@ export default function ProductsList() {
                       className="text-xs text-neutral-400 hover:text-white"
                     >
                       {p.is_active ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      onClick={() => updateMut.mutate({ id: p.id, payload: { is_trending: !p.is_trending } })}
+                      className="text-xs text-neutral-400 hover:text-white"
+                    >
+                      {p.is_trending ? "Untrend" : "Trend"}
                     </button>
                     <button
                       onClick={() => confirm(`Delete ${p.name}?`) && deleteMut.mutate(p.id)}
@@ -172,15 +207,29 @@ export default function ProductsList() {
             onChange={(e) => setForm({ ...form, base_price: e.target.value })}
           />
           <Input
-            placeholder="Image URL"
-            value={form.image_url}
-            onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+            placeholder="Image URLs (comma-separated)"
+            value={form.images}
+            onChange={(e) => setForm({ ...form, images: e.target.value })}
           />
           <Input
             placeholder="Description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
+          <Input
+            placeholder="Stock quantity"
+            type="number"
+            value={form.stock_quantity}
+            onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })}
+          />
+          <label className="flex items-center gap-2 text-sm text-neutral-300">
+            <input
+              type="checkbox"
+              checked={form.is_trending}
+              onChange={(e) => setForm({ ...form, is_trending: e.target.checked })}
+            />
+            Trending
+          </label>
           <Button onClick={handleSave} className="w-full justify-center" disabled={createMut.isPending || updateMut.isPending}>
             Save
           </Button>

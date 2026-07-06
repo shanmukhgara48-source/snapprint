@@ -15,17 +15,26 @@ router = APIRouter(prefix="/products", tags=["products"])
 async def list_products(
     db: Annotated[AsyncSession, Depends(get_db)],
     category: str | None = Query(None),
+    category_id: str | None = Query(None),
+    featured: bool | None = Query(None),
+    trending: bool | None = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ) -> ProductListResponse:
     q = select(Product).where(Product.is_active.is_(True))
     if category:
         q = q.where(Product.category == category)
+    if category_id:
+        q = q.where(Product.category_id == category_id)
+    if featured is not None:
+        q = q.where(Product.is_featured.is_(featured))
+    if trending is not None:
+        q = q.where(Product.is_trending.is_(trending))
 
     total_result = await db.execute(select(func.count()).select_from(q.subquery()))
     total = total_result.scalar_one()
 
-    q = q.offset((page - 1) * limit).limit(limit)
+    q = q.order_by(Product.sort_order, Product.created_at).offset((page - 1) * limit).limit(limit)
     result = await db.execute(q)
     products = result.scalars().all()
 

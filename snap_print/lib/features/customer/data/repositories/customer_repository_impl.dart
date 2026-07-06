@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/address_entity.dart';
+import '../../domain/entities/banner_entity.dart';
+import '../../domain/entities/category_entity.dart';
+import '../../domain/entities/offer_entity.dart';
 import '../../domain/entities/order_entity.dart';
 import '../../domain/entities/product_entity.dart';
 import '../../domain/repositories/customer_repository.dart';
@@ -13,14 +16,31 @@ class CustomerRepositoryImpl implements CustomerRepository {
   @override
   Future<List<ProductEntity>> getProducts({
     String? category,
+    bool? featured,
+    bool? trending,
     int page = 1,
     int limit = 20,
   }) =>
-      _dataSource.getProducts(category: category, page: page, limit: limit);
+      _dataSource.getProducts(
+        category: category,
+        featured: featured,
+        trending: trending,
+        page: page,
+        limit: limit,
+      );
 
   @override
   Future<ProductEntity> getProductById(String id) =>
       _dataSource.getProductById(id);
+
+  @override
+  Future<List<CategoryEntity>> getCategories() => _dataSource.getCategories();
+
+  @override
+  Future<List<BannerEntity>> getBanners() => _dataSource.getBanners();
+
+  @override
+  Future<List<OfferEntity>> getActiveOffers() => _dataSource.getActiveOffers();
 
   @override
   Future<Map<String, dynamic>> validateCoupon(String code, double subtotal) =>

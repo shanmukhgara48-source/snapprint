@@ -16,11 +16,18 @@ class ApiEndpoints {
   static const String products = '/products';
   static String productDetail(String id) => '/products/$id';
 
+  // Categories
+  static const String categories = '/categories';
+
+  // Banners
+  static const String banners = '/banners';
+
   // Cart
   static const String cartCalculate = '/cart/calculate';
 
   // Coupons
   static const String couponValidate = '/coupons/validate';
+  static const String activeOffers = '/coupons/active';
 
   // Orders
   static const String orders = '/orders';

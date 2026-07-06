@@ -57,7 +57,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     // Prefill phone so Razorpay skips the "Contact details" step
     final phone = user?.phone.replaceFirst('+91', '') ?? '9876543210';
     final options = {
-      'key': const String.fromEnvironment('RAZORPAY_KEY_ID', defaultValue: 'rzp_test_REPLACE_ME'),
+      'key': const String.fromEnvironment('RAZORPAY_KEY_ID', defaultValue: 'rzp_test_T7ub1zMHZM6uO3'),
       'amount': (widget.amount * 100).toInt(),
       'order_id': widget.razorpayOrderId,
       'name': 'SnapPrint',

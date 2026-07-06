@@ -1,6 +1,8 @@
 from .user import User
 from .address import Address
+from .category import Category
 from .product import Product
+from .banner import Banner
 from .order import Order
 from .order_item import OrderItem
 from .delivery_tracking import DeliveryTracking
@@ -15,7 +17,9 @@ from .app_setting import AppSetting
 __all__ = [
     "User",
     "Address",
+    "Category",
     "Product",
+    "Banner",
     "Order",
     "OrderItem",
     "DeliveryTracking",

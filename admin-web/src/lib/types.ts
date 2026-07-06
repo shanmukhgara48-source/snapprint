@@ -7,11 +7,36 @@ export interface Product {
   id: string;
   name: string;
   category: string;
+  category_id?: string | null;
   base_price: number;
   sizes: ProductSize[];
   description?: string | null;
-  image_url?: string | null;
+  images: string[];
+  sort_order: number;
+  stock_quantity: number;
+  is_featured: boolean;
+  is_trending: boolean;
   is_active: boolean;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  image_url?: string | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface Banner {
+  id: string;
+  title: string;
+  image_url: string;
+  link_action?: string | null;
+  sort_order: number;
+  is_active: boolean;
+  starts_at?: string | null;
+  ends_at?: string | null;
 }
 
 export interface OrderListItem {

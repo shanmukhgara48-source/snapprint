@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -11,6 +11,35 @@ from ..dependencies import require_customer
 from ..models import Coupon, User
 
 router = APIRouter(prefix="/coupons", tags=["coupons"])
+
+
+class ActiveCouponOut(BaseModel):
+    code: str
+    discount_type: str
+    value: float
+    min_order: float
+    expires_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/active", response_model=list[ActiveCouponOut])
+async def list_active_coupons(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[Coupon]:
+    """Public list of currently redeemable coupons, shown as 'Offers' in the app."""
+    now = datetime.now(timezone.utc)
+    result = await db.execute(
+        select(Coupon).where(
+            Coupon.is_active.is_(True),
+            or_(Coupon.expires_at.is_(None), Coupon.expires_at >= now),
+        ).order_by(Coupon.created_at.desc())
+    )
+    coupons = [
+        c for c in result.scalars().all()
+        if c.max_uses is None or c.used_count < c.max_uses
+    ]
+    return coupons
 
 
 class CouponValidateRequest(BaseModel):

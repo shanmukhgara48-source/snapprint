@@ -23,6 +23,22 @@ class CouponCreate(BaseModel):
         return v
 
 
+class CouponUpdate(BaseModel):
+    discount_type: str | None = None
+    value: float | None = None
+    min_order: float | None = None
+    max_uses: int | None = None
+    is_active: bool | None = None
+    expires_at: datetime | None = None
+
+    @field_validator("discount_type")
+    @classmethod
+    def valid_type(cls, v: str | None) -> str | None:
+        if v is not None and v not in ("percent", "flat"):
+            raise ValueError("discount_type must be 'percent' or 'flat'")
+        return v
+
+
 class CouponOut(BaseModel):
     id: str
     code: str

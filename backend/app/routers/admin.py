@@ -17,6 +17,8 @@ from ..models import (
     AdminLoginHistory,
     AdminUser,
     AppSetting,
+    Banner,
+    Category,
     Coupon,
     DeliveryTracking,
     Order,
@@ -29,7 +31,9 @@ from ..models.delivery_setting import DeliverySetting
 from ..services.firebase_service import get_firebase_app
 from ..services.admin_audit import log_admin_action
 from ..services.password import hash_password
-from ..schemas.admin import CouponCreate, CouponOut
+from ..schemas.admin import CouponCreate, CouponOut, CouponUpdate
+from ..schemas.banner import BannerCreate, BannerOut, BannerUpdate
+from ..schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
 from ..schemas.product import ProductCreate, ProductOut, ProductUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -80,16 +84,131 @@ async def upload_image(
 
 # ── Categories ────────────────────────────────────────────────────────────────
 
-@router.get("/categories", response_model=list[str])
+@router.get("/categories", response_model=list[CategoryOut])
 async def admin_list_categories(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[User, Depends(require_admin)],
-) -> list[str]:
-    """Returns the distinct category values that already exist in the products table."""
-    result = await db.execute(
-        select(Product.category).distinct().order_by(Product.category)
-    )
-    return [row[0] for row in result.all() if row[0]]
+) -> list[Category]:
+    result = await db.execute(select(Category).order_by(Category.sort_order, Category.name))
+    return list(result.scalars().all())
+
+
+@router.post("/categories", response_model=CategoryOut, status_code=201)
+async def admin_create_category(
+    request: Request,
+    payload: CategoryCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> Category:
+    existing = await db.execute(select(Category).where(Category.name == payload.name))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Category name already exists")
+    category = Category(**payload.model_dump())
+    db.add(category)
+    await db.commit()
+    await db.refresh(category)
+    await log_admin_action(db, admin["admin_user_id"], "category.create", "category", category.id, ip_address=_client_ip(request))
+    return category
+
+
+@router.put("/categories/{category_id}", response_model=CategoryOut)
+async def admin_update_category(
+    request: Request,
+    category_id: str,
+    payload: CategoryUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> Category:
+    result = await db.execute(select(Category).where(Category.id == category_id))
+    category = result.scalar_one_or_none()
+    if category is None:
+        raise HTTPException(status_code=404, detail="Category not found")
+    changes = payload.model_dump(exclude_none=True)
+    for field, value in changes.items():
+        setattr(category, field, value)
+    await db.commit()
+    await db.refresh(category)
+    await log_admin_action(db, admin["admin_user_id"], "category.update", "category", category.id, details=changes, ip_address=_client_ip(request))
+    return category
+
+
+@router.delete("/categories/{category_id}", status_code=204)
+async def admin_delete_category(
+    request: Request,
+    category_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> None:
+    result = await db.execute(select(Category).where(Category.id == category_id))
+    category = result.scalar_one_or_none()
+    if category is None:
+        raise HTTPException(status_code=404, detail="Category not found")
+    await db.delete(category)
+    await db.commit()
+    await log_admin_action(db, admin["admin_user_id"], "category.delete", "category", category_id, ip_address=_client_ip(request))
+
+
+# ── Banners ──────────────────────────────────────────────────────────────────
+
+@router.get("/banners", response_model=list[BannerOut])
+async def admin_list_banners(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_admin)],
+) -> list[Banner]:
+    result = await db.execute(select(Banner).order_by(Banner.sort_order))
+    return list(result.scalars().all())
+
+
+@router.post("/banners", response_model=BannerOut, status_code=201)
+async def admin_create_banner(
+    request: Request,
+    payload: BannerCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> Banner:
+    banner = Banner(**payload.model_dump())
+    db.add(banner)
+    await db.commit()
+    await db.refresh(banner)
+    await log_admin_action(db, admin["admin_user_id"], "banner.create", "banner", banner.id, ip_address=_client_ip(request))
+    return banner
+
+
+@router.put("/banners/{banner_id}", response_model=BannerOut)
+async def admin_update_banner(
+    request: Request,
+    banner_id: str,
+    payload: BannerUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> Banner:
+    result = await db.execute(select(Banner).where(Banner.id == banner_id))
+    banner = result.scalar_one_or_none()
+    if banner is None:
+        raise HTTPException(status_code=404, detail="Banner not found")
+    changes = payload.model_dump(exclude_none=True)
+    for field, value in changes.items():
+        setattr(banner, field, value)
+    await db.commit()
+    await db.refresh(banner)
+    await log_admin_action(db, admin["admin_user_id"], "banner.update", "banner", banner.id, details=changes, ip_address=_client_ip(request))
+    return banner
+
+
+@router.delete("/banners/{banner_id}", status_code=204)
+async def admin_delete_banner(
+    request: Request,
+    banner_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> None:
+    result = await db.execute(select(Banner).where(Banner.id == banner_id))
+    banner = result.scalar_one_or_none()
+    if banner is None:
+        raise HTTPException(status_code=404, detail="Banner not found")
+    await db.delete(banner)
+    await db.commit()
+    await log_admin_action(db, admin["admin_user_id"], "banner.delete", "banner", banner_id, ip_address=_client_ip(request))
 
 
 # ── Products ─────────────────────────────────────────────────────────────────
@@ -478,6 +597,27 @@ async def admin_create_coupon(
     await db.commit()
     await db.refresh(coupon)
     await log_admin_action(db, admin["admin_user_id"], "coupon.create", "coupon", coupon.id, ip_address=_client_ip(request))
+    return coupon
+
+
+@router.put("/coupons/{coupon_id}", response_model=CouponOut)
+async def admin_update_coupon(
+    request: Request,
+    coupon_id: str,
+    payload: CouponUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> Coupon:
+    result = await db.execute(select(Coupon).where(Coupon.id == coupon_id))
+    coupon = result.scalar_one_or_none()
+    if coupon is None:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    changes = payload.model_dump(exclude_none=True)
+    for field, value in changes.items():
+        setattr(coupon, field, value)
+    await db.commit()
+    await db.refresh(coupon)
+    await log_admin_action(db, admin["admin_user_id"], "coupon.update", "coupon", coupon.id, details=changes, ip_address=_client_ip(request))
     return coupon
 
 

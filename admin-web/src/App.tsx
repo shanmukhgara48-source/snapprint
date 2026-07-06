@@ -12,6 +12,7 @@ import OrderDetail from "./pages/orders/OrderDetail";
 import CustomersList from "./pages/customers/CustomersList";
 import CustomerDetail from "./pages/customers/CustomerDetail";
 import Coupons from "./pages/coupons/Coupons";
+import Banners from "./pages/banners/Banners";
 import DeliverySettings from "./pages/delivery-settings/DeliverySettings";
 import Payments from "./pages/payments/Payments";
 import Admins from "./pages/admins/Admins";
@@ -19,7 +20,6 @@ import Settings from "./pages/settings/Settings";
 import Reports from "./pages/mock/Reports";
 import PhotoUploads from "./pages/mock/PhotoUploads";
 import PrintQueue from "./pages/mock/PrintQueue";
-import Offers from "./pages/mock/Offers";
 import Support from "./pages/mock/Support";
 import Reviews from "./pages/mock/Reviews";
 import Notifications from "./pages/mock/Notifications";
@@ -59,7 +59,7 @@ export default function App() {
               <Route path="/orders" element={<OrdersList />} />
               <Route path="/orders/:id" element={<OrderDetail />} />
               <Route path="/coupons" element={<Coupons />} />
-              <Route path="/offers" element={<Offers />} />
+              <Route path="/banners" element={<Banners />} />
               <Route path="/delivery-settings" element={<DeliverySettings />} />
               <Route path="/payments" element={<Payments />} />
               <Route path="/customers" element={<CustomersList />} />

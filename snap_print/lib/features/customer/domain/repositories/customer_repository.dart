@@ -1,10 +1,23 @@
 import '../entities/address_entity.dart';
+import '../entities/banner_entity.dart';
+import '../entities/category_entity.dart';
+import '../entities/offer_entity.dart';
 import '../entities/order_entity.dart';
 import '../entities/product_entity.dart';
 
 abstract class CustomerRepository {
-  Future<List<ProductEntity>> getProducts({String? category, int page, int limit});
+  Future<List<ProductEntity>> getProducts({
+    String? category,
+    bool? featured,
+    bool? trending,
+    int page,
+    int limit,
+  });
   Future<ProductEntity> getProductById(String id);
+
+  Future<List<CategoryEntity>> getCategories();
+  Future<List<BannerEntity>> getBanners();
+  Future<List<OfferEntity>> getActiveOffers();
 
   Future<Map<String, dynamic>> validateCoupon(String code, double subtotal);
 

@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../models/address_model.dart';
+import '../models/banner_model.dart';
+import '../models/category_model.dart';
+import '../models/offer_model.dart';
 import '../models/order_model.dart';
 import '../models/product_model.dart';
 
@@ -11,11 +14,15 @@ class CustomerRemoteDataSource {
 
   Future<List<ProductModel>> getProducts({
     String? category,
+    bool? featured,
+    bool? trending,
     int page = 1,
     int limit = 20,
   }) async {
     final params = <String, dynamic>{'page': page, 'limit': limit};
     if (category != null) params['category'] = category;
+    if (featured != null) params['featured'] = featured;
+    if (trending != null) params['trending'] = trending;
     final response = await _client.get(
       ApiEndpoints.products,
       queryParameters: params,
@@ -29,6 +36,30 @@ class CustomerRemoteDataSource {
   Future<ProductModel> getProductById(String id) async {
     final response = await _client.get(ApiEndpoints.productDetail(id));
     return ProductModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<List<CategoryModel>> getCategories() async {
+    final response = await _client.get(ApiEndpoints.categories);
+    final items = response.data as List<dynamic>;
+    return items
+        .map((e) => CategoryModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<BannerModel>> getBanners() async {
+    final response = await _client.get(ApiEndpoints.banners);
+    final items = response.data as List<dynamic>;
+    return items
+        .map((e) => BannerModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<OfferModel>> getActiveOffers() async {
+    final response = await _client.get(ApiEndpoints.activeOffers);
+    final items = response.data as List<dynamic>;
+    return items
+        .map((e) => OfferModel.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Map<String, dynamic>> calculateCart(

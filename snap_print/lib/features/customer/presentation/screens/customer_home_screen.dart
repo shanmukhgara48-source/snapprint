@@ -6,8 +6,10 @@ import '../../../../core/constants/app_strings.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
+import '../providers/catalog_provider.dart';
 import '../providers/orders_provider.dart';
 import '../providers/products_provider.dart';
+import '../../domain/entities/product_entity.dart';
 import '../widgets/banner_carousel.dart';
 import '../widgets/category_grid.dart';
 import '../widgets/order_status_chip.dart';
@@ -20,14 +22,39 @@ class CustomerHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
 }
 
-class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
+class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
+    with WidgetsBindingObserver {
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshAll();
+    }
+  }
+
+  void _refreshAll() {
+    ref.invalidate(myOrdersProvider);
+    ref.invalidate(productsProvider);
+    ref.invalidate(categoriesProvider);
+    ref.invalidate(bannersProvider);
+    ref.invalidate(offersProvider);
+    ref.invalidate(featuredProductsProvider);
+    ref.invalidate(trendingProductsProvider);
   }
 
   @override
@@ -95,7 +122,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
       ),
       body: RefreshIndicator(
         color: AppColors.primary,
-        onRefresh: () async => ref.invalidate(myOrdersProvider),
+        onRefresh: () async => _refreshAll(),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
@@ -150,7 +177,11 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
 
               // Banner carousel
               const BannerCarousel(),
-              const SizedBox(height: 28),
+              const SizedBox(height: 16),
+
+              // Offers strip
+              const _OffersStrip(),
+              const SizedBox(height: 12),
 
               // Categories section
               _SectionHeader(
@@ -160,6 +191,18 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
               const SizedBox(height: 12),
               const CategoryGrid(),
               const SizedBox(height: 28),
+
+              // Featured Products section
+              _ProductCarouselSection(
+                title: 'Featured Products',
+                provider: featuredProductsProvider,
+              ),
+
+              // Trending Products section
+              _ProductCarouselSection(
+                title: 'Trending Products',
+                provider: trendingProductsProvider,
+              ),
 
               // Recent Orders section
               _SectionHeader(
@@ -303,6 +346,48 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+class _ProductCarouselSection extends ConsumerWidget {
+  const _ProductCarouselSection({required this.title, required this.provider});
+  final String title;
+  final FutureProvider<List<ProductEntity>> provider;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final productsAsync = ref.watch(provider);
+
+    return productsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, s) => const SizedBox.shrink(),
+      data: (products) {
+        if (products.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionHeader(title: title, onTap: null),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 190,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: products.length,
+                  separatorBuilder: (context, i) => const SizedBox(width: 12),
+                  itemBuilder: (context, i) => SizedBox(
+                    width: 140,
+                    child: ProductCard(product: products[i]),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _SearchResults extends ConsumerWidget {
   const _SearchResults({required this.query});
   final String query;
@@ -360,6 +445,62 @@ class _SearchResults extends ConsumerWidget {
                     ProductCard(product: products[i]),
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _OffersStrip extends ConsumerWidget {
+  const _OffersStrip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final offersAsync = ref.watch(offersProvider);
+
+    return offersAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (e, s) => const SizedBox.shrink(),
+      data: (offers) {
+        if (offers.isEmpty) return const SizedBox.shrink();
+        return SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: offers.length,
+            separatorBuilder: (context, i) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final offer = offers[i];
+              final discount = offer.discountType == 'percent'
+                  ? '${offer.value.toStringAsFixed(0)}% OFF'
+                  : '₹${offer.value.toStringAsFixed(0)} OFF';
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.accentLight,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.local_offer_rounded,
+                        size: 14, color: AppColors.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${offer.code} · $discount',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         );
       },

@@ -3,13 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import type { Coupon } from "../../lib/types";
 import { Badge, Button, Input, Modal, PageHeader, Spinner, Table, Td, Th } from "../../components/ui";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 
 const emptyForm = { code: "", discount_type: "percent", value: "", min_order: "0", max_uses: "" };
 
 export default function Coupons() {
   const qc = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Coupon | null>(null);
   const [form, setForm] = useState(emptyForm);
 
   const { data, isLoading } = useQuery({
@@ -28,8 +29,16 @@ export default function Coupons() {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["coupons"] });
-      setModalOpen(false);
-      setForm(emptyForm);
+      closeModal();
+    },
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<Coupon> }) =>
+      api.put(`/admin/coupons/${id}`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["coupons"] });
+      closeModal();
     },
   });
 
@@ -38,14 +47,54 @@ export default function Coupons() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["coupons"] }),
   });
 
+  function closeModal() {
+    setModalOpen(false);
+    setEditing(null);
+    setForm(emptyForm);
+  }
+
+  function openCreate() {
+    setEditing(null);
+    setForm(emptyForm);
+    setModalOpen(true);
+  }
+
+  function openEdit(c: Coupon) {
+    setEditing(c);
+    setForm({
+      code: c.code,
+      discount_type: c.discount_type,
+      value: String(c.value),
+      min_order: String(c.min_order),
+      max_uses: c.max_uses != null ? String(c.max_uses) : "",
+    });
+    setModalOpen(true);
+  }
+
+  function handleSave() {
+    if (editing) {
+      updateMut.mutate({
+        id: editing.id,
+        payload: {
+          discount_type: form.discount_type as "percent" | "flat",
+          value: Number(form.value),
+          min_order: Number(form.min_order),
+          max_uses: form.max_uses ? Number(form.max_uses) : null,
+        },
+      });
+    } else {
+      createMut.mutate();
+    }
+  }
+
   return (
     <div>
       <PageHeader
-        title="Coupons"
-        subtitle="List/create/delete wired to /admin/coupons"
+        title="Offers & Coupons"
+        subtitle="Full CRUD — wired to /admin/coupons; active coupons appear as Offers in the mobile app"
         action={
-          <Button onClick={() => setModalOpen(true)}>
-            <Plus size={16} /> New coupon
+          <Button onClick={openCreate}>
+            <Plus size={16} /> New offer
           </Button>
         }
       />
@@ -77,12 +126,23 @@ export default function Coupons() {
                   <Badge tone={c.is_active ? "success" : "neutral"}>{c.is_active ? "Active" : "Inactive"}</Badge>
                 </Td>
                 <Td>
-                  <button
-                    onClick={() => confirm(`Delete ${c.code}?`) && deleteMut.mutate(c.id)}
-                    className="text-red-500 hover:text-red-400"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={() => openEdit(c)} className="text-neutral-400 hover:text-white">
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      onClick={() => updateMut.mutate({ id: c.id, payload: { is_active: !c.is_active } })}
+                      className="text-xs text-neutral-400 hover:text-white"
+                    >
+                      {c.is_active ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      onClick={() => confirm(`Delete ${c.code}?`) && deleteMut.mutate(c.id)}
+                      className="text-red-500 hover:text-red-400"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </Td>
               </tr>
             ))}
@@ -90,9 +150,14 @@ export default function Coupons() {
         </Table>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="New coupon">
+      <Modal open={modalOpen} onClose={closeModal} title={editing ? "Edit offer" : "New offer"}>
         <div className="space-y-3">
-          <Input placeholder="Code (e.g. SAVE20)" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+          <Input
+            placeholder="Code (e.g. SAVE20)"
+            value={form.code}
+            disabled={!!editing}
+            onChange={(e) => setForm({ ...form, code: e.target.value })}
+          />
           <select
             value={form.discount_type}
             onChange={(e) => setForm({ ...form, discount_type: e.target.value })}
@@ -114,8 +179,8 @@ export default function Coupons() {
             value={form.max_uses}
             onChange={(e) => setForm({ ...form, max_uses: e.target.value })}
           />
-          <Button onClick={() => createMut.mutate()} className="w-full justify-center" disabled={createMut.isPending}>
-            Create
+          <Button onClick={handleSave} className="w-full justify-center" disabled={createMut.isPending || updateMut.isPending}>
+            Save
           </Button>
         </div>
       </Modal>

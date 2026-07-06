@@ -1,3 +1,4 @@
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.admin_audit_log import AdminAuditLog
@@ -20,7 +21,7 @@ async def log_admin_action(
             action=action,
             resource_type=resource_type,
             resource_id=resource_id,
-            details=details,
+            details=jsonable_encoder(details) if details is not None else None,
             ip_address=ip_address,
         )
     )

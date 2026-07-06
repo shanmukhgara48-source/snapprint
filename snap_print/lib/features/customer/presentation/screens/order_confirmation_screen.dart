@@ -19,14 +19,18 @@ class OrderConfirmationScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.orderConfirmed)),
-      body: orderAsync.when(
-        loading: () => const Center(
-            child: CircularProgressIndicator(color: AppColors.primary)),
-        error: (e, s) => _SuccessView(orderId: orderId, estimatedDelivery: null),
-        data: (order) => _SuccessView(
-          orderId: order.id,
-          estimatedDelivery: order.estimatedDelivery,
-          status: order.status,
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async => ref.invalidate(orderDetailProvider(orderId)),
+        child: orderAsync.when(
+          loading: () => const Center(
+              child: CircularProgressIndicator(color: AppColors.primary)),
+          error: (e, s) => _SuccessView(orderId: orderId, estimatedDelivery: null),
+          data: (order) => _SuccessView(
+            orderId: order.id,
+            estimatedDelivery: order.estimatedDelivery,
+            status: order.status,
+          ),
         ),
       ),
     );
@@ -46,6 +50,7 @@ class _SuccessView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
@@ -157,9 +162,13 @@ class _DetailRow extends StatelessWidget {
                 .textTheme
                 .bodyMedium
                 ?.copyWith(color: AppColors.textSecondary)),
-        Text(value,
-            style: const TextStyle(
-                fontWeight: FontWeight.w700, fontSize: 14)),
+        Flexible(
+          child: Text(value,
+              textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, fontSize: 14)),
+        ),
       ],
     );
   }

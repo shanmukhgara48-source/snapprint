@@ -20,9 +20,10 @@ logging.basicConfig(
 from app.config import settings
 from app.database import AsyncSessionLocal, Base, engine
 from app.models.admin_user import AdminUser
+from app.models.category import Category
 from app.models.delivery_setting import DeliverySetting
 from app.models.product import Product
-from app.routers import admin, addresses, auth, cart, coupons, delivery, delivery_options, orders, payments, products, upload
+from app.routers import admin, addresses, auth, banners, cart, categories, coupons, delivery, delivery_options, orders, payments, products, upload
 from app.services.password import hash_password
 
 _IS_PROD = os.getenv("ENV", "development").lower() == "production"
@@ -46,6 +47,14 @@ _DEFAULT_DELIVERY_SETTINGS = [
     DeliverySetting(type="express",  label="Express Delivery",  price=99, days_label="1-2 business days"),
 ]
 
+_DEFAULT_CATEGORIES = [
+    Category(name="photo_prints", icon="photo", sort_order=0),
+    Category(name="mugs", icon="coffee", sort_order=1),
+    Category(name="albums", icon="book", sort_order=2),
+    Category(name="frames", icon="frame", sort_order=3),
+    Category(name="digital_frames", icon="tv", sort_order=4),
+]
+
 _DEFAULT_PRODUCTS = [
     Product(
         name="Photo Prints",
@@ -60,7 +69,7 @@ _DEFAULT_PRODUCTS = [
             {"label": "A3",            "price": 150.0},
         ],
         description="High-quality glossy photo prints in popular sizes.",
-        image_url="",
+        images=[],
         is_active=True,
     ),
     Product(
@@ -72,7 +81,7 @@ _DEFAULT_PRODUCTS = [
             {"label": "15oz", "price": 349.0},
         ],
         description="Personalised ceramic mug with your favourite photo.",
-        image_url="",
+        images=[],
         is_active=True,
     ),
     Product(
@@ -83,7 +92,7 @@ _DEFAULT_PRODUCTS = [
             {"label": "11oz", "price": 399.0},
         ],
         description="Colour-changing magic mug — photo appears when hot.",
-        image_url="",
+        images=[],
         is_active=True,
     ),
     Product(
@@ -96,7 +105,7 @@ _DEFAULT_PRODUCTS = [
             {"label": "8x10 (20 photos)", "price": 999.0},
         ],
         description="Premium soft-cover photo album.",
-        image_url="",
+        images=[],
         is_active=True,
     ),
     Product(
@@ -109,7 +118,7 @@ _DEFAULT_PRODUCTS = [
             {"label": "8x10", "price": 499.0},
         ],
         description="Classic wooden photo frame with your printed photo.",
-        image_url="",
+        images=[],
         is_active=True,
     ),
     Product(
@@ -121,7 +130,7 @@ _DEFAULT_PRODUCTS = [
             {"label": "10-inch", "price": 2999.0},
         ],
         description="Wi-Fi enabled digital frame — update photos from your phone.",
-        image_url="",
+        images=[],
         is_active=True,
     ),
 ]
@@ -147,12 +156,26 @@ async def lifespan(app: FastAPI):
                     days_label=setting.days_label,
                 ))
 
+        # Seed default categories
+        category_ids: dict[str, str] = {}
+        for category in _DEFAULT_CATEGORIES:
+            existing = await db.execute(
+                select(Category).where(Category.name == category.name)
+            )
+            existing_category = existing.scalar_one_or_none()
+            if existing_category is None:
+                db.add(category)
+                category_ids[category.name] = category.id
+            else:
+                category_ids[category.name] = existing_category.id
+
         # Seed default products (one per category, skip if any exist in that category)
         for product in _DEFAULT_PRODUCTS:
             existing = await db.execute(
                 select(Product).where(Product.category == product.category).limit(1)
             )
             if existing.scalar_one_or_none() is None:
+                product.category_id = category_ids.get(product.category)
                 db.add(product)
 
         # Bootstrap a super_admin from env credentials if no admin exists yet.
@@ -240,6 +263,8 @@ async def limit_request_body(request: Request, call_next):
 # Routers
 app.include_router(auth.router)
 app.include_router(products.router)
+app.include_router(categories.router)
+app.include_router(banners.router)
 app.include_router(cart.router)
 app.include_router(coupons.router)
 app.include_router(addresses.router)
