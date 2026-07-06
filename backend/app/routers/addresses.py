@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..dependencies import require_customer
-from ..models import Address, User
+from ..models import Address, Order, User
 from ..schemas.address import AddressCreate, AddressOut
 
 router = APIRouter(prefix="/addresses", tags=["addresses"])
@@ -96,6 +96,16 @@ async def delete_address(
     address = result.scalar_one_or_none()
     if address is None:
         raise HTTPException(status_code=404, detail="Address not found")
+
+    order_check = await db.execute(
+        select(Order.id).where(Order.address_id == address_id).limit(1)
+    )
+    if order_check.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Address used in past orders — cannot delete",
+        )
+
     await db.delete(address)
     await db.commit()
 

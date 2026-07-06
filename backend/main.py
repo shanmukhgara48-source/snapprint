@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 logging.basicConfig(
     level=logging.INFO,
@@ -278,5 +278,14 @@ app.include_router(realtime.router)
 
 
 @app.get("/health")
-async def health() -> dict:
-    return {"status": "ok", "service": "snapprint-api"}
+async def health() -> JSONResponse:
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception:
+        logging.getLogger(__name__).exception("Health check DB connectivity failed")
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "service": "snapprint-api", "detail": "database unreachable"},
+        )
+    return JSONResponse(content={"status": "ok", "service": "snapprint-api"})

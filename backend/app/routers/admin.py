@@ -697,7 +697,7 @@ async def admin_delivery_partners(
         select(User).where(User.role == "delivery", User.is_active.is_(True))
     )
     partners = result.scalars().all()
-    return [{"id": p.id, "phone": p.phone, "display_name": p.display_name} for p in partners]
+    return [{"id": p.id, "phone": p.phone} for p in partners]
 
 
 @router.post("/delivery-partners/{user_id}/promote")

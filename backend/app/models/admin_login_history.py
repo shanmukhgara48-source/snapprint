@@ -14,7 +14,7 @@ class AdminLoginHistory(Base):
         String, primary_key=True, default=lambda: str(uuid.uuid4())
     )
     admin_user_id: Mapped[str | None] = mapped_column(
-        String, ForeignKey("admin_users.id"), nullable=True
+        String, ForeignKey("admin_users.id", ondelete="SET NULL"), nullable=True
     )
     username_attempted: Mapped[str] = mapped_column(String)
     ip_address: Mapped[str | None] = mapped_column(String, nullable=True)

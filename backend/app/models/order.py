@@ -13,12 +13,12 @@ class Order(Base):
     id: Mapped[str] = mapped_column(
         String, primary_key=True, default=lambda: str(uuid.uuid4())
     )
-    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"))
+    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"))
     address_id: Mapped[str | None] = mapped_column(
         String, ForeignKey("addresses.id"), nullable=True
     )
     delivery_partner_id: Mapped[str | None] = mapped_column(
-        String, ForeignKey("users.id"), nullable=True
+        String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     status: Mapped[str] = mapped_column(String, default="pending")
     total_price: Mapped[float] = mapped_column(Float)

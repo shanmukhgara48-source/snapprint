@@ -120,12 +120,15 @@ async def place_order(
 
     # Apply coupon discount if provided
     discount = 0.0
+    applied_coupon: Coupon | None = None
     if payload.coupon_code:
         coupon_result = await db.execute(
-            select(Coupon).where(
+            select(Coupon)
+            .where(
                 Coupon.code == payload.coupon_code.upper(),
                 Coupon.is_active.is_(True),
             )
+            .with_for_update()
         )
         coupon = coupon_result.scalar_one_or_none()
         if coupon:
@@ -137,6 +140,7 @@ async def place_order(
                     discount = round(items_total * coupon.value / 100, 2)
                 else:
                     discount = min(coupon.value, items_total)
+                applied_coupon = coupon
 
     total = max(0.0, items_total + delivery_charge - discount)
 
@@ -171,6 +175,9 @@ async def place_order(
 
     # Initial tracking event
     db.add(DeliveryTracking(order_id=order.id, status="confirmed"))
+
+    if applied_coupon is not None:
+        applied_coupon.used_count += 1
 
     await db.commit()
 

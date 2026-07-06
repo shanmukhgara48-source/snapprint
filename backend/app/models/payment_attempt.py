@@ -23,7 +23,7 @@ class PaymentAttempt(Base):
     razorpay_payment_id: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String)  # success | failed
     reason: Mapped[str | None] = mapped_column(String, nullable=True)
-    user_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id"), nullable=True)
+    user_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
