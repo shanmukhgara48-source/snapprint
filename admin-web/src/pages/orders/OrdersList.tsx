@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import type { OrderListItem } from "../../lib/types";
-import { Badge, Card, Input, PageHeader, Spinner, Table, Td, Th } from "../../components/ui";
+import { Badge, Button, Card, Input, PageHeader, Spinner, Table, Td, Th } from "../../components/ui";
+import { Download } from "lucide-react";
 
 const statusTone: Record<string, "neutral" | "success" | "warning" | "danger" | "info"> = {
   confirmed: "info",
@@ -16,6 +17,7 @@ const statusTone: Record<string, "neutral" | "success" | "warning" | "danger" | 
 export default function OrdersList() {
   const [status, setStatus] = useState("");
   const [q, setQ] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["orders", status, q],
@@ -23,9 +25,36 @@ export default function OrdersList() {
       (await api.get<OrderListItem[]>("/admin/orders", { params: { status: status || undefined, q: q || undefined } })).data,
   });
 
+  // Download via axios (auth header required), then trigger a browser save.
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const res = await api.get("/admin/orders/export", {
+        params: { status: status || undefined },
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `snapprint-orders${status ? `-${status}` : ""}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div>
-      <PageHeader title="Orders" subtitle="Wired to /admin/orders" />
+      <PageHeader
+        title="Orders"
+        subtitle="Wired to /admin/orders"
+        action={
+          <Button onClick={exportCsv} disabled={exporting}>
+            <Download size={16} /> {exporting ? "Exporting…" : "Export CSV"}
+          </Button>
+        }
+      />
       <Card className="mb-4 flex gap-3 p-3">
         <Input placeholder="Search by phone…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" />
         <select

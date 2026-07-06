@@ -178,5 +178,7 @@ String? _devAuthToken;
 
 void setDevAuthToken(String? token) => _devAuthToken = token;
 
+String? getDevAuthToken() => _devAuthToken;
+
 // Riverpod provider
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());

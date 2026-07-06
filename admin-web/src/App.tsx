@@ -22,7 +22,7 @@ import PhotoUploads from "./pages/mock/PhotoUploads";
 import PrintQueue from "./pages/mock/PrintQueue";
 import Support from "./pages/mock/Support";
 import Reviews from "./pages/mock/Reviews";
-import Notifications from "./pages/mock/Notifications";
+import Notifications from "./pages/notifications/Notifications";
 import Security from "./pages/mock/Security";
 import SystemLogs from "./pages/mock/SystemLogs";
 import Backup from "./pages/mock/Backup";

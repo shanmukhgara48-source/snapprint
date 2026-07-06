@@ -166,6 +166,47 @@ class CartNotifier extends Notifier<CartState> {
   void clearCart() {
     state = const CartState();
   }
+
+  /// Realtime sync: admin changed a product — reprice matching cart lines so
+  /// subtotal/total update live. A deactivated/deleted product is removed.
+  void applyProductUpdate({
+    required String productId,
+    required double basePrice,
+    required Map<String, double> sizePrices,
+    required bool isActive,
+  }) {
+    if (!state.items.any((e) => e.productId == productId)) return;
+
+    if (!isActive) {
+      removeProductItems(productId);
+      return;
+    }
+
+    final updated = state.items.map((item) {
+      if (item.productId != productId) return item;
+      final newPrice = sizePrices[item.selectedSize] ?? basePrice;
+      return newPrice == item.unitPrice
+          ? item
+          : item.copyWith(unitPrice: newPrice);
+    }).toList();
+    state = state.copyWith(items: updated);
+  }
+
+  /// Realtime sync: product deleted by admin — drop its cart lines.
+  void removeProductItems(String productId) {
+    if (!state.items.any((e) => e.productId == productId)) return;
+    state = state.copyWith(
+      items: state.items.where((e) => e.productId != productId).toList(),
+    );
+  }
+
+  /// Realtime sync: admin changed delivery charges — reprice the selected
+  /// delivery option so the cart total updates live.
+  void applyDeliverySettingUpdate(String typeKey, double price) {
+    if (state.deliveryTypeKey != typeKey) return;
+    if (state.deliveryPrice == price) return;
+    state = state.copyWith(deliveryPrice: price);
+  }
 }
 
 final cartProvider = NotifierProvider<CartNotifier, CartState>(CartNotifier.new);

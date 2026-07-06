@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/error_snackbar.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
+import '../providers/realtime_sync_provider.dart';
 
 class DeliveryShell extends ConsumerWidget {
   const DeliveryShell({super.key, required this.child});
@@ -10,6 +11,8 @@ class DeliveryShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Keeps the WebSocket sync alive while the delivery UI is on screen.
+    ref.watch(realtimeSyncProvider);
     return Scaffold(
       body: child,
       drawer: Drawer(

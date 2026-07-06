@@ -9,6 +9,7 @@ from ..database import get_db
 from ..dependencies import require_delivery
 from ..models import Address, DeliveryTracking, Order, User
 from ..schemas.delivery import DeliveryOrderOut, DeliveryStatusUpdate
+from ..services.event_bus import emit_event
 from ..services.firebase_service import (
     notify_delivered,
     notify_out_for_delivery,
@@ -99,6 +100,13 @@ async def update_delivery_status(
     db.add(tracking)
     await db.commit()
     await db.refresh(order)
+
+    # Live update: customer's open Orders/Order Detail screens + admin panel
+    await emit_event(
+        "order", "status_changed", order.id,
+        {"status": order.status},
+        user_id=order.user_id,
+    )
 
     # Send FCM to customer
     customer_token = order.customer.fcm_token if order.customer else None

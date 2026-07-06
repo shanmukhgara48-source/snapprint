@@ -11,6 +11,8 @@ from ..dependencies import require_customer
 from ..models import Address, Coupon, DeliveryTracking, Order, OrderItem, Product, User
 from ..models.delivery_setting import DeliverySetting
 from ..schemas.order import OrderCreate, OrderOut
+from ..schemas.product import ProductOut
+from ..services.event_bus import emit_event
 from ..services.firebase_service import notify_order_placed
 from ..services.payment_service import verify_razorpay_signature
 
@@ -71,10 +73,13 @@ async def place_order(
     setting = setting_result.scalar_one_or_none()
     delivery_charge = setting.price if setting else 0
 
-    # Verify item prices server-side — never trust client-supplied prices
+    # Verify item prices server-side — never trust client-supplied prices.
+    # Row-locked so concurrent orders can't oversell tracked stock.
     product_ids = [item.product_id for item in payload.items]
     products_result = await db.execute(
-        select(Product).where(Product.id.in_(product_ids), Product.is_active.is_(True))
+        select(Product)
+        .where(Product.id.in_(product_ids), Product.is_active.is_(True))
+        .with_for_update()
     )
     products_by_id: dict[str, Product] = {p.id: p for p in products_result.scalars().all()}
 
@@ -95,6 +100,23 @@ async def place_order(
             server_price = product.base_price
         verified_item_prices[(item.product_id, item.size)] = server_price
         items_total += server_price * item.qty
+
+    # Decrement stock. stock_quantity > 0 means tracked inventory; 0 means
+    # untracked/unlimited (legacy products), so it is never enforced.
+    qty_by_product: dict[str, int] = {}
+    for item in payload.items:
+        qty_by_product[item.product_id] = qty_by_product.get(item.product_id, 0) + item.qty
+    stock_changed: list[Product] = []
+    for pid, qty in qty_by_product.items():
+        product = products_by_id[pid]
+        if product.stock_quantity > 0:
+            if qty > product.stock_quantity:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Only {product.stock_quantity} left in stock for {product.name}",
+                )
+            product.stock_quantity -= qty
+            stock_changed.append(product)
 
     # Apply coupon discount if provided
     discount = 0.0
@@ -163,6 +185,19 @@ async def place_order(
         .where(Order.id == order.id)
     )
     order = result.scalar_one()
+
+    # Live update: user's other devices + admin panel (orders list, dashboard)
+    await emit_event(
+        "order", "created", order.id,
+        {"status": order.status, "total_price": order.total_price},
+        user_id=user.id,
+    )
+    # Broadcast new stock levels for tracked products (listings + admin panel)
+    for product in stock_changed:
+        await emit_event(
+            "product", "updated", product.id,
+            ProductOut.model_validate(product).model_dump(mode="json"),
+        )
 
     # Send FCM notification
     if user.fcm_token:

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db
 from ..dependencies import require_customer
 from ..models import PaymentAttempt, User
+from ..services.event_bus import emit_event
 from ..services.payment_service import create_razorpay_order, verify_razorpay_signature
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,14 @@ async def verify_payment(
         user_id=user.id,
     ))
     await db.commit()
+
+    # Admin panel only — payment attempts are not customer-facing events
+    await emit_event(
+        "payment", "succeeded" if ok else "failed",
+        payload.razorpay_payment_id,
+        {"razorpay_order_id": payload.razorpay_order_id, "user_id": user.id},
+        admin_only=True,
+    )
 
     if not ok:
         logger.warning(

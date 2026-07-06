@@ -100,6 +100,32 @@ def send_push_notification(
     messaging.send(message)
 
 
+def send_broadcast_notification(
+    title: str,
+    body: str,
+    data: dict | None = None,
+) -> None:
+    """Send FCM push to every device subscribed to the 'all_users' topic."""
+    get_firebase_app()
+    message = messaging.Message(
+        notification=messaging.Notification(title=title, body=body),
+        data=data or {},
+        topic="all_users",
+        android=messaging.AndroidConfig(
+            notification=messaging.AndroidNotification(
+                channel_id="snapprint_orders",
+                priority="high",
+            )
+        ),
+        apns=messaging.APNSConfig(
+            payload=messaging.APNSPayload(
+                aps=messaging.Aps(sound="default")
+            )
+        ),
+    )
+    messaging.send(message)
+
+
 # Notification templates
 def notify_order_placed(fcm_token: str, order_id: str) -> None:
     send_push_notification(

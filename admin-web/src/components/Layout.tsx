@@ -25,6 +25,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { useAdminRealtime } from "../lib/realtime";
 
 const sections: { label: string; items: { to: string; label: string; icon: typeof Package }[] }[] = [
   {
@@ -78,6 +79,7 @@ const sections: { label: string; items: { to: string; label: string; icon: typeo
 export default function Layout() {
   const { username, role, logout } = useAuth();
   const navigate = useNavigate();
+  useAdminRealtime(); // live cache invalidation for every screen
 
   return (
     <div className="flex h-full">

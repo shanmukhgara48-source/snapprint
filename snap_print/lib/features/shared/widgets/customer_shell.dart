@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/router/app_router.dart';
+import '../providers/realtime_sync_provider.dart';
 
-class CustomerShell extends StatelessWidget {
+class CustomerShell extends ConsumerWidget {
   const CustomerShell({super.key, required this.child});
   final Widget child;
 
@@ -16,7 +18,9 @@ class CustomerShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Keeps the WebSocket sync alive while the customer UI is on screen.
+    ref.watch(realtimeSyncProvider);
     final index = _selectedIndex(context);
 
     return Scaffold(

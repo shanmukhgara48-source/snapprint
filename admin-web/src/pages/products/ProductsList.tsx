@@ -38,6 +38,7 @@ export default function ProductsList() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const { data, isLoading } = useQuery({
     queryKey: ["products", q],
@@ -78,6 +79,38 @@ export default function ProductsList() {
     mutationFn: (id: string) => api.delete(`/admin/products/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
   });
+
+  const bulkUpdateMut = useMutation({
+    mutationFn: (update: Partial<Product>) =>
+      api.post("/admin/products/bulk-update", { ids: [...selected], update }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      setSelected(new Set());
+    },
+  });
+
+  const bulkDeleteMut = useMutation({
+    mutationFn: () => api.post("/admin/products/bulk-delete", { ids: [...selected] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      setSelected(new Set());
+    },
+  });
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelected((prev) =>
+      prev.size === (data?.length ?? 0) ? new Set() : new Set(data?.map((p) => p.id) ?? []),
+    );
+  }
 
   function openCreate() {
     setEditing(null);
@@ -133,12 +166,37 @@ export default function ProductsList() {
         <Input placeholder="Search by name or category…" value={q} onChange={(e) => setQ(e.target.value)} />
       </Card>
 
+      {selected.size > 0 && (
+        <Card className="mb-4 flex items-center gap-3 p-3">
+          <span className="text-sm text-neutral-300">{selected.size} selected</span>
+          <button onClick={() => bulkUpdateMut.mutate({ is_active: true })} className="text-xs text-neutral-400 hover:text-white">Enable</button>
+          <button onClick={() => bulkUpdateMut.mutate({ is_active: false })} className="text-xs text-neutral-400 hover:text-white">Disable</button>
+          <button onClick={() => bulkUpdateMut.mutate({ is_trending: true })} className="text-xs text-neutral-400 hover:text-white">Trend</button>
+          <button onClick={() => bulkUpdateMut.mutate({ is_trending: false })} className="text-xs text-neutral-400 hover:text-white">Untrend</button>
+          <button onClick={() => bulkUpdateMut.mutate({ is_featured: true })} className="text-xs text-neutral-400 hover:text-white">Feature</button>
+          <button onClick={() => bulkUpdateMut.mutate({ is_featured: false })} className="text-xs text-neutral-400 hover:text-white">Unfeature</button>
+          <button
+            onClick={() => confirm(`Delete ${selected.size} products?`) && bulkDeleteMut.mutate()}
+            className="text-xs text-red-500 hover:text-red-400"
+          >
+            Delete selected
+          </button>
+        </Card>
+      )}
+
       {isLoading ? (
         <Spinner />
       ) : (
         <Table>
           <thead>
             <tr>
+              <Th>
+                <input
+                  type="checkbox"
+                  checked={(data?.length ?? 0) > 0 && selected.size === data?.length}
+                  onChange={toggleSelectAll}
+                />
+              </Th>
               <Th>Name</Th>
               <Th>Category</Th>
               <Th>Base price</Th>
@@ -150,6 +208,9 @@ export default function ProductsList() {
           <tbody>
             {data?.map((p) => (
               <tr key={p.id}>
+                <Td>
+                  <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} />
+                </Td>
                 <Td>{p.name}</Td>
                 <Td className="capitalize">{p.category}</Td>
                 <Td>₹{p.base_price}</Td>

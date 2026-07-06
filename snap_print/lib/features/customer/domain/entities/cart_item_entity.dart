@@ -25,6 +25,7 @@ class CartItemEntity {
 
   CartItemEntity copyWith({
     int? quantity,
+    double? unitPrice,
     String? customizationImageUrl,
   }) {
     return CartItemEntity(
@@ -34,7 +35,7 @@ class CartItemEntity {
       productImageUrl: productImageUrl,
       selectedSize: selectedSize,
       quantity: quantity ?? this.quantity,
-      unitPrice: unitPrice,
+      unitPrice: unitPrice ?? this.unitPrice,
       customizationImageUrl:
           customizationImageUrl ?? this.customizationImageUrl,
       customizationData: customizationData,

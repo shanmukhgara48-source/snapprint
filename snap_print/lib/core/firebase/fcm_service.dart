@@ -52,6 +52,13 @@ class FcmService {
       debugPrint('[FCM] Could not get token (add debug SHA-1 in Firebase Console): $e');
     }
 
+    // Every device joins the broadcast topic used by admin announcements.
+    try {
+      await _messaging.subscribeToTopic('all_users');
+    } catch (e) {
+      debugPrint('[FCM] Topic subscribe failed: $e');
+    }
+
     return token;
   }
 

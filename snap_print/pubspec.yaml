@@ -28,6 +28,9 @@ dependencies:
   dio: ^5.8.0+1
   pretty_dio_logger: ^1.4.0
 
+  # Realtime (WebSocket sync with backend)
+  web_socket_channel: ^3.0.1
+
   # Image & File Picking
   image_picker: ^1.1.2
   file_picker: ^8.1.7

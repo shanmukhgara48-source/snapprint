@@ -1,9 +1,12 @@
+import asyncio
+import csv
+import io
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import firebase_admin.storage
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,8 +31,9 @@ from ..models import (
     User,
 )
 from ..models.delivery_setting import DeliverySetting
-from ..services.firebase_service import get_firebase_app
+from ..services.firebase_service import get_firebase_app, send_broadcast_notification
 from ..services.admin_audit import log_admin_action
+from ..services.event_bus import emit_event
 from ..services.password import hash_password
 from ..schemas.admin import CouponCreate, CouponOut, CouponUpdate
 from ..schemas.banner import BannerCreate, BannerOut, BannerUpdate
@@ -108,6 +112,7 @@ async def admin_create_category(
     await db.commit()
     await db.refresh(category)
     await log_admin_action(db, admin["admin_user_id"], "category.create", "category", category.id, ip_address=_client_ip(request))
+    await emit_event("category", "created", category.id, CategoryOut.model_validate(category).model_dump(mode="json"))
     return category
 
 
@@ -129,6 +134,7 @@ async def admin_update_category(
     await db.commit()
     await db.refresh(category)
     await log_admin_action(db, admin["admin_user_id"], "category.update", "category", category.id, details=changes, ip_address=_client_ip(request))
+    await emit_event("category", "updated", category.id, CategoryOut.model_validate(category).model_dump(mode="json"))
     return category
 
 
@@ -146,6 +152,7 @@ async def admin_delete_category(
     await db.delete(category)
     await db.commit()
     await log_admin_action(db, admin["admin_user_id"], "category.delete", "category", category_id, ip_address=_client_ip(request))
+    await emit_event("category", "deleted", category_id)
 
 
 # ── Banners ──────────────────────────────────────────────────────────────────
@@ -171,6 +178,7 @@ async def admin_create_banner(
     await db.commit()
     await db.refresh(banner)
     await log_admin_action(db, admin["admin_user_id"], "banner.create", "banner", banner.id, ip_address=_client_ip(request))
+    await emit_event("banner", "created", banner.id, BannerOut.model_validate(banner).model_dump(mode="json"))
     return banner
 
 
@@ -192,6 +200,7 @@ async def admin_update_banner(
     await db.commit()
     await db.refresh(banner)
     await log_admin_action(db, admin["admin_user_id"], "banner.update", "banner", banner.id, details=changes, ip_address=_client_ip(request))
+    await emit_event("banner", "updated", banner.id, BannerOut.model_validate(banner).model_dump(mode="json"))
     return banner
 
 
@@ -209,6 +218,7 @@ async def admin_delete_banner(
     await db.delete(banner)
     await db.commit()
     await log_admin_action(db, admin["admin_user_id"], "banner.delete", "banner", banner_id, ip_address=_client_ip(request))
+    await emit_event("banner", "deleted", banner_id)
 
 
 # ── Products ─────────────────────────────────────────────────────────────────
@@ -238,6 +248,7 @@ async def admin_create_product(
     await db.commit()
     await db.refresh(product)
     await log_admin_action(db, admin["admin_user_id"], "product.create", "product", product.id, ip_address=_client_ip(request))
+    await emit_event("product", "created", product.id, ProductOut.model_validate(product).model_dump(mode="json"))
     return product
 
 
@@ -259,7 +270,15 @@ async def admin_update_product(
     await db.commit()
     await db.refresh(product)
     await log_admin_action(db, admin["admin_user_id"], "product.update", "product", product.id, details=changes, ip_address=_client_ip(request))
+    await emit_event("product", "updated", product.id, ProductOut.model_validate(product).model_dump(mode="json"))
     return product
+
+
+async def _has_order_references(db: AsyncSession, product_id: str) -> bool:
+    result = await db.execute(
+        select(OrderItem.id).where(OrderItem.product_id == product_id).limit(1)
+    )
+    return result.first() is not None
 
 
 @router.delete("/products/{product_id}", status_code=204)
@@ -273,9 +292,88 @@ async def admin_delete_product(
     product = result.scalar_one_or_none()
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
+    # Products in order history can't be hard-deleted (FK) — deactivate instead.
+    if await _has_order_references(db, product_id):
+        product.is_active = False
+        await db.commit()
+        await db.refresh(product)
+        await log_admin_action(db, admin["admin_user_id"], "product.deactivate", "product", product_id, details={"reason": "delete requested but product has orders"}, ip_address=_client_ip(request))
+        await emit_event("product", "updated", product_id, ProductOut.model_validate(product).model_dump(mode="json"))
+        return
     await db.delete(product)
     await db.commit()
     await log_admin_action(db, admin["admin_user_id"], "product.delete", "product", product_id, ip_address=_client_ip(request))
+    await emit_event("product", "deleted", product_id)
+
+
+class BulkProductUpdate(BaseModel):
+    ids: list[str]
+    update: ProductUpdate
+
+
+class BulkProductIds(BaseModel):
+    ids: list[str]
+
+
+@router.post("/products/bulk-update", response_model=list[ProductOut])
+async def admin_bulk_update_products(
+    request: Request,
+    payload: BulkProductUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> list[Product]:
+    changes = payload.update.model_dump(exclude_none=True)
+    if not payload.ids or not changes:
+        raise HTTPException(status_code=422, detail="ids and at least one update field required")
+    result = await db.execute(select(Product).where(Product.id.in_(payload.ids)))
+    products = list(result.scalars().all())
+    if not products:
+        raise HTTPException(status_code=404, detail="No matching products")
+    for product in products:
+        for field, value in changes.items():
+            setattr(product, field, value)
+    await db.commit()
+    await log_admin_action(db, admin["admin_user_id"], "product.bulk_update", "product", ",".join(payload.ids), details=changes, ip_address=_client_ip(request))
+    for product in products:
+        await db.refresh(product)
+        await emit_event("product", "updated", product.id, ProductOut.model_validate(product).model_dump(mode="json"))
+    return products
+
+
+@router.post("/products/bulk-delete", status_code=204)
+async def admin_bulk_delete_products(
+    request: Request,
+    payload: BulkProductIds,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> None:
+    if not payload.ids:
+        raise HTTPException(status_code=422, detail="ids required")
+    result = await db.execute(select(Product).where(Product.id.in_(payload.ids)))
+    products = list(result.scalars().all())
+    if not products:
+        raise HTTPException(status_code=404, detail="No matching products")
+    # Products in order history can't be hard-deleted (FK) — deactivate instead.
+    deleted_ids: list[str] = []
+    deactivated: list[Product] = []
+    for product in products:
+        if await _has_order_references(db, product.id):
+            product.is_active = False
+            deactivated.append(product)
+        else:
+            deleted_ids.append(product.id)
+            await db.delete(product)
+    await db.commit()
+    await log_admin_action(
+        db, admin["admin_user_id"], "product.bulk_delete", "product", ",".join(payload.ids),
+        details={"deleted": deleted_ids, "deactivated": [p.id for p in deactivated]},
+        ip_address=_client_ip(request),
+    )
+    for pid in deleted_ids:
+        await emit_event("product", "deleted", pid)
+    for product in deactivated:
+        await db.refresh(product)
+        await emit_event("product", "updated", product.id, ProductOut.model_validate(product).model_dump(mode="json"))
 
 
 # ── Orders ────────────────────────────────────────────────────────────────────
@@ -313,6 +411,63 @@ async def admin_list_orders(
     ]
 
 
+@router.get("/orders/export")
+async def admin_export_orders(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+    status: str | None = None,
+) -> Response:
+    """Download the (optionally status-filtered) order list as CSV."""
+    query = select(Order).options(
+        selectinload(Order.items),
+        selectinload(Order.address),
+        selectinload(Order.customer),
+    )
+    if status:
+        query = query.where(Order.status == status)
+    query = query.order_by(Order.created_at.desc())
+    result = await db.execute(query)
+    orders = result.scalars().all()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "order_id", "created_at", "status", "customer_phone", "items",
+        "item_count", "delivery_type", "delivery_charge", "discount",
+        "coupon_code", "total_price", "razorpay_payment_id",
+        "delivery_partner_id", "city", "pincode",
+    ])
+    for o in orders:
+        items_desc = "; ".join(
+            f"{i.product_id} x{i.quantity} ({i.selected_size or 'std'}) @ {i.unit_price}"
+            for i in o.items
+        )
+        writer.writerow([
+            o.id,
+            o.created_at.isoformat(),
+            o.status,
+            o.customer.phone if o.customer else "",
+            items_desc,
+            len(o.items),
+            o.delivery_type,
+            o.delivery_charge,
+            o.discount,
+            o.coupon_code or "",
+            o.total_price,
+            o.razorpay_payment_id or "",
+            o.delivery_partner_id or "",
+            o.address.city if o.address else "",
+            o.address.pincode if o.address else "",
+        ])
+
+    filename = f"snapprint-orders-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}.csv"
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 class AssignDeliveryRequest(BaseModel):
     delivery_partner_id: str
 
@@ -344,6 +499,12 @@ async def admin_assign_delivery(
     order.delivery_partner_id = payload.delivery_partner_id
     await db.commit()
     await log_admin_action(db, admin["admin_user_id"], "order.assign_delivery", "order", order_id, details={"delivery_partner_id": payload.delivery_partner_id}, ip_address=_client_ip(request))
+    # Notify the assigned delivery partner's app so its order list refreshes live
+    await emit_event(
+        "order", "assigned", order_id,
+        {"delivery_partner_id": payload.delivery_partner_id},
+        user_id=payload.delivery_partner_id,
+    )
     return {"ok": True, "order_id": order_id, "delivery_partner_id": payload.delivery_partner_id}
 
 
@@ -432,6 +593,13 @@ async def admin_update_order(
 
     await db.commit()
     await log_admin_action(db, admin["admin_user_id"], "order.update", "order", order_id, details=changes, ip_address=_client_ip(request))
+    await emit_event(
+        "order",
+        "status_changed" if payload.status is not None else "updated",
+        order_id,
+        {"status": order.status, "notes": order.notes},
+        user_id=order.user_id,
+    )
     return {"ok": True, "order_id": order_id}
 
 
@@ -516,6 +684,7 @@ async def admin_update_user(
         changes["is_active"] = payload.is_active
     await db.commit()
     await log_admin_action(db, admin["admin_user_id"], "user.update", "user", user_id, details=changes, ip_address=_client_ip(request))
+    await emit_event("user", "updated", user_id, {"is_active": user.is_active}, user_id=user_id)
     return {"id": user.id, "is_active": user.is_active}
 
 
@@ -549,6 +718,7 @@ async def admin_promote_to_delivery(
     await db.commit()
     await db.refresh(user)
     await log_admin_action(db, admin["admin_user_id"], "user.promote", "user", user_id, details={"new_role": "delivery"}, ip_address=_client_ip(request))
+    await emit_event("user", "role_changed", user_id, {"role": "delivery"}, user_id=user_id)
     return {"id": user.id, "phone": user.phone, "role": user.role, "message": "Promoted to delivery partner"}
 
 
@@ -568,6 +738,7 @@ async def admin_demote_to_customer(
     await db.commit()
     await db.refresh(user)
     await log_admin_action(db, admin["admin_user_id"], "user.demote", "user", user_id, details={"new_role": "customer"}, ip_address=_client_ip(request))
+    await emit_event("user", "role_changed", user_id, {"role": "customer"}, user_id=user_id)
     return {"id": user.id, "phone": user.phone, "role": user.role, "message": "Demoted to customer"}
 
 
@@ -597,6 +768,7 @@ async def admin_create_coupon(
     await db.commit()
     await db.refresh(coupon)
     await log_admin_action(db, admin["admin_user_id"], "coupon.create", "coupon", coupon.id, ip_address=_client_ip(request))
+    await emit_event("coupon", "created", coupon.id, CouponOut.model_validate(coupon).model_dump(mode="json"))
     return coupon
 
 
@@ -618,6 +790,7 @@ async def admin_update_coupon(
     await db.commit()
     await db.refresh(coupon)
     await log_admin_action(db, admin["admin_user_id"], "coupon.update", "coupon", coupon.id, details=changes, ip_address=_client_ip(request))
+    await emit_event("coupon", "updated", coupon.id, CouponOut.model_validate(coupon).model_dump(mode="json"))
     return coupon
 
 
@@ -635,6 +808,7 @@ async def admin_delete_coupon(
     await db.delete(coupon)
     await db.commit()
     await log_admin_action(db, admin["admin_user_id"], "coupon.delete", "coupon", coupon_id, ip_address=_client_ip(request))
+    await emit_event("coupon", "deleted", coupon_id)
 
 
 # ── Delivery Settings ─────────────────────────────────────────────────────────
@@ -685,6 +859,7 @@ async def admin_update_delivery_setting(
     await db.commit()
     await db.refresh(setting)
     await log_admin_action(db, admin["admin_user_id"], "delivery_setting.update", "delivery_setting", delivery_type, details=changes, ip_address=_client_ip(request))
+    await emit_event("delivery_setting", "updated", delivery_type, DeliverySettingOut.model_validate(setting).model_dump(mode="json"))
     return setting
 
 
@@ -747,10 +922,70 @@ async def admin_update_setting(
         setting.value = payload.value
     await db.commit()
     await log_admin_action(db, admin["admin_user_id"], "setting.update", "setting", key, details=payload.value, ip_address=_client_ip(request))
+    await emit_event("setting", "updated", key, {"key": key, "value": payload.value})
     return {"key": key, "value": payload.value}
 
 
 # ── Audit logs & login history ──────────────────────────────────────────────
+
+# ── Notifications ─────────────────────────────────────────────────────────────
+
+class BroadcastNotificationRequest(BaseModel):
+    title: str
+    body: str
+
+
+@router.post("/notifications/broadcast", status_code=201)
+async def admin_broadcast_notification(
+    request: Request,
+    payload: BroadcastNotificationRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin)],
+) -> dict:
+    """Push an announcement to every app user via the FCM 'all_users' topic."""
+    if not payload.title.strip() or not payload.body.strip():
+        raise HTTPException(status_code=422, detail="title and body are required")
+    try:
+        await asyncio.to_thread(
+            send_broadcast_notification,
+            payload.title.strip(),
+            payload.body.strip(),
+            {"type": "announcement"},
+        )
+    except Exception as e:  # FCM/network failure — surface it to the admin
+        raise HTTPException(status_code=502, detail=f"FCM broadcast failed: {e}")
+    await log_admin_action(
+        db, admin["admin_user_id"], "notification.broadcast", "notification", "broadcast",
+        details={"title": payload.title.strip(), "body": payload.body.strip()},
+        ip_address=_client_ip(request),
+    )
+    await emit_event("notification", "broadcast", None, {"title": payload.title.strip()}, admin_only=True)
+    return {"success": True}
+
+
+@router.get("/notifications/history")
+async def admin_notification_history(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+) -> list[dict]:
+    """Past broadcasts, sourced from the audit log (no extra table needed)."""
+    result = await db.execute(
+        select(AdminAuditLog)
+        .where(AdminAuditLog.action == "notification.broadcast")
+        .order_by(AdminAuditLog.created_at.desc())
+        .limit(100)
+    )
+    return [
+        {
+            "id": l.id,
+            "admin_user_id": l.admin_user_id,
+            "title": (l.details or {}).get("title"),
+            "body": (l.details or {}).get("body"),
+            "created_at": l.created_at.isoformat(),
+        }
+        for l in result.scalars().all()
+    ]
+
 
 @router.get("/audit-logs")
 async def admin_list_audit_logs(

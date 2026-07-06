@@ -23,7 +23,7 @@ from app.models.admin_user import AdminUser
 from app.models.category import Category
 from app.models.delivery_setting import DeliverySetting
 from app.models.product import Product
-from app.routers import admin, addresses, auth, banners, cart, categories, coupons, delivery, delivery_options, orders, payments, products, upload
+from app.routers import admin, addresses, auth, banners, cart, categories, coupons, delivery, delivery_options, orders, payments, products, realtime, upload
 from app.services.password import hash_password
 
 _IS_PROD = os.getenv("ENV", "development").lower() == "production"
@@ -274,6 +274,7 @@ app.include_router(delivery.router)
 app.include_router(delivery_options.router)
 app.include_router(admin.router)
 app.include_router(upload.router)
+app.include_router(realtime.router)
 
 
 @app.get("/health")
