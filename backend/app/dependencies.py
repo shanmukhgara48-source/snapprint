@@ -8,8 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
 from .database import get_db
-from .models import User
-from .services.firebase_service import verify_firebase_token
+from .models import AdminUser, User
 
 bearer_scheme = HTTPBearer()
 
@@ -18,25 +17,28 @@ async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> User:
-    """Verify Firebase ID token and return the corresponding User."""
+    """Verify our application access token (minted once by POST /auth/verify
+    after a genuine Firebase ID token check) and return the corresponding
+    User. The raw Firebase ID token is never re-verified per request."""
     token = credentials.credentials
 
     # Dev bypass: token format "dev_{secret}_{firebase_uid}" (only when DEV_BYPASS_SECRET is set)
     if settings.dev_bypass_secret and token.startswith(f"dev_{settings.dev_bypass_secret}_"):
         prefix = f"dev_{settings.dev_bypass_secret}_"
         firebase_uid = token[len(prefix):]
+        result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
+        user = result.scalar_one_or_none()
     else:
         try:
-            decoded = verify_firebase_token(token)
-            firebase_uid = decoded["uid"]
-        except Exception:
+            payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+            user_id = payload["user_id"]
+        except (JWTError, KeyError):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired token",
             )
-
-    result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
-    user = result.scalar_one_or_none()
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
 
     if user is None:
         raise HTTPException(
@@ -77,10 +79,13 @@ async def require_admin(
 
 async def require_admin_jwt(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
-    """Verify the admin JWT issued by POST /auth/admin/login. Payload contains
-    admin_user_id, username, and admin_role (super_admin|manager|support_staff|
-    printing_staff|delivery_staff)."""
+    """Verify the admin JWT issued by POST /auth/admin/login, then re-check the
+    admin's current is_active/role against the DB so a disable or role change
+    takes effect immediately instead of waiting out the token's 8h lifetime.
+    Payload contains admin_user_id, username, and admin_role (super_admin|
+    manager|support_staff|printing_staff|delivery_staff), refreshed from the DB."""
     try:
         payload = jwt.decode(
             credentials.credentials,
@@ -89,9 +94,16 @@ async def require_admin_jwt(
         )
         if payload.get("role") != "admin" or not payload.get("admin_user_id"):
             raise ValueError("Not an admin token")
-        return payload
     except (JWTError, ValueError):
         raise HTTPException(status_code=401, detail="Invalid or expired admin token")
+
+    result = await db.execute(select(AdminUser).where(AdminUser.id == payload["admin_user_id"]))
+    admin_user = result.scalar_one_or_none()
+    if admin_user is None or not admin_user.is_active:
+        raise HTTPException(status_code=401, detail="Admin account is deactivated or no longer exists")
+
+    payload["admin_role"] = admin_user.role
+    return payload
 
 
 def require_admin_role(*allowed_roles: str):

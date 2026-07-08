@@ -13,7 +13,7 @@ from ..config import settings
 from ..database import get_db
 from ..dependencies import get_current_user
 from ..models import AdminLoginHistory, AdminUser, Coupon, User
-from ..schemas.auth import FirebaseAuthRequest, UserResponse
+from ..schemas.auth import AuthResponse, FirebaseAuthRequest, UserResponse
 from ..services.firebase_service import verify_firebase_token, get_firebase_app, set_user_role_claim
 from ..services.password import verify_password
 
@@ -88,6 +88,20 @@ async def admin_login(
     token = jwt.encode(token_data, settings.secret_key, algorithm=settings.algorithm)
     return AdminTokenResponse(access_token=token)
 
+def _create_app_access_token(user: User) -> str:
+    """Mints our own short-lived application JWT after a one-time Firebase
+    ID token verification — the client uses this (not the raw Firebase
+    token) for every subsequent authenticated request."""
+    token_data = {
+        "sub": user.id,
+        "user_id": user.id,
+        "firebase_uid": user.firebase_uid,
+        "role": user.role,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes),
+    }
+    return jwt.encode(token_data, settings.secret_key, algorithm=settings.algorithm)
+
+
 # Reward amounts for the referral program
 _REFERRAL_NEW_USER_DISCOUNT = 50.0   # ₹50 off for the new user's first order
 _REFERRAL_REFERRER_DISCOUNT = 50.0   # ₹50 off for the referrer's next order
@@ -145,16 +159,18 @@ async def dev_login(
     )
 
 
-@router.post("/verify", response_model=UserResponse)
+@router.post("/verify", response_model=AuthResponse)
 @limiter.limit("10/minute")
 async def verify_user(
     request: Request,
     payload: FirebaseAuthRequest,
     db: AsyncSession = Depends(get_db),
-) -> User:
+) -> AuthResponse:
     """
-    Called immediately after Firebase Phone OTP verification.
-    Requires a valid Firebase ID token to prove the caller owns the UID.
+    Called immediately after Firebase Phone OTP verification. Exchanges a
+    short-lived Firebase ID token (proof the caller owns the UID, verified
+    via firebase_admin.auth.verify_id_token) for our own application access
+    token — the client never uses the raw Firebase token again after this.
     - Creates user if new (with auto-generated referral code).
     - Handles referral: if referred_by_code is provided and valid, creates
       a ₹50 coupon for the new user AND a ₹50 coupon for the referrer.
@@ -217,7 +233,10 @@ async def verify_user(
 
     await db.commit()
     await db.refresh(user)
-    return user
+    return AuthResponse(
+        access_token=_create_app_access_token(user),
+        user=UserResponse.model_validate(user),
+    )
 
 
 @router.delete("/me", status_code=204)

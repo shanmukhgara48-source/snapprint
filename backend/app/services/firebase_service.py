@@ -1,17 +1,7 @@
-import base64
-import json
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
-
 import firebase_admin
 from firebase_admin import auth, credentials, messaging
 
 from ..config import settings
-
-_FIREBASE_PROJECT_ID = settings.firebase_project_id
-_FIREBASE_API_KEY = settings.firebase_api_key
 
 _app: firebase_admin.App | None = None
 
@@ -25,43 +15,15 @@ def get_firebase_app() -> firebase_admin.App:
 
 
 def verify_firebase_token(id_token: str) -> dict:
-    """Verify Firebase ID token via Google REST API (project-agnostic)."""
-    url = (
-        "https://identitytoolkit.googleapis.com/v1/accounts:lookup"
-        f"?key={_FIREBASE_API_KEY}"
-    )
-    body = json.dumps({"idToken": id_token}).encode()
-    req = urllib.request.Request(
-        url, data=body, headers={"Content-Type": "application/json"}, method="POST"
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode()
-        raise ValueError(f"Firebase token lookup failed: {err_body}") from e
-
-    users = data.get("users", [])
-    if not users:
-        raise ValueError("Token lookup returned no users")
-
-    user = users[0]
-    # Check token expiry via local JWT decode (fast, no network)
-    try:
-        payload_b64 = id_token.split(".")[1]
-        payload_b64 += "=" * (4 - len(payload_b64) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
-        if payload.get("exp", 0) < time.time():
-            raise ValueError("Token expired")
-        if payload.get("aud") != _FIREBASE_PROJECT_ID:
-            raise ValueError(f"Wrong audience: {payload.get('aud')}")
-    except (IndexError, ValueError, json.JSONDecodeError) as e:
-        raise ValueError(f"JWT decode error: {e}") from e
-
+    """Verify a Firebase ID token locally via the Admin SDK (cached Google
+    public keys — signature, expiry, issuer, and audience are all checked,
+    with no per-call network round trip)."""
+    get_firebase_app()
+    decoded = auth.verify_id_token(id_token)
     return {
-        "uid": user["localId"],
-        "phone_number": user.get("phoneNumber"),
-        "email": user.get("email"),
+        "uid": decoded["uid"],
+        "phone_number": decoded.get("phone_number"),
+        "email": decoded.get("email"),
     }
 
 

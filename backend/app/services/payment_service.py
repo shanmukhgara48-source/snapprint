@@ -46,3 +46,15 @@ def verify_razorpay_signature(
         hashlib.sha256,
     ).hexdigest()
     return hmac.compare_digest(expected, razorpay_signature)
+
+
+def get_paid_amount_paise(razorpay_order_id: str) -> int:
+    """
+    Fetch the amount actually paid for a Razorpay order, straight from
+    Razorpay's servers. A valid signature only proves a payment/order pair is
+    authentic — it says nothing about the amount, so callers must cross-check
+    this against the server-computed order total before trusting the payment.
+    """
+    client = get_razorpay_client()
+    order = client.order.fetch(razorpay_order_id)
+    return int(order["amount_paid"])

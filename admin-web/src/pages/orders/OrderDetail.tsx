@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../../lib/api";
@@ -6,18 +6,31 @@ import type { OrderDetail as OrderDetailType, UserListItem } from "../../lib/typ
 import { Badge, Button, Card, PageHeader, Spinner } from "../../components/ui";
 import { ArrowLeft } from "lucide-react";
 
-const STATUS_OPTIONS = ["confirmed", "processing", "shipped", "delivered", "cancelled"];
+// Must match backend/app/routers/delivery.py VALID_STATUS_TRANSITIONS + "cancelled".
+const STATUS_OPTIONS = ["confirmed", "picked_up", "out_for_delivery", "delivered", "cancelled"];
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
   const [notes, setNotes] = useState("");
+  const [status, setStatus] = useState("");
   const [assignId, setAssignId] = useState("");
+  const syncedOrderId = useRef<string | null>(null);
 
   const { data: order, isLoading } = useQuery({
     queryKey: ["order", id],
     queryFn: async () => (await api.get<OrderDetailType>(`/admin/orders/${id}`)).data,
   });
+
+  // Sync local edit state from the fetched order exactly once per order (by id),
+  // so realtime refetches don't clobber in-progress edits, but a fresh order load does.
+  useEffect(() => {
+    if (order && syncedOrderId.current !== order.id) {
+      setNotes(order.notes ?? "");
+      setStatus(order.status);
+      syncedOrderId.current = order.id;
+    }
+  }, [order]);
 
   const { data: partners } = useQuery({
     queryKey: ["delivery-partners"],
@@ -95,8 +108,11 @@ export default function OrderDetail() {
           <Card>
             <div className="mb-2 text-xs text-neutral-500">Update status</div>
             <select
-              defaultValue={order.status}
-              onChange={(e) => updateMut.mutate({ status: e.target.value })}
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                updateMut.mutate({ status: e.target.value });
+              }}
               className="mb-3 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-white"
             >
               {STATUS_OPTIONS.map((s) => (
@@ -130,7 +146,7 @@ export default function OrderDetail() {
 
             <div className="mb-2 text-xs text-neutral-500">Notes</div>
             <textarea
-              defaultValue={order.notes ?? ""}
+              value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="mb-2 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-white"
               rows={3}

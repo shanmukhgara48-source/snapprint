@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import type { Banner } from "../../lib/types";
 import { Badge, Button, Input, Modal, PageHeader, Spinner, Table, Td, Th } from "../../components/ui";
+import { SingleImageUploader } from "../../components/ImageUpload";
 import { Plus, Trash2, Pencil } from "lucide-react";
 
 type BannerForm = { title: string; image_url: string; link_action: string; sort_order: string };
@@ -146,7 +147,7 @@ export default function Banners() {
       <Modal open={modalOpen} onClose={closeModal} title={editing ? "Edit banner" : "New banner"}>
         <div className="space-y-3">
           <Input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <Input placeholder="Image URL" value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
+          <SingleImageUploader url={form.image_url} onChange={(next) => setForm({ ...form, image_url: next })} />
           <Input
             placeholder="Link action (e.g. category:mugs)"
             value={form.link_action}

@@ -36,6 +36,16 @@ router = APIRouter(tags=["realtime"])
 _AUTH_TIMEOUT_SECONDS = 10
 
 
+async def _safe_close(websocket: WebSocket, code: int, reason: str) -> None:
+    """websocket.close() raises if the client already disconnected during the
+    auth handshake (the socket is closed on both ends by then) — that's a
+    normal client-side disconnect, not a server error, so swallow it."""
+    try:
+        await websocket.close(code=code, reason=reason)
+    except RuntimeError:
+        pass
+
+
 async def _read_auth_token(websocket: WebSocket) -> str | None:
     """Wait for the first message and extract the auth token, or None."""
     try:
@@ -70,7 +80,7 @@ async def websocket_app(websocket: WebSocket) -> None:
 
     token = await _read_auth_token(websocket)
     if token is None:
-        await websocket.close(code=4401, reason="Auth required")
+        await _safe_close(websocket, 4401, "Auth required")
         return
 
     # Same auth paths as the REST API: dev bypass token or Firebase ID token.
@@ -81,14 +91,14 @@ async def websocket_app(websocket: WebSocket) -> None:
         firebase_uid = token[len(f"dev_{settings.dev_bypass_secret}_"):]
     else:
         try:
-            # verify_firebase_token does blocking network I/O — keep it off the loop
+            # verify_firebase_token is a synchronous call — keep it off the loop
             decoded = await asyncio.to_thread(verify_firebase_token, token)
             firebase_uid = decoded["uid"]
         except Exception:
             firebase_uid = None
 
     if firebase_uid is None:
-        await websocket.close(code=4401, reason="Invalid token")
+        await _safe_close(websocket, 4401, "Invalid token")
         return
 
     async with AsyncSessionLocal() as db:
@@ -96,7 +106,7 @@ async def websocket_app(websocket: WebSocket) -> None:
         user = result.scalar_one_or_none()
 
     if user is None or not user.is_active:
-        await websocket.close(code=4403, reason="Account not available")
+        await _safe_close(websocket, 4403, "Account not available")
         return
 
     channels = ["catalog", f"user:{user.id}"]
@@ -119,7 +129,7 @@ async def websocket_admin(websocket: WebSocket) -> None:
 
     token = await _read_auth_token(websocket)
     if token is None:
-        await websocket.close(code=4401, reason="Auth required")
+        await _safe_close(websocket, 4401, "Auth required")
         return
 
     try:
@@ -127,7 +137,7 @@ async def websocket_admin(websocket: WebSocket) -> None:
         if payload.get("role") != "admin" or not payload.get("admin_user_id"):
             raise ValueError("Not an admin token")
     except (JWTError, ValueError):
-        await websocket.close(code=4401, reason="Invalid admin token")
+        await _safe_close(websocket, 4401, "Invalid admin token")
         return
 
     channels = ["admin", "catalog"]

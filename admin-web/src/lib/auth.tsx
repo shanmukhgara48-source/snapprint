@@ -24,7 +24,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 function decodeJwtRole(token: string): { role: AdminRole; username: string } | null {
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
+    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(base64));
     return { role: payload.admin_role, username: payload.sub };
   } catch {
     return null;

@@ -13,7 +13,6 @@ from ..services.event_bus import emit_event
 from ..services.firebase_service import (
     notify_delivered,
     notify_out_for_delivery,
-    notify_order_confirmed,
 )
 
 router = APIRouter(prefix="/delivery", tags=["delivery"])
@@ -108,7 +107,9 @@ async def update_delivery_status(
         user_id=order.user_id,
     )
 
-    # Send FCM to customer
+    # Send FCM to customer. "picked_up" has no customer-facing notification —
+    # the "confirmed" one already fired earlier, in admin.py's admin_update_order,
+    # when the order first transitioned from pending to confirmed.
     customer_token = order.customer.fcm_token if order.customer else None
     if customer_token:
         try:
@@ -116,8 +117,6 @@ async def update_delivery_status(
                 notify_out_for_delivery(customer_token, order.id)
             elif payload.status == "delivered":
                 notify_delivered(customer_token, order.id)
-            elif payload.status == "picked_up":
-                notify_order_confirmed(customer_token, order.id)
         except Exception:
             pass
 

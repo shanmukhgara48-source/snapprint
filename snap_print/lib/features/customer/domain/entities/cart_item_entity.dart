@@ -41,4 +41,30 @@ class CartItemEntity {
       customizationData: customizationData,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'cartItemId': cartItemId,
+        'productId': productId,
+        'productName': productName,
+        'productImageUrl': productImageUrl,
+        'selectedSize': selectedSize,
+        'quantity': quantity,
+        'unitPrice': unitPrice,
+        'customizationImageUrl': customizationImageUrl,
+        'customizationData': customizationData,
+      };
+
+  factory CartItemEntity.fromJson(Map<String, dynamic> json) {
+    return CartItemEntity(
+      cartItemId: json['cartItemId'] as String,
+      productId: json['productId'] as String,
+      productName: json['productName'] as String,
+      productImageUrl: json['productImageUrl'] as String,
+      selectedSize: json['selectedSize'] as String,
+      quantity: json['quantity'] as int,
+      unitPrice: (json['unitPrice'] as num).toDouble(),
+      customizationImageUrl: json['customizationImageUrl'] as String?,
+      customizationData: (json['customizationData'] as Map?)?.cast<String, dynamic>(),
+    );
+  }
 }

@@ -30,10 +30,10 @@ of the existing rows (e.g. `admin` / the password in `backend/.env`'s
 | Dashboard | **Real** — `/admin/analytics/dashboard` + `/admin/analytics/charts` |
 | Analytics | **Real** — `/admin/analytics/charts` |
 | Products | **Real**, full CRUD — `/admin/products` |
-| Categories | **Partial** — list is real (`/admin/categories`, derived from products), add/remove is local-only since there's no dedicated category table |
+| Categories | **Real**, full CRUD — dedicated `categories` table, `/admin/categories` |
 | Orders (list + detail) | **Real** — `/admin/orders`, status update, notes, delivery-partner assign |
 | Customers (list + detail) | **Real** — `/admin/users`, suspend/reactivate, promote/demote to delivery |
-| Coupons | **Real**, list/create/delete — `/admin/coupons` (no edit endpoint exists) |
+| Coupons | **Real**, full CRUD including edit — `/admin/coupons` (PUT) |
 | Delivery Settings | **Real**, full CRUD — `/admin/delivery-settings` |
 | Payments | **Real**, read-only — `/admin/payments` |
 | Employees (Admins) | **Real** — `/admin/admins` (super_admin only) |
@@ -46,7 +46,7 @@ of the existing rows (e.g. `admin` / the password in `backend/.env`'s
 | Offers | **Mock** — distinct from Coupons; no promotional-banner model exists |
 | Support | **Mock** — no ticketing/messaging system exists anywhere in the stack |
 | Reviews | **Mock** — no review/rating model exists |
-| Notifications | **Mock** — FCM push exists for order events, but no admin compose/broadcast/log UI |
+| Notifications | **Real** — `/admin/notifications/broadcast` (FCM topic `all_users`) + `/admin/notifications/history` |
 | Security | **Mock toggles** — no 2FA/IP-allowlist/session-timeout enforcement exists |
 | System Logs | **Mock** — this is infra/server logs, not the (real) admin audit trail |
 | Backup | **Mock** — DB backup/restore is an infra operation (`pg_dump`/hosting tooling), not an app feature |
@@ -57,6 +57,5 @@ through, not because they're production features.
 
 ## Next priority
 
-Wire up the Categories screen properly if a real category table gets added,
-or fold Reports into the Dashboard's existing analytics endpoints as CSV
+Fold Reports into the Dashboard's existing analytics endpoints as CSV
 export (the underlying numbers are already real, just not exportable).

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
-import type { Product } from "../../lib/types";
+import type { Category, Product } from "../../lib/types";
 import { Badge, Button, Card, Input, Modal, PageHeader, Spinner, Table, Td, Th } from "../../components/ui";
+import { ImageGalleryUploader } from "../../components/ImageUpload";
 import { Plus, Trash2, Pencil } from "lucide-react";
 
 type ProductForm = {
@@ -45,11 +46,25 @@ export default function ProductsList() {
     queryFn: async () => (await api.get<Product[]>("/admin/products", { params: q ? { q } : {} })).data,
   });
 
+  // Categories come from the same source of truth as the Categories tab, so a
+  // product's category can never drift/typo away from a real category — this
+  // previously broke customer-side "tap category -> see products" browsing
+  // whenever the free-text value didn't exactly match Category.name.
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => (await api.get<Category[]>("/admin/categories")).data,
+  });
+
+  function categoryPayload(categoryName: string) {
+    const match = categories?.find((c) => c.name === categoryName);
+    return { category: categoryName, category_id: match?.id ?? null };
+  }
+
   const createMut = useMutation({
     mutationFn: (payload: ProductForm) =>
       api.post("/admin/products", {
         name: payload.name,
-        category: payload.category,
+        ...categoryPayload(payload.category),
         base_price: Number(payload.base_price),
         sizes: [],
         description: payload.description || null,
@@ -114,7 +129,7 @@ export default function ProductsList() {
 
   function openCreate() {
     setEditing(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, category: categories?.[0]?.name ?? "" });
     setModalOpen(true);
   }
 
@@ -138,7 +153,7 @@ export default function ProductsList() {
         id: editing.id,
         payload: {
           name: form.name,
-          category: form.category,
+          ...categoryPayload(form.category),
           base_price: Number(form.base_price),
           description: form.description || null,
           images: parseImages(form.images),
@@ -256,22 +271,27 @@ export default function ProductsList() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Edit product" : "New product"}>
         <div className="space-y-3">
           <Input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <Input
-            placeholder="Category"
+          <select
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value })}
-          />
+            className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-white outline-none focus:border-accent"
+          >
+            {!categories?.some((c) => c.name === form.category) && (
+              <option value={form.category}>{form.category || "Select a category…"}</option>
+            )}
+            {categories?.map((c) => (
+              <option key={c.id} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
           <Input
             placeholder="Base price"
             type="number"
             value={form.base_price}
             onChange={(e) => setForm({ ...form, base_price: e.target.value })}
           />
-          <Input
-            placeholder="Image URLs (comma-separated)"
-            value={form.images}
-            onChange={(e) => setForm({ ...form, images: e.target.value })}
-          />
+          <ImageGalleryUploader images={form.images} onChange={(next) => setForm({ ...form, images: next })} />
           <Input
             placeholder="Description"
             value={form.description}

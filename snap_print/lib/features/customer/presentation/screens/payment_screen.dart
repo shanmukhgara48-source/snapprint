@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -56,15 +57,23 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final user = ref.read(authProvider).valueOrNull;
     // Prefill phone so Razorpay skips the "Contact details" step
     final phone = user?.phone.replaceFirst('+91', '') ?? '9876543210';
+    // Release builds must pass the live key via --dart-define; a silent
+    // fallback to the test key here would let real customers "pay" in test
+    // mode against a production backend expecting live keys. asserts are
+    // stripped in release mode, so this must be a real runtime check.
+    const razorpayKeyId = String.fromEnvironment('RAZORPAY_KEY_ID', defaultValue: 'rzp_test_T7ub1zMHZM6uO3');
+    if (kReleaseMode && razorpayKeyId == 'rzp_test_T7ub1zMHZM6uO3') {
+      throw StateError('RAZORPAY_KEY_ID must be passed via --dart-define for release builds');
+    }
     final options = {
-      'key': const String.fromEnvironment('RAZORPAY_KEY_ID', defaultValue: 'rzp_test_T7ub1zMHZM6uO3'),
+      'key': razorpayKeyId,
       'amount': (widget.amount * 100).toInt(),
       'order_id': widget.razorpayOrderId,
       'name': 'SnapPrint',
       'description': 'Photo products order',
       'prefill': {
         'contact': phone,
-        'email': 'qa@snapprint.com',
+        'email': 'customer@snapprint.in',
       },
       'theme': {'color': '#2E7D32'},
     };

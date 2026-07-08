@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'core/firebase/fcm_service.dart';
+import 'core/router/app_router.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -30,7 +32,15 @@ void main() async {
 
   // Initialize FCM in the background — do not block runApp
   final container = ProviderContainer();
-  container.read(fcmServiceProvider).initialize();
+  container.read(fcmServiceProvider).initialize(
+    onToken: (token) => container.read(authProvider.notifier).syncFcmToken(token),
+    onNotificationTap: (data) {
+      final orderId = data['order_id'] as String?;
+      if (orderId != null) {
+        container.read(appRouterProvider).push(AppRoutes.orderConfirmationPath(orderId));
+      }
+    },
+  );
 
   runApp(
     UncontrolledProviderScope(

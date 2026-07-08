@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
@@ -99,20 +98,15 @@ class _AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        final token = await user.getIdToken();
-        if (token != null && token.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        // If null/empty, proceed without token; server will return 401
-      } catch (_) {
-        // Proceed without token; server will return 401
-      }
-    } else if (_devAuthToken != null) {
+    // Our own application access token (minted by POST /auth/verify after a
+    // one-time Firebase ID token check) is the session — the raw Firebase
+    // token is never sent to the backend again after that exchange.
+    if (_devAuthToken != null) {
       options.headers['Authorization'] = 'Bearer $_devAuthToken';
+    } else if (_appAuthToken != null) {
+      options.headers['Authorization'] = 'Bearer $_appAuthToken';
     }
+    // If neither is set, proceed without a token; server will return 401.
     handler.next(options);
   }
 }
@@ -179,6 +173,11 @@ String? _devAuthToken;
 void setDevAuthToken(String? token) => _devAuthToken = token;
 
 String? getDevAuthToken() => _devAuthToken;
+
+// Application access token minted by POST /auth/verify (null = not signed in)
+String? _appAuthToken;
+
+void setAppAuthToken(String? token) => _appAuthToken = token;
 
 // Riverpod provider
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());

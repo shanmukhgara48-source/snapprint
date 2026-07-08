@@ -38,8 +38,15 @@ if _IS_PROD:
         "R2_SECRET_ACCESS_KEY": settings.r2_secret_access_key,
         "ADMIN_PASSWORD": settings.admin_password,
     }.items() if not v]
+    # DATABASE_URL always has a value (pydantic default), so check it's not
+    # still pointing at the local-dev default — that would mean it was never
+    # actually set for this deploy.
+    if settings.database_url == "postgresql+asyncpg://postgres:password@localhost:5432/snapprint":
+        _missing.append("DATABASE_URL")
     if _missing:
         raise RuntimeError(f"Missing required production env vars: {', '.join(_missing)}")
+    if settings.dev_bypass_secret:
+        raise RuntimeError("DEV_BYPASS_SECRET must be empty when ENV=production")
 
 _DEFAULT_DELIVERY_SETTINGS = [
     DeliverySetting(type="free",     label="Free Delivery",     price=0,  days_label="5-7 business days"),

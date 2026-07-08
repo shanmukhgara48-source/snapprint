@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Top-level handler for background FCM messages (must be top-level function).
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('[FCM] Background message: ${message.messageId}');
+  if (kDebugMode) debugPrint('[FCM] Background message: ${message.messageId}');
   // Handle background notification silently
 }
 
@@ -14,7 +14,18 @@ class FcmService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
 
   /// Initialize FCM: request permission, set handlers, return FCM token.
-  Future<String?> initialize() async {
+  ///
+  /// [onToken] fires once the token is first available, and again whenever it
+  /// rotates, so the caller (see AuthNotifier.syncFcmToken) can keep the
+  /// backend's copy current.
+  ///
+  /// [onNotificationTap] fires with the message data when the user taps a
+  /// notification that opened the app from the background — payloads are
+  /// always `{'type': ..., 'order_id': ...}` (see backend firebase_service.py).
+  Future<String?> initialize({
+    void Function(String token)? onToken,
+    void Function(Map<String, dynamic> data)? onNotificationTap,
+  }) async {
     // Register background handler
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
@@ -27,50 +38,43 @@ class FcmService {
     );
 
     if (settings.authorizationStatus == AuthorizationStatus.denied) {
-      debugPrint('[FCM] User denied notifications');
+      if (kDebugMode) debugPrint('[FCM] User denied notifications');
       return null;
     }
 
-    // Foreground message handler
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+    // Foreground messages are intentionally not surfaced as an in-app banner:
+    // the customer/delivery apps already hold a live WebSocket connection
+    // (see core/realtime/realtime_service.dart) that updates order status UI
+    // in real time, so a duplicate system-style notification isn't needed.
+    FirebaseMessaging.onMessage.listen((message) {
+      if (kDebugMode) debugPrint('[FCM] Foreground message: ${message.notification?.title}');
+    });
 
     // Notification tap when app is in background (not terminated)
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      onNotificationTap?.call(message.data);
+    });
 
     // Get FCM token — may fail if SHA-1 not registered in Firebase Console
     String? token;
     try {
       token = await _messaging.getToken();
-      debugPrint('[FCM] Token: $token');
+      if (token != null) onToken?.call(token);
 
-      // Listen for token refresh
-      _messaging.onTokenRefresh.listen((newToken) {
-        debugPrint('[FCM] Token refreshed: $newToken');
-        // TODO: Send updated token to backend
-      });
+      // Listen for token refresh (device reinstall, token expiry, etc.)
+      _messaging.onTokenRefresh.listen((newToken) => onToken?.call(newToken));
     } catch (e) {
-      debugPrint('[FCM] Could not get token (add debug SHA-1 in Firebase Console): $e');
+      if (kDebugMode) debugPrint('[FCM] Could not get token (add debug SHA-1 in Firebase Console): $e');
     }
 
     // Every device joins the broadcast topic used by admin announcements.
     try {
       await _messaging.subscribeToTopic('all_users');
     } catch (e) {
-      debugPrint('[FCM] Topic subscribe failed: $e');
+      if (kDebugMode) debugPrint('[FCM] Topic subscribe failed: $e');
     }
 
     return token;
-  }
-
-  void _handleForegroundMessage(RemoteMessage message) {
-    debugPrint('[FCM] Foreground message: ${message.notification?.title}');
-    // TODO: Show local notification using flutter_local_notifications
-  }
-
-  void _handleNotificationTap(RemoteMessage message) {
-    debugPrint('[FCM] Notification tapped: ${message.data}');
-    // TODO: Navigate to relevant screen based on message.data['type']
-    // e.g. 'order_update' → navigate to order detail
   }
 
   /// Returns the current FCM token.

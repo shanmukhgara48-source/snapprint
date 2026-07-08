@@ -19,3 +19,9 @@ class UserResponse(BaseModel):
     referral_code: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse

@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/entities/cart_item_entity.dart';
 
 enum DeliveryType { free, standard, express }
@@ -83,11 +86,66 @@ class CartState {
       discount: discount ?? this.discount,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'items': items.map((e) => e.toJson()).toList(),
+        'deliveryTypeKey': deliveryTypeKey,
+        'deliveryPrice': deliveryPrice,
+        'couponCode': couponCode,
+        'discount': discount,
+      };
+
+  factory CartState.fromJson(Map<String, dynamic> json) {
+    final typeKey = json['deliveryTypeKey'] as String? ?? 'free';
+    return CartState(
+      items: (json['items'] as List? ?? [])
+          .map((e) => CartItemEntity.fromJson((e as Map).cast<String, dynamic>()))
+          .toList(),
+      deliveryType: DeliveryType.values.firstWhere(
+        (e) => e.name == typeKey,
+        orElse: () => DeliveryType.free,
+      ),
+      deliveryTypeKey: typeKey,
+      deliveryPrice: (json['deliveryPrice'] as num?)?.toDouble(),
+      couponCode: json['couponCode'] as String?,
+      discount: (json['discount'] as num?)?.toDouble() ?? 0,
+    );
+  }
 }
 
 class CartNotifier extends Notifier<CartState> {
+  static const _prefsKey = 'cart_v1';
+
   @override
-  CartState build() => const CartState();
+  CartState build() {
+    // Persist on every change; hydration below is async so the very first
+    // frame renders an empty cart, then fills in once disk read completes.
+    listenSelf((_, next) => _persist(next));
+    _hydrate();
+    return const CartState();
+  }
+
+  Future<void> _hydrate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_prefsKey);
+    if (raw == null) return;
+    try {
+      state = CartState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      // Corrupt/outdated cart payload from a previous app version — drop it
+      // rather than crash the app on startup.
+      await prefs.remove(_prefsKey);
+    }
+  }
+
+  Future<void> _persist(CartState cartState) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (cartState.items.isEmpty) {
+      await prefs.remove(_prefsKey);
+    } else {
+      await prefs.setString(_prefsKey, jsonEncode(cartState.toJson()));
+    }
+  }
 
   void addItem(CartItemEntity item) {
     // Photo items (with customization image) are always unique line items — never merge

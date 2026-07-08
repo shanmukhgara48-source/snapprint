@@ -10,7 +10,6 @@ class Settings(BaseSettings):
     firebase_storage_bucket: str = ""
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
-    frontend_url: str = "http://localhost:3000"
 
     # Cloudflare R2
     r2_account_id: str = ""
@@ -26,10 +25,6 @@ class Settings(BaseSettings):
     # JWT
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
-
-    # Firebase project config (used by verify_firebase_token)
-    firebase_project_id: str = "snapprint-5076c"
-    firebase_api_key: str = ""
 
     # Dev-only bypass (empty = disabled; set in .env for local QA only)
     dev_bypass_secret: str = ""

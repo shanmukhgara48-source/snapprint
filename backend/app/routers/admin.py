@@ -3,11 +3,11 @@ import csv
 import io
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, Literal
 
 import firebase_admin.storage
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, File
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -31,7 +31,7 @@ from ..models import (
     User,
 )
 from ..models.delivery_setting import DeliverySetting
-from ..services.firebase_service import get_firebase_app, send_broadcast_notification
+from ..services.firebase_service import get_firebase_app, send_broadcast_notification, notify_order_confirmed
 from ..services.admin_audit import log_admin_action
 from ..services.event_bus import emit_event
 from ..services.password import hash_password
@@ -51,6 +51,12 @@ def _client_ip(request: Request) -> str | None:
 
 _ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 _MAX_FILE_BYTES = 5 * 1024 * 1024  # 5 MB
+_EXTENSION_BY_CONTENT_TYPE = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+}
 
 
 @router.post("/upload", response_model=dict)
@@ -74,7 +80,10 @@ async def upload_image(
     if len(content) > _MAX_FILE_BYTES:
         raise HTTPException(status_code=413, detail="File exceeds 5 MB limit")
 
-    ext = file.filename.rsplit(".", 1)[-1] if file.filename else "jpg"
+    # Derive the extension from the validated content-type, never from the
+    # client-supplied filename — an unsanitized filename could inject path
+    # separators or arbitrary characters into the storage blob name.
+    ext = _EXTENSION_BY_CONTENT_TYPE[file.content_type]
     blob_name = f"products/{uuid.uuid4()}.{ext}"
 
     get_firebase_app()  # ensure initialised
@@ -509,7 +518,8 @@ async def admin_assign_delivery(
 
 
 class OrderUpdateRequest(BaseModel):
-    status: str | None = None
+    # Must match delivery.py's VALID_STATUS_TRANSITIONS states plus "cancelled".
+    status: Literal["confirmed", "picked_up", "out_for_delivery", "delivered", "cancelled"] | None = None
     notes: str | None = None
 
 
@@ -577,7 +587,9 @@ async def admin_update_order(
     db: Annotated[AsyncSession, Depends(get_db)],
     admin: Annotated[dict, Depends(require_admin)],
 ) -> dict:
-    result = await db.execute(select(Order).where(Order.id == order_id))
+    result = await db.execute(
+        select(Order).options(selectinload(Order.customer)).where(Order.id == order_id)
+    )
     order = result.scalar_one_or_none()
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -600,6 +612,16 @@ async def admin_update_order(
         {"status": order.status, "notes": order.notes},
         user_id=order.user_id,
     )
+
+    # This is the pending -> confirmed transition (the customer's first
+    # confirmation that their order was accepted) — send the push notification
+    # here since it's the only place this status is ever set.
+    if payload.status == "confirmed" and order.customer and order.customer.fcm_token:
+        try:
+            notify_order_confirmed(order.customer.fcm_token, order.id)
+        except Exception:
+            pass
+
     return {"ok": True, "order_id": order_id}
 
 
@@ -787,6 +809,8 @@ async def admin_update_coupon(
     changes = payload.model_dump(exclude_none=True)
     for field, value in changes.items():
         setattr(coupon, field, value)
+    if coupon.discount_type == "percent" and coupon.value > 100:
+        raise HTTPException(status_code=422, detail="value cannot exceed 100 for a percent coupon")
     await db.commit()
     await db.refresh(coupon)
     await log_admin_action(db, admin["admin_user_id"], "coupon.update", "coupon", coupon.id, details=changes, ip_address=_client_ip(request))
@@ -825,7 +849,7 @@ class DeliverySettingOut(BaseModel):
 
 class DeliverySettingUpdate(BaseModel):
     label: str | None = None
-    price: float | None = None
+    price: float | None = Field(default=None, ge=0)
     days_label: str | None = None
     is_active: bool | None = None
 
@@ -1109,6 +1133,19 @@ async def admin_update_admin(
     target = result.scalar_one_or_none()
     if target is None:
         raise HTTPException(status_code=404, detail="Admin not found")
+
+    demoting_or_disabling = (payload.role is not None and payload.role != "super_admin") or payload.is_active is False
+    if demoting_or_disabling and target.role == "super_admin" and target.is_active:
+        other_active = await db.execute(
+            select(func.count()).select_from(AdminUser).where(
+                AdminUser.role == "super_admin",
+                AdminUser.is_active.is_(True),
+                AdminUser.id != target.id,
+            )
+        )
+        if other_active.scalar_one() == 0:
+            raise HTTPException(status_code=400, detail="Cannot demote or disable the last active super_admin")
+
     changes: dict = {}
     if payload.role is not None:
         if payload.role not in _VALID_ADMIN_ROLES:

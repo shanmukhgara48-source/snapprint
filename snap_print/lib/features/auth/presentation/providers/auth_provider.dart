@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../../core/firebase/fcm_service.dart';
 import '../../../../core/firebase/firebase_auth_service.dart';
 import '../../../../core/firebase/firestore_service.dart';
 import '../../../../core/network/api_client.dart';
@@ -63,24 +64,44 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
   }
 
   /// Syncs the Firebase-authenticated user into the PostgreSQL backend.
-  /// Sends the Firebase ID token so the server can verify ownership of the UID.
-  Future<void> _syncBackend(User firebaseUser, {String role = 'customer'}) async {
+  /// Sends the Firebase ID token once so the server can verify ownership of
+  /// the UID (via firebase_admin.auth.verify_id_token) and exchanges it for
+  /// our own application access token, along with the current FCM token so
+  /// order-status push notifications (see backend notify_order_placed/
+  /// notify_delivered etc.) have somewhere to go. The app access token —
+  /// not the raw Firebase token — is what every later API call uses
+  /// (see ApiClient's _AuthInterceptor); it's re-minted here on every
+  /// sign-in, auto-verify, and cold-start restore, so no separate refresh
+  /// flow is needed for its ~7-day lifetime.
+  Future<void> _syncBackend(User firebaseUser, {String role = 'customer', String? fcmToken}) async {
     try {
       final idToken = await firebaseUser.getIdToken();
       if (idToken == null) {
         dev.log('[PhoneAuth] backend sync skipped — no id token', name: 'SnapPrint');
         return;
       }
+      final token = fcmToken ?? await ref.read(fcmServiceProvider).getToken();
       final client = ref.read(apiClientProvider);
-      await client.post(ApiEndpoints.verifyAuth, data: {
+      final response = await client.post(ApiEndpoints.verifyAuth, data: {
         'id_token': idToken,
         'phone': firebaseUser.phoneNumber ?? '',
         'role': role,
+        'fcm_token': ?token,
       });
+      final accessToken = (response.data as Map<String, dynamic>)['access_token'] as String?;
+      if (accessToken != null) setAppAuthToken(accessToken);
       dev.log('[PhoneAuth] backend sync success uid=${firebaseUser.uid}', name: 'SnapPrint');
     } catch (e) {
       dev.log('[PhoneAuth] backend sync failed (non-fatal): $e', name: 'SnapPrint');
     }
+  }
+
+  /// Called by FcmService whenever the device's FCM token is issued or
+  /// rotates, so a logged-in user's backend record stays current without
+  /// waiting for their next login.
+  Future<void> syncFcmToken(String token) async {
+    final firebaseUser = ref.read(firebaseAuthServiceProvider).currentUser;
+    if (firebaseUser != null) await _syncBackend(firebaseUser, fcmToken: token);
   }
 
   /// Initiates SMS OTP. Returns the verificationId when the SMS is sent,
@@ -231,6 +252,7 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
 
   Future<void> signOut() async {
     setDevAuthToken(null);
+    setAppAuthToken(null);
     await ref.read(firebaseAuthServiceProvider).signOut();
     await _storage.deleteAll();
     state = const AsyncData(null);

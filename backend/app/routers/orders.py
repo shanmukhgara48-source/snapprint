@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
@@ -14,7 +15,7 @@ from ..schemas.order import OrderCreate, OrderOut
 from ..schemas.product import ProductOut
 from ..services.event_bus import emit_event
 from ..services.firebase_service import notify_order_placed
-from ..services.payment_service import verify_razorpay_signature
+from ..services.payment_service import get_paid_amount_paise, verify_razorpay_signature
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -72,6 +73,14 @@ async def place_order(
     )
     setting = setting_result.scalar_one_or_none()
     delivery_charge = setting.price if setting else 0
+    # Estimate from the admin-set label (e.g. "1-2 business days" -> 2 days)
+    # rather than a flat number, so an express order isn't quoted the same
+    # ETA as a free one. Falls back to 5 days if the label has no digits.
+    estimated_days = 5
+    if setting and setting.days_label:
+        day_numbers = [int(n) for n in re.findall(r"\d+", setting.days_label)]
+        if day_numbers:
+            estimated_days = max(day_numbers)
 
     # Verify item prices server-side — never trust client-supplied prices.
     # Row-locked so concurrent orders can't oversell tracked stock.
@@ -144,6 +153,18 @@ async def place_order(
 
     total = max(0.0, items_total + delivery_charge - discount)
 
+    # A valid HMAC signature only proves the payment/order pair is authentic —
+    # it says nothing about the amount. Without this, a customer could pay a
+    # trivial amount for a cheap Razorpay order and reuse that valid signature
+    # to place a full-price order for unrelated cart items.
+    if payload.razorpay_order_id:
+        paid_paise = get_paid_amount_paise(payload.razorpay_order_id)
+        if paid_paise != round(total * 100):
+            raise HTTPException(
+                status_code=400,
+                detail="Paid amount does not match order total",
+            )
+
     # Create order
     order = Order(
         user_id=user.id,
@@ -155,7 +176,7 @@ async def place_order(
         coupon_code=payload.coupon_code,
         razorpay_payment_id=payload.razorpay_payment_id,
         status="confirmed",
-        estimated_delivery=datetime.now(timezone.utc) + timedelta(days=5),
+        estimated_delivery=datetime.now(timezone.utc) + timedelta(days=estimated_days),
     )
     db.add(order)
     await db.flush()

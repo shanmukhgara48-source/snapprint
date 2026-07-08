@@ -23,7 +23,9 @@ async def list_products(
 ) -> ProductListResponse:
     q = select(Product).where(Product.is_active.is_(True))
     if category:
-        q = q.where(Product.category == category)
+        # Case/whitespace-insensitive: admin product entry is free text and can
+        # drift from the Category.name casing used to build this query param.
+        q = q.where(func.lower(Product.category) == category.strip().lower())
     if category_id:
         q = q.where(Product.category_id == category_id)
     if featured is not None:
