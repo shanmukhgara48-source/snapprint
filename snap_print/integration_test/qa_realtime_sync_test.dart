@@ -96,9 +96,25 @@ Future<void> _scrollCarouselUntilVisible(
   Finder itemFinder, {
   int maxTries = 8,
 }) async {
-  final section = find
-      .ancestor(of: find.text(sectionTitle), matching: find.byType(Column))
-      .first;
+  // The section header itself can be scrolled out of the page's own lazy
+  // ListView by earlier steps (search, visibility toggle, etc.) — bring it
+  // back into view first. Without this, find.text(sectionTitle) resolves to
+  // zero widgets and the `.first` below throws Bad state: No element instead
+  // of the ordinary empty-finder result the rest of this file expects.
+  final sectionHeader = find.text(sectionTitle);
+  final page = find.byType(Scrollable).first;
+  for (var i = 0; i < maxTries && sectionHeader.evaluate().isEmpty; i++) {
+    await tester.drag(page, const Offset(0, 300), warnIfMissed: false);
+    await _pumpFor(tester, const Duration(milliseconds: 400));
+  }
+  for (var i = 0; i < maxTries && sectionHeader.evaluate().isEmpty; i++) {
+    await tester.drag(page, const Offset(0, -300), warnIfMissed: false);
+    await _pumpFor(tester, const Duration(milliseconds: 400));
+  }
+  if (sectionHeader.evaluate().isEmpty) return;
+
+  final section =
+      find.ancestor(of: sectionHeader, matching: find.byType(Column)).first;
   final scrollable =
       find.descendant(of: section, matching: find.byType(Scrollable)).first;
   for (var i = 0; i < maxTries; i++) {
