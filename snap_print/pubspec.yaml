@@ -11,8 +11,8 @@ dependencies:
     sdk: flutter
 
   # State Management
-  flutter_riverpod: ^2.6.1
-  riverpod_annotation: ^2.6.1
+  flutter_riverpod: ^3.3.2
+  riverpod_annotation: ^4.0.3
 
   # Navigation
   go_router: ^14.6.3
@@ -63,8 +63,8 @@ dependencies:
   google_sign_in: ^6.2.2
 
   # Serialization
-  freezed_annotation: ^2.4.4
-  json_annotation: ^4.9.0
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.12.0
   cloud_firestore: ^5.6.12
 
 
@@ -74,10 +74,10 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  build_runner: ^2.4.14
-  riverpod_generator: ^2.6.1
-  freezed: ^2.5.8
-  json_serializable: ^6.9.5
+  build_runner: ^2.15.1
+  riverpod_generator: ^4.0.4
+  freezed: ^3.2.6-dev.1
+  json_serializable: ^6.14.0
 
 flutter:
   uses-material-design: true
