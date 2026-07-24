@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -5,8 +6,22 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/snapprint"
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_asyncpg_driver(cls, v: str) -> str:
+        # Railway (and most managed Postgres providers) hand out postgres:// or
+        # postgresql:// — SQLAlchemy's async engine needs the +asyncpg driver suffix.
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        if v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
     secret_key: str = ""  # MUST be set via env — app raises on startup if empty
     firebase_credentials_path: str = "./snap-print-7146d-firebase-adminsdk-fbsvc-fa3893d412.json"
+    # Set on Railway/cloud hosts where the JSON file can't be committed: paste the
+    # full service-account JSON contents in as this env var instead of a file path.
+    firebase_credentials_json: str = ""
     firebase_storage_bucket: str = ""
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
