@@ -64,9 +64,12 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
     final ordersAsync = ref.watch(myOrdersProvider);
 
     final userName =
-        authState.valueOrNull?.displayName ?? authState.valueOrNull?.phone ?? '';
-    final firstName =
-        userName.isNotEmpty ? userName.trim().split(' ').first : 'there';
+        authState.valueOrNull?.displayName ??
+        authState.valueOrNull?.phone ??
+        '';
+    final firstName = userName.isNotEmpty
+        ? userName.trim().split(' ').first
+        : 'there';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -136,17 +139,24 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                 decoration: InputDecoration(
                   hintText: 'Search prints, books, gifts…',
                   hintStyle: const TextStyle(
-                      fontSize: 14, color: AppColors.textHint),
-                  prefixIcon:
-                      const Icon(Icons.search, color: AppColors.textHint),
+                    fontSize: 14,
+                    color: AppColors.textHint,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: AppColors.textHint,
+                  ),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? GestureDetector(
                           onTap: () {
                             _searchController.clear();
                             setState(() => _searchQuery = '');
                           },
-                          child: const Icon(Icons.close,
-                              color: AppColors.textHint, size: 18),
+                          child: const Icon(
+                            Icons.close,
+                            color: AppColors.textHint,
+                            size: 18,
+                          ),
                         )
                       : null,
                   filled: true,
@@ -158,13 +168,17 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        const BorderSide(color: AppColors.divider, width: 1),
+                    borderSide: const BorderSide(
+                      color: AppColors.divider,
+                      width: 1,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        const BorderSide(color: AppColors.primary, width: 1.5),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.5,
+                    ),
                   ),
                 ),
               ),
@@ -184,10 +198,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
               const SizedBox(height: 12),
 
               // Categories section
-              _SectionHeader(
-                title: AppStrings.categories,
-                onTap: null,
-              ),
+              _SectionHeader(title: AppStrings.categories, onTap: null),
               const SizedBox(height: 12),
               const CategoryGrid(),
               const SizedBox(height: 28),
@@ -214,35 +225,50 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
               ordersAsync.when(
                 loading: () => const Padding(
                   padding: EdgeInsets.all(16),
-                  child:
-                      Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                  child: Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
                 ),
-                error: (e, s) => const SizedBox.shrink(),
+                error: (e, s) => _InlineRetryCard(
+                  message: 'Failed to load recent orders',
+                  onRetry: () => ref.invalidate(myOrdersProvider),
+                ),
                 data: (orders) {
                   if (orders.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 28),
+                          horizontal: 20,
+                          vertical: 28,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.surface,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                              color: AppColors.divider, width: 1),
+                            color: AppColors.divider,
+                            width: 1,
+                          ),
                         ),
                         child: Column(
                           children: [
-                            Icon(Icons.receipt_long_outlined,
-                                size: 44, color: AppColors.textHint),
+                            Icon(
+                              Icons.receipt_long_outlined,
+                              size: 44,
+                              color: AppColors.textHint,
+                            ),
                             const SizedBox(height: 8),
-                            Text(AppStrings.noOrders,
-                                style: Theme.of(context).textTheme.bodyMedium),
+                            Text(
+                              AppStrings.noOrders,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
                             const SizedBox(height: 4),
                             Text(
                               'Your orders will appear here',
                               style: TextStyle(
-                                  fontSize: 12, color: AppColors.textHint),
+                                fontSize: 12,
+                                color: AppColors.textHint,
+                              ),
                             ),
                           ],
                         ),
@@ -262,11 +288,15 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                           side: const BorderSide(
-                              color: AppColors.divider, width: 1),
+                            color: AppColors.divider,
+                            width: 1,
+                          ),
                         ),
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           leading: Container(
                             width: 44,
                             height: 44,
@@ -274,13 +304,17 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                               color: AppColors.accentLight,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.receipt_outlined,
-                                color: AppColors.primary),
+                            child: const Icon(
+                              Icons.receipt_outlined,
+                              color: AppColors.primary,
+                            ),
                           ),
                           title: Text(
                             'Order #${order.id.length >= 8 ? order.id.substring(0, 8).toUpperCase() : order.id.toUpperCase()}',
                             style: const TextStyle(
-                                fontWeight: FontWeight.w600, fontSize: 14),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
                           ),
                           subtitle: Text(
                             '${order.itemCount} item${order.itemCount != 1 ? 's' : ''} · ₹${order.totalPrice.toStringAsFixed(0)}',
@@ -288,7 +322,8 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                           ),
                           trailing: OrderStatusChip(status: order.status),
                           onTap: () => context.push(
-                              AppRoutes.orderConfirmationPath(order.id)),
+                            AppRoutes.orderConfirmationPath(order.id),
+                          ),
                         ),
                       );
                     },
@@ -304,12 +339,43 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
   }
 }
 
+class _InlineRetryCard extends StatelessWidget {
+  const _InlineRetryCard({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.divider, width: 1),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline, color: AppColors.error, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.title,
-    this.onTap,
-    this.actionLabel,
-  });
+  const _SectionHeader({required this.title, this.onTap, this.actionLabel});
   final String title;
   final VoidCallback? onTap;
   final String? actionLabel;
@@ -324,9 +390,9 @@ class _SectionHeader extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+            ),
           ),
           if (onTap != null && actionLabel != null)
             GestureDetector(
@@ -399,7 +465,9 @@ class _SearchResults extends ConsumerWidget {
     return resultsAsync.when(
       loading: () => const Padding(
         padding: EdgeInsets.all(32),
-        child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
       ),
       error: (e, s) => const SizedBox.shrink(),
       data: (products) {
@@ -411,8 +479,10 @@ class _SearchResults extends ConsumerWidget {
                 children: [
                   Icon(Icons.search_off, size: 48, color: AppColors.textHint),
                   const SizedBox(height: 12),
-                  Text('No results for "$query"',
-                      style: Theme.of(context).textTheme.bodyMedium),
+                  Text(
+                    'No results for "$query"',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                 ],
               ),
             ),
@@ -426,9 +496,10 @@ class _SearchResults extends ConsumerWidget {
               Text(
                 '${products.length} result${products.length != 1 ? 's' : ''}',
                 style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500),
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 12),
               GridView.builder(
@@ -441,8 +512,7 @@ class _SearchResults extends ConsumerWidget {
                   childAspectRatio: 0.82,
                 ),
                 itemCount: products.length,
-                itemBuilder: (context, i) =>
-                    ProductCard(product: products[i]),
+                itemBuilder: (context, i) => ProductCard(product: products[i]),
               ),
             ],
           ),
@@ -477,17 +547,25 @@ class _OffersStrip extends ConsumerWidget {
                   ? '${offer.value.toStringAsFixed(0)}% OFF'
                   : '₹${offer.value.toStringAsFixed(0)} OFF';
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.accentLight,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.local_offer_rounded,
-                        size: 14, color: AppColors.primary),
+                    const Icon(
+                      Icons.local_offer_rounded,
+                      size: 14,
+                      color: AppColors.primary,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       '${offer.code} · $discount',

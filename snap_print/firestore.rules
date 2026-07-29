@@ -31,7 +31,7 @@ service cloud.firestore {
             'phone', 'role', 'isActive', 'displayName',
             'phoneVerified', 'createdAt', 'updatedAt', 'fcmToken'
           ])
-        && request.resource.data.role in ['customer', 'delivery'];
+        && request.resource.data.role == 'customer';
       allow update: if isOwner(uid)
         && !request.resource.data.diff(resource.data).affectedKeys()
             .hasAny(['role', 'isActive', 'phoneVerified'])
@@ -83,6 +83,15 @@ service cloud.firestore {
         || (isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.userId == request.auth.uid)
         || (isDelivery() && get(/databases/$(database)/documents/orders/$(orderId)).data.deliveryPartnerId == request.auth.uid);
       allow write: if isAdmin() || isDelivery();
+    }
+
+    // ── AI-edited photos ─────────────────────────────────────────────────────
+    match /ai_edited_photos/{photoId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if false;  // saved edits are immutable
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     // ── Default deny ─────────────────────────────────────────────────────────

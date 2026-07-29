@@ -74,8 +74,10 @@ class ProductCard extends StatelessWidget {
                 top: 8,
                 right: 8,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary,
                     borderRadius: BorderRadius.circular(8),
@@ -88,7 +90,7 @@ class ProductCard extends StatelessWidget {
                     ],
                   ),
                   child: Text(
-                    '₹${product.basePrice.toStringAsFixed(0)}',
+                    product.priceLabel,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,

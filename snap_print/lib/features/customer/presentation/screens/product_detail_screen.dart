@@ -22,18 +22,22 @@ class ProductDetailScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text(AppStrings.productDetails)),
       body: productAsync.when(
         loading: () => const Center(
-            child: CircularProgressIndicator(color: AppColors.primary)),
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
         error: (e, s) => Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.error_outline, size: 48, color: AppColors.error),
               const SizedBox(height: 12),
-              Text('Failed to load product',
-                  style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                'Failed to load product',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               const SizedBox(height: 12),
               TextButton(
-                onPressed: () => ref.invalidate(productDetailProvider(productId)),
+                onPressed: () =>
+                    ref.invalidate(productDetailProvider(productId)),
                 child: const Text('Retry'),
               ),
             ],
@@ -57,11 +61,10 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
   int? _selectedSizeIndex;
 
   double get _selectedPrice {
-    if (_selectedSizeIndex != null &&
-        widget.product.sizes.isNotEmpty) {
+    if (_selectedSizeIndex != null && widget.product.sizes.isNotEmpty) {
       return widget.product.sizes[_selectedSizeIndex!].price;
     }
-    return widget.product.basePrice;
+    return widget.product.effectivePrice;
   }
 
   @override
@@ -90,7 +93,8 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                               color: AppColors.accentLight,
                               child: const Center(
                                 child: CircularProgressIndicator(
-                                    color: AppColors.primary),
+                                  color: AppColors.primary,
+                                ),
                               ),
                             ),
                             errorWidget: (ctx, url, err) =>
@@ -108,7 +112,9 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                       // Category badge
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.accentLight,
                           borderRadius: BorderRadius.circular(20),
@@ -125,13 +131,17 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                       const SizedBox(height: 10),
 
                       // Name
-                      Text(product.name,
-                          style: Theme.of(context).textTheme.headlineMedium),
+                      Text(
+                        product.name,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
                       const SizedBox(height: 8),
 
                       // Price
                       Text(
-                        'Starting from ₹${product.basePrice.toStringAsFixed(0)}',
+                        product.hasKnownPrice
+                            ? 'Starting from ${product.priceLabel}'
+                            : product.priceLabel,
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
@@ -143,56 +153,59 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                       if (product.description != null &&
                           product.description!.isNotEmpty) ...[
                         const SizedBox(height: 16),
-                        Text(product.description!,
-                            style: Theme.of(context).textTheme.bodyMedium),
+                        Text(
+                          product.description!,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
                       ],
 
                       // Sizes
                       if (product.sizes.isNotEmpty) ...[
                         const SizedBox(height: 20),
-                        Text(AppStrings.selectSize,
-                            style: Theme.of(context).textTheme.titleMedium),
+                        Text(
+                          AppStrings.selectSize,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         const SizedBox(height: 10),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: List.generate(
-                            product.sizes.length,
-                            (i) {
-                              final size = product.sizes[i];
-                              final isSelected = _selectedSizeIndex == i;
-                              return GestureDetector(
-                                onTap: () =>
-                                    setState(() => _selectedSizeIndex = i),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 150),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 8),
-                                  decoration: BoxDecoration(
+                          children: List.generate(product.sizes.length, (i) {
+                            final size = product.sizes[i];
+                            final isSelected = _selectedSizeIndex == i;
+                            return GestureDetector(
+                              onTap: () =>
+                                  setState(() => _selectedSizeIndex = i),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : AppColors.accentLight,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
                                     color: isSelected
                                         ? AppColors.primary
-                                        : AppColors.accentLight,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? AppColors.primary
-                                          : Colors.transparent,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    '${size.label}  ₹${size.price.toStringAsFixed(0)}',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: isSelected
-                                          ? Colors.white
-                                          : AppColors.textPrimary,
-                                    ),
+                                        : Colors.transparent,
                                   ),
                                 ),
-                              );
-                            },
-                          ),
+                                child: Text(
+                                  '${size.label}  ₹${size.price.toStringAsFixed(0)}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
                         ),
                       ],
 
@@ -230,19 +243,24 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
         // CTA
         SafeArea(
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Row(
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Total',
-                          style: TextStyle(
-                              fontSize: 12, color: AppColors.textSecondary)),
+                      const Text(
+                        'Total',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       Text(
-                        '₹${_selectedPrice.toStringAsFixed(0)}',
+                        product.hasKnownPrice
+                            ? '₹${_selectedPrice.toStringAsFixed(0)}'
+                            : product.priceLabel,
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
@@ -255,19 +273,24 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                 Expanded(
                   flex: 2,
                   child: CustomButton(
-                    label: AppStrings.customize,
+                    label: product.hasKnownPrice
+                        ? AppStrings.customize
+                        : 'Price unavailable',
                     icon: Icons.edit_rounded,
-                    onPressed: () => context.push(
-                      AppRoutes.customize,
-                      extra: {
-                        'productId': product.id,
-                        'productName': product.name,
-                        'preselectedSize': _selectedSizeIndex != null &&
-                                product.sizes.isNotEmpty
-                            ? product.sizes[_selectedSizeIndex!].label
-                            : null,
-                      },
-                    ),
+                    onPressed: product.hasKnownPrice
+                        ? () => context.push(
+                            AppRoutes.customize,
+                            extra: {
+                              'productId': product.id,
+                              'productName': product.name,
+                              'preselectedSize':
+                                  _selectedSizeIndex != null &&
+                                      product.sizes.isNotEmpty
+                                  ? product.sizes[_selectedSizeIndex!].label
+                                  : null,
+                            },
+                          )
+                        : null,
                   ),
                 ),
               ],
@@ -280,8 +303,11 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow(
-      {required this.icon, required this.label, required this.value});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
   final IconData icon;
   final String label;
   final String value;
@@ -299,8 +325,9 @@ class _InfoRow extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium,
               children: [
                 TextSpan(
-                    text: '$label: ',
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                  text: '$label: ',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
                 TextSpan(text: value),
               ],
             ),
@@ -356,7 +383,11 @@ class _PlaceholderImage extends StatelessWidget {
         ),
       ),
       child: Center(
-        child: Icon(_icon, size: 80, color: Colors.white.withValues(alpha: 0.35)),
+        child: Icon(
+          _icon,
+          size: 80,
+          color: Colors.white.withValues(alpha: 0.35),
+        ),
       ),
     );
   }

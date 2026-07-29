@@ -13,9 +13,16 @@ class ProductEntity {
     required this.basePrice,
     required this.sizes,
     required this.images,
+    this.startingPrice,
     this.description,
     this.material,
     this.deliveryInfo,
+    this.minConfig,
+    this.quantity,
+    this.sizeDetails,
+    this.sourceUrl,
+    this.priceSource,
+    this.confidenceScore,
     this.sortOrder = 0,
     this.stockQuantity = 0,
     this.isFeatured = false,
@@ -29,9 +36,16 @@ class ProductEntity {
   final double basePrice;
   final List<ProductSize> sizes;
   final List<String> images;
+  final int? startingPrice;
   final String? description;
   final String? material;
   final String? deliveryInfo;
+  final String? minConfig;
+  final String? quantity;
+  final String? sizeDetails;
+  final String? sourceUrl;
+  final String? priceSource;
+  final String? confidenceScore;
   final int sortOrder;
   final int stockQuantity;
   final bool isFeatured;
@@ -42,4 +56,15 @@ class ProductEntity {
 
   // Primary/cover image — most call sites only need one image.
   String get imageUrl => images.isNotEmpty ? images.first : '';
+
+  /// The price to show and charge. Some API rows carry only `starting_price`
+  /// and leave `base_price` at 0 — falling back keeps those from displaying ₹0.
+  double get effectivePrice =>
+      basePrice > 0 ? basePrice : (startingPrice?.toDouble() ?? 0);
+
+  bool get hasKnownPrice => effectivePrice > 0;
+
+  String get priceLabel => hasKnownPrice
+      ? '₹${effectivePrice.toStringAsFixed(0)}'
+      : 'Price unavailable';
 }

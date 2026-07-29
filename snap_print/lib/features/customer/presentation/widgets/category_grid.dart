@@ -33,7 +33,12 @@ class CategoryGrid extends ConsumerWidget {
         padding: EdgeInsets.all(24),
         child: Center(child: CircularProgressIndicator()),
       ),
-      error: (e, s) => const SizedBox.shrink(),
+      error: (e, s) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: _CategoryErrorCard(
+          onRetry: () => ref.invalidate(categoriesProvider),
+        ),
+      ),
       data: (categories) {
         if (categories.isEmpty) return const SizedBox.shrink();
         return GridView.builder(
@@ -64,6 +69,32 @@ class CategoryGrid extends ConsumerWidget {
   }
 }
 
+class _CategoryErrorCard extends StatelessWidget {
+  const _CategoryErrorCard({required this.onRetry});
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, size: 22),
+          const SizedBox(width: 10),
+          const Expanded(child: Text('Failed to load categories')),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+}
+
 class _CategoryCard extends StatelessWidget {
   const _CategoryCard({
     required this.category,
@@ -80,7 +111,7 @@ class _CategoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.push(AppRoutes.productListPath(category.name)),
+      onTap: () => context.push(AppRoutes.productListPath(category.id)),
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

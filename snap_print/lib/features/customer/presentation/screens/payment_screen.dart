@@ -87,12 +87,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       return;
     }
     setState(() => _isProcessing = true);
+    final paymentId = response.paymentId!;
+    final orderId = response.orderId ?? widget.razorpayOrderId;
+    final signature = response.signature!;
+    // Tracks whether our backend has confirmed the charge is real (Step 1
+    // succeeded) before we attempt order creation (Step 2). If Step 2 throws
+    // after this flips true, the customer has been charged but has no order —
+    // that case needs a distinct message, not the generic checkout error.
+    var paymentConfirmed = false;
     try {
       final ds = ref.read(customerDataSourceProvider);
       final cart = ref.read(cartProvider);
-      final paymentId = response.paymentId!;
-      final orderId = response.orderId ?? widget.razorpayOrderId;
-      final signature = response.signature!;
 
       // Step 1: Verify Razorpay signature
       await ds.verifyPayment({
@@ -100,6 +105,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'razorpay_order_id': orderId,
         'razorpay_signature': signature,
       });
+      paymentConfirmed = true;
 
       // Step 2: Create the actual order in our database
       final order = await ds.placeOrder({
@@ -128,8 +134,38 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       }
     } catch (e) {
       setState(() => _isProcessing = false);
-      if (mounted) showErrorSnackbar(context, AppStrings.serverError);
+      if (!mounted) return;
+      if (paymentConfirmed) {
+        _showOrphanedPaymentDialog(paymentId);
+      } else {
+        showErrorSnackbar(context, AppStrings.serverError);
+      }
     }
+  }
+
+  // Shown only when Razorpay charged the customer and our backend confirmed
+  // the signature, but order creation itself failed (e.g. dropped
+  // connection). Cart is deliberately left untouched by the caller so the
+  // order data isn't lost — the customer can quote paymentId to support.
+  void _showOrphanedPaymentDialog(String paymentId) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text('Payment received, order not created'),
+        content: Text(
+          'Your payment went through, but we couldn\'t create your order due to '
+          'a connection issue. Please contact support at privacy@snapprint.in '
+          'with this payment ID so we can create your order manually:\n\n$paymentId',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _handleError(PaymentFailureResponse response) {

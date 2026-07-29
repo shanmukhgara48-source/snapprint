@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
 
+    # Gemini (server-side only — never shipped to the client)
+    gemini_api_key: str = ""
+
     # Dev-only bypass (empty = disabled; set in .env for local QA only)
     dev_bypass_secret: str = ""
 

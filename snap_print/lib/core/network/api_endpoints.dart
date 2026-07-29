@@ -47,6 +47,10 @@ class ApiEndpoints {
   static const String deliveryAssigned = '/delivery/assigned';
   static String deliveryUpdateStatus(String orderId) => '/delivery/$orderId/status';
 
+  // AI photo editing (Gemini key lives server-side)
+  static const String aiStatus = '/ai/status';
+  static const String aiEditImage = '/ai/edit-image';
+
   // Delivery Options (public)
   static const String deliveryOptions = '/delivery-options';
 

@@ -20,7 +20,13 @@ class CustomerRemoteDataSource {
     int limit = 20,
   }) async {
     final params = <String, dynamic>{'page': page, 'limit': limit};
-    if (category != null) params['category'] = category;
+    if (category != null) {
+      if (_isCategoryId(category)) {
+        params['category_id'] = category;
+      } else {
+        params['category'] = category;
+      }
+    }
     if (featured != null) params['featured'] = featured;
     if (trending != null) params['trending'] = trending;
     final response = await _client.get(
@@ -32,6 +38,15 @@ class CustomerRemoteDataSource {
         .map((e) => ProductModel.fromJson(e as Map<String, dynamic>))
         .toList();
   }
+
+  // Category names legitimately contain underscores (e.g. "digital_frames"),
+  // so only a full UUID match may be sent as category_id.
+  static final _uuidPattern = RegExp(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+    caseSensitive: false,
+  );
+
+  bool _isCategoryId(String value) => _uuidPattern.hasMatch(value);
 
   Future<ProductModel> getProductById(String id) async {
     final response = await _client.get(ApiEndpoints.productDetail(id));
@@ -63,14 +78,19 @@ class CustomerRemoteDataSource {
   }
 
   Future<Map<String, dynamic>> calculateCart(
-      List<Map<String, dynamic>> items) async {
-    final response =
-        await _client.post(ApiEndpoints.cartCalculate, data: {'items': items});
+    List<Map<String, dynamic>> items,
+  ) async {
+    final response = await _client.post(
+      ApiEndpoints.cartCalculate,
+      data: {'items': items},
+    );
     return response.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> validateCoupon(
-      String code, double subtotal) async {
+    String code,
+    double subtotal,
+  ) async {
     final response = await _client.post(
       ApiEndpoints.couponValidate,
       data: {'code': code, 'subtotal': subtotal},
@@ -92,9 +112,13 @@ class CustomerRemoteDataSource {
   }
 
   Future<AddressModel> updateAddress(
-      String id, Map<String, dynamic> data) async {
-    final response =
-        await _client.put(ApiEndpoints.addressDetail(id), data: data);
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _client.put(
+      ApiEndpoints.addressDetail(id),
+      data: data,
+    );
     return AddressModel.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -112,10 +136,11 @@ class CustomerRemoteDataSource {
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> verifyPayment(
-      Map<String, dynamic> data) async {
-    final response =
-        await _client.post(ApiEndpoints.razorpayVerify, data: data);
+  Future<Map<String, dynamic>> verifyPayment(Map<String, dynamic> data) async {
+    final response = await _client.post(
+      ApiEndpoints.razorpayVerify,
+      data: data,
+    );
     return response.data as Map<String, dynamic>;
   }
 

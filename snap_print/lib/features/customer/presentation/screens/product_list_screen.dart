@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/product_images.dart';
+import '../providers/catalog_provider.dart';
 import '../providers/products_provider.dart';
 import '../widgets/product_card.dart';
 
@@ -58,7 +59,7 @@ _CategoryMeta _meta(String category) {
       );
     default:
       return _CategoryMeta(
-        title: category,
+        title: _prettify(category),
         description: '',
         icon: Icons.image_outlined,
         color: AppColors.primary,
@@ -67,6 +68,12 @@ _CategoryMeta _meta(String category) {
   }
 }
 
+String _prettify(String slug) => slug
+    .split('_')
+    .where((w) => w.isNotEmpty)
+    .map((w) => '${w[0].toUpperCase()}${w.substring(1)}')
+    .join(' ');
+
 class ProductListScreen extends ConsumerWidget {
   const ProductListScreen({super.key, required this.category});
   final String category;
@@ -74,8 +81,19 @@ class ProductListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productsAsync = ref.watch(productsProvider(category));
-    final meta = _meta(category);
-    final bannerUrl = kCategoryBannerImages[category] ?? '';
+    // `category` is a category id when navigated from the home grid; the
+    // presentation metadata below is keyed by the category's slug name.
+    final slug = ref.watch(categoriesProvider).maybeWhen(
+          data: (cats) =>
+              cats
+                  .where((c) => c.id == category)
+                  .map((c) => c.name)
+                  .firstOrNull ??
+              category,
+          orElse: () => category,
+        );
+    final meta = _meta(slug);
+    final bannerUrl = kCategoryBannerImages[slug] ?? '';
 
     return Scaffold(
       body: productsAsync.when(
