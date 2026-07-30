@@ -6,6 +6,7 @@ import '../../../../core/constants/app_strings.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../providers/orders_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -14,90 +15,121 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).valueOrNull;
     final isGuest = user == null || user.id == 'guest';
+    final ordersAsync = isGuest ? null : ref.watch(myOrdersProvider);
+    final orders = ordersAsync?.valueOrNull;
+    final printsCount = orders?.fold<int>(0, (sum, o) => sum + o.itemCount);
+    final deliveredCount = orders?.where((o) => o.status == 'delivered').length;
 
     if (isGuest) {
       return Scaffold(
+        backgroundColor: AppColors.background,
         appBar: AppBar(title: const Text(AppStrings.profile)),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: const BoxDecoration(
-                  color: AppColors.accentLight,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.person_rounded,
-                    size: 44, color: AppColors.primary),
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.all(28),
+              decoration: _profileCardDecoration(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const _ProfileAvatar(size: 82),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Not signed in',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Sign in to access your profile and orders',
+                    style: TextStyle(color: AppColors.textSecondary),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => context.go(AppRoutes.login),
+                    child: const Text('Sign In'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              const Text('Not signed in',
-                  style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              const Text('Sign in to access your profile and orders',
-                  style: TextStyle(color: AppColors.textSecondary),
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => context.go(AppRoutes.login),
-                child: const Text('Sign In'),
-              ),
-            ],
+            ),
           ),
         ),
       );
     }
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text(AppStrings.profile)),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 112),
         children: [
-          // Profile header
-          Center(
+          Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.14),
+                  blurRadius: 26,
+                  offset: const Offset(0, 16),
+                ),
+              ],
+            ),
             child: Column(
               children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: const BoxDecoration(
-                    color: AppColors.accentLight,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.person_rounded,
-                      size: 44, color: AppColors.primary),
-                ),
-                const SizedBox(height: 12),
+                const _ProfileAvatar(size: 84, dark: true),
+                const SizedBox(height: 14),
                 Text(
                   user.displayName ?? user.phone,
-                  style: Theme.of(context).textTheme.headlineSmall,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineSmall?.copyWith(color: Colors.white),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 4),
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
-                    color: AppColors.accentLight,
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppColors.accent,
+                    borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     user.role.toUpperCase(),
                     style: const TextStyle(
                       fontSize: 11,
                       color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    _ProfileStat(
+                      value: printsCount?.toString() ?? '—',
+                      label: 'Prints',
+                    ),
+                    const SizedBox(width: 10),
+                    _ProfileStat(
+                      value: orders?.length.toString() ?? '—',
+                      label: 'Orders',
+                    ),
+                    const SizedBox(width: 10),
+                    _ProfileStat(
+                      value: deliveredCount?.toString() ?? '—',
+                      label: 'Delivered',
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 32),
-
-          // Menu items
+          const SizedBox(height: 24),
           _MenuItem(
             icon: Icons.location_on_outlined,
             label: 'My Addresses',
@@ -109,25 +141,31 @@ class ProfileScreen extends ConsumerWidget {
             onTap: () => context.push(AppRoutes.orderHistory),
           ),
           _MenuItem(
+            icon: Icons.favorite_border_rounded,
+            label: 'Wishlist',
+            onTap: () => ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Coming soon!'))),
+          ),
+          _MenuItem(
             icon: Icons.local_offer_outlined,
             label: 'My Coupons',
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Coming soon!')),
-            ),
+            onTap: () => ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Coming soon!'))),
           ),
           _MenuItem(
             icon: Icons.help_outline_rounded,
             label: 'Help & Support',
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Coming soon!')),
-            ),
+            onTap: () => ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Coming soon!'))),
           ),
           _MenuItem(
             icon: Icons.privacy_tip_outlined,
             label: 'Privacy Policy',
             onTap: () => context.push(AppRoutes.privacyPolicy),
           ),
-          const Divider(),
           const SizedBox(height: 8),
           _MenuItem(
             icon: Icons.logout_rounded,
@@ -177,8 +215,10 @@ class ProfileScreen extends ConsumerWidget {
                 }
               }
             },
-            child: const Text('Delete My Account',
-                style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Delete My Account',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -197,8 +237,7 @@ class ProfileScreen extends ConsumerWidget {
             child: const Text(AppStrings.cancel),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
             onPressed: () async {
               Navigator.pop(context);
               await ref.read(authProvider.notifier).signOut();
@@ -206,6 +245,75 @@ class ProfileScreen extends ConsumerWidget {
             child: const Text(AppStrings.confirm),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({required this.size, this.dark = false});
+  final double size;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: dark ? Colors.white.withValues(alpha: 0.12) : AppColors.beige,
+        borderRadius: BorderRadius.circular(size / 2.8),
+        border: Border.all(
+          color: dark
+              ? Colors.white.withValues(alpha: 0.20)
+              : AppColors.divider,
+        ),
+      ),
+      child: Icon(
+        Icons.person_rounded,
+        size: size * 0.52,
+        color: dark ? AppColors.accent : AppColors.primary,
+      ),
+    );
+  }
+}
+
+class _ProfileStat extends StatelessWidget {
+  const _ProfileStat({required this.value, required this.label});
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                color: AppColors.accent,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.72),
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -227,21 +335,48 @@ class _MenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: _profileCardDecoration(radius: 22),
       child: ListTile(
-        leading: Icon(icon, color: iconColor ?? AppColors.primary),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: (iconColor ?? AppColors.accent).withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Icon(icon, color: iconColor ?? AppColors.accent, size: 20),
+        ),
         title: Text(
           label,
           style: TextStyle(
             color: textColor ?? AppColors.textPrimary,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        trailing:
-            const Icon(Icons.chevron_right, color: AppColors.textHint),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: AppColors.textHint,
+        ),
         onTap: onTap,
       ),
     );
   }
+}
+
+BoxDecoration _profileCardDecoration({double radius = 28}) {
+  return BoxDecoration(
+    color: AppColors.surface,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: AppColors.divider),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.045),
+        blurRadius: 22,
+        offset: const Offset(0, 12),
+      ),
+    ],
+  );
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/widgets/premium_network_image.dart';
 import '../../domain/entities/banner_entity.dart';
 import '../providers/catalog_provider.dart';
 
@@ -46,20 +47,43 @@ class _BannerCarouselState extends ConsumerState<BannerCarousel> {
 
     return bannersAsync.when(
       loading: () => const SizedBox(
-        height: 140,
-        child: Center(child: CircularProgressIndicator()),
+        height: 168,
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.accent),
+        ),
       ),
-      error: (e, s) => const SizedBox.shrink(),
+      error: (e, s) => GestureDetector(
+        onTap: () => ref.invalidate(bannersProvider),
+        child: Container(
+          height: 168,
+          margin: const EdgeInsets.symmetric(horizontal: 18),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.divider),
+          ),
+          alignment: Alignment.center,
+          child: const Text(
+            "Couldn't load banners. Tap to retry.",
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
       data: (banners) {
         if (banners.isEmpty) return const SizedBox.shrink();
         if (banners.length != _bannerCount) {
-          WidgetsBinding.instance
-              .addPostFrameCallback((_) => _startTimer(banners.length));
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _startTimer(banners.length),
+          );
         }
         return Column(
           children: [
             SizedBox(
-              height: 140,
+              height: 168,
               child: PageView.builder(
                 controller: _controller,
                 itemCount: banners.length,
@@ -98,35 +122,68 @@ class _BannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(16),
-        image: data.imageUrl.isNotEmpty
-            ? DecorationImage(
-                image: NetworkImage(data.imageUrl),
-                fit: BoxFit.cover,
-                onError: (exception, stackTrace) {},
-              )
-            : null,
-      ),
-      padding: const EdgeInsets.all(20),
-      alignment: Alignment.bottomLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.45),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(
-          data.title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: SizedBox(
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (data.imageUrl.isNotEmpty)
+              PremiumNetworkImage(
+                imageUrl: data.imageUrl,
+                categoryId: 'photo_prints',
+                borderRadius: 26,
+                cacheWidth: 1200,
+                cacheHeight: 620,
+              ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: data.imageUrl.isEmpty ? AppColors.primary : null,
+                borderRadius: BorderRadius.circular(26),
+              ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(26),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.68),
+                  ],
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.22),
+                    ),
+                  ),
+                  child: Text(
+                    data.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

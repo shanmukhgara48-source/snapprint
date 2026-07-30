@@ -53,37 +53,49 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   void _openRazorpay() {
-    setState(() => _isProcessing = true);
     final user = ref.read(authProvider).valueOrNull;
     // Prefill phone so Razorpay skips the "Contact details" step
     final phone = user?.phone.replaceFirst('+91', '') ?? '9876543210';
-    // Release builds must pass the live key via --dart-define; a silent
-    // fallback to the test key here would let real customers "pay" in test
-    // mode against a production backend expecting live keys. asserts are
-    // stripped in release mode, so this must be a real runtime check.
-    const razorpayKeyId = String.fromEnvironment('RAZORPAY_KEY_ID', defaultValue: 'rzp_test_T7ub1zMHZM6uO3');
-    if (kReleaseMode && razorpayKeyId == 'rzp_test_T7ub1zMHZM6uO3') {
-      throw StateError('RAZORPAY_KEY_ID must be passed via --dart-define for release builds');
+    // The key is intentionally provided only at build time. Do not add a
+    // fallback here; it risks shipping a test key inside production builds.
+    // Test keys are fine in debug/profile builds (local dev, QA) — only
+    // release builds must be rejected if they still carry a test key.
+    const razorpayKeyId = String.fromEnvironment('RAZORPAY_KEY_ID');
+    final misconfigured = razorpayKeyId.isEmpty ||
+        (kReleaseMode && razorpayKeyId.startsWith('rzp_test_'));
+    if (misconfigured) {
+      showErrorSnackbar(
+        context,
+        'Payment is not configured for this build. Please contact support.',
+      );
+      return;
     }
+
+    setState(() => _isProcessing = true);
     final options = {
       'key': razorpayKeyId,
       'amount': (widget.amount * 100).toInt(),
       'order_id': widget.razorpayOrderId,
       'name': 'SnapPrint',
       'description': 'Photo products order',
-      'prefill': {
-        'contact': phone,
-        'email': 'customer@snapprint.in',
-      },
-      'theme': {'color': '#2E7D32'},
+      'prefill': {'contact': phone, 'email': 'customer@snapprint.in'},
+      'theme': {'color': '#0B0B0B'},
     };
-    _razorpay.open(options);
+    try {
+      _razorpay.open(options);
+    } catch (_) {
+      setState(() => _isProcessing = false);
+      showErrorSnackbar(context, 'Could not open payment. Please try again.');
+    }
   }
 
   void _handleSuccess(PaymentSuccessResponse response) async {
     // Guard against incomplete Razorpay response
     if (response.paymentId == null || response.signature == null) {
-      showErrorSnackbar(context, 'Payment response incomplete. Please contact support.');
+      showErrorSnackbar(
+        context,
+        'Payment response incomplete. Please contact support.',
+      );
       return;
     }
     setState(() => _isProcessing = true);
@@ -104,13 +116,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       // Step 2: Create the actual order in our database
       final order = await ds.placeOrder({
         'items': cart.items
-            .map((item) => {
-                  'product_id': item.productId,
-                  'qty': item.quantity,
-                  'size': item.selectedSize,
-                  'image_url': item.customizationImageUrl,
-                  'price': item.unitPrice,
-                })
+            .map(
+              (item) => {
+                'product_id': item.productId,
+                'qty': item.quantity,
+                'size': item.selectedSize,
+                'image_url': item.customizationImageUrl,
+                'price': item.unitPrice,
+              },
+            )
             .toList(),
         'address_id': widget.addressId,
         'delivery_type': widget.deliveryType,
@@ -134,8 +148,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   void _handleError(PaymentFailureResponse response) {
     setState(() => _isProcessing = false);
-    showErrorSnackbar(context,
-        response.message ?? AppStrings.paymentFailed);
+    showErrorSnackbar(context, response.message ?? AppStrings.paymentFailed);
   }
 
   void _handleExternalWallet(ExternalWalletResponse response) {
@@ -168,15 +181,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               ),
               child: Column(
                 children: [
-                  const Icon(Icons.lock_rounded,
-                      size: 48, color: AppColors.primary),
+                  const Icon(
+                    Icons.lock_rounded,
+                    size: 48,
+                    color: AppColors.primary,
+                  ),
                   const SizedBox(height: 16),
                   const Text(
                     'Secure Payment',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   Text(

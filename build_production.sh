@@ -6,7 +6,17 @@
 set -e
 
 API_URL="${1:-https://api.snapprint.in}"
-RAZORPAY_KEY="${2:-rzp_live_REPLACE_ME}"
+RAZORPAY_KEY="${2:-}"
+
+if [[ "$API_URL" == *"localhost"* || "$API_URL" == *"10.0.2.2"* ]]; then
+  echo "ERROR: Production API URL cannot point to a local development host."
+  exit 1
+fi
+
+if [[ -z "$RAZORPAY_KEY" || "$RAZORPAY_KEY" == *"REPLACE_ME"* || "$RAZORPAY_KEY" == rzp_test_* ]]; then
+  echo "ERROR: Pass a live Razorpay key, e.g. ./build_production.sh https://api.snapprint.in rzp_live_xxxxx"
+  exit 1
+fi
 
 echo "========================================"
 echo "  SnapPrint Production Build"

@@ -111,11 +111,21 @@ class RealtimeService {
   }
 
   Future<String?> _resolveToken() async {
+    // Prefer our own backend-minted JWT (dev bypass or the access token from
+    // AuthNotifier._syncBackend) — the server verifies these locally against
+    // its own secret key, with no dependency on the Firebase project the ID
+    // token was minted for matching the backend's configured Firebase
+    // project. Raw Firebase ID tokens are kept only as a last-resort
+    // fallback since a project mismatch there fails server-side auth.
+    final devToken = getDevAuthToken();
+    if (devToken != null) return devToken;
+    final appToken = getAppAuthToken();
+    if (appToken != null) return appToken;
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) return await user.getIdToken();
     } catch (_) {}
-    return getDevAuthToken();
+    return null;
   }
 
   void _onMessage(dynamic raw) {
@@ -185,6 +195,28 @@ class RealtimeService {
     _channelSub = null;
     _channel?.sink.close();
     _channel = null;
+  }
+
+  /// Forces an immediate (re)connect attempt using whatever token
+  /// [_resolveToken] currently resolves to. Callers whose sign-in doesn't
+  /// go through Firebase (e.g. the dev-login bypass) must call this
+  /// explicitly, since [start]'s auth listener only reacts to Firebase
+  /// [authStateChanges].
+  void reconnect() {
+    _retryCount = 0;
+    _reconnectTimer?.cancel();
+    _teardownSocket();
+    connectionState.value = RealtimeConnectionState.disconnected;
+    _connect();
+  }
+
+  /// Tears the socket down without scheduling a reconnect. Callers whose
+  /// sign-out doesn't go through Firebase (e.g. clearing a dev-login
+  /// session) must call this explicitly for the same reason as [reconnect].
+  void disconnectNow() {
+    _reconnectTimer?.cancel();
+    _teardownSocket();
+    connectionState.value = RealtimeConnectionState.disconnected;
   }
 
   void dispose() {

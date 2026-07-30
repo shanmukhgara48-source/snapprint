@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import type { DashboardAnalytics, ChartsAnalytics } from "../lib/types";
-import { Card, PageHeader, Spinner } from "../components/ui";
+import { Card, ErrorState, PageHeader, Spinner } from "../components/ui";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 function money(n: number) {
@@ -9,7 +9,7 @@ function money(n: number) {
 }
 
 export default function Dashboard() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => (await api.get<DashboardAnalytics>("/admin/analytics/dashboard")).data,
   });
@@ -18,7 +18,8 @@ export default function Dashboard() {
     queryFn: async () => (await api.get<ChartsAnalytics>("/admin/analytics/charts", { params: { days: 30 } })).data,
   });
 
-  if (isLoading || !data) return <Spinner />;
+  if (isLoading) return <Spinner />;
+  if (isError || !data) return <ErrorState message="Failed to load dashboard analytics." onRetry={() => refetch()} />;
 
   const kpis = [
     { label: "Revenue today", value: money(data.revenue.today) },

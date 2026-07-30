@@ -13,7 +13,8 @@ class AppException implements Exception {
 }
 
 class NetworkException extends AppException {
-  NetworkException() : super('No internet connection. Please check your network.');
+  NetworkException()
+    : super('No internet connection. Please check your network.');
 }
 
 class ServerException extends AppException {
@@ -21,32 +22,35 @@ class ServerException extends AppException {
 }
 
 class UnauthorizedException extends AppException {
-  UnauthorizedException() : super('Session expired. Please login again.', statusCode: 401);
+  UnauthorizedException()
+    : super('Session expired. Please login again.', statusCode: 401);
 }
 
 class ApiClient {
   late final Dio _dio;
 
   ApiClient() {
-    _dio = Dio(BaseOptions(
-      baseUrl: ApiEndpoints.baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
-      sendTimeout: const Duration(seconds: 15),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    ));
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: ApiEndpoints.baseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 15),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ),
+    );
 
     _dio.interceptors.addAll([
       _AuthInterceptor(),
       _ErrorInterceptor(),
       if (kDebugMode)
         PrettyDioLogger(
-          requestHeader: true,
-          requestBody: true,
-          responseBody: true,
+          requestHeader: false,
+          requestBody: false,
+          responseBody: false,
           responseHeader: false,
           error: true,
           compact: true,
@@ -60,35 +64,27 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? queryParameters,
     Options? options,
-  }) =>
-      _dio.get<T>(path, queryParameters: queryParameters, options: options);
+  }) => _dio.get<T>(path, queryParameters: queryParameters, options: options);
 
   Future<Response<T>> post<T>(
     String path, {
     dynamic data,
     Map<String, dynamic>? queryParameters,
     Options? options,
-  }) =>
-      _dio.post<T>(path, data: data, queryParameters: queryParameters, options: options);
+  }) => _dio.post<T>(
+    path,
+    data: data,
+    queryParameters: queryParameters,
+    options: options,
+  );
 
-  Future<Response<T>> put<T>(
-    String path, {
-    dynamic data,
-    Options? options,
-  }) =>
+  Future<Response<T>> put<T>(String path, {dynamic data, Options? options}) =>
       _dio.put<T>(path, data: data, options: options);
 
-  Future<Response<T>> patch<T>(
-    String path, {
-    dynamic data,
-    Options? options,
-  }) =>
+  Future<Response<T>> patch<T>(String path, {dynamic data, Options? options}) =>
       _dio.patch<T>(path, data: data, options: options);
 
-  Future<Response<T>> delete<T>(
-    String path, {
-    Options? options,
-  }) =>
+  Future<Response<T>> delete<T>(String path, {Options? options}) =>
       _dio.delete<T>(path, options: options);
 }
 
@@ -178,6 +174,8 @@ String? getDevAuthToken() => _devAuthToken;
 String? _appAuthToken;
 
 void setAppAuthToken(String? token) => _appAuthToken = token;
+
+String? getAppAuthToken() => _appAuthToken;
 
 // Riverpod provider
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());

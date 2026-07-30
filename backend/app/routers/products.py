@@ -21,7 +21,10 @@ async def list_products(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ) -> ProductListResponse:
-    q = select(Product).where(Product.is_active.is_(True))
+    q = select(Product).where(
+        Product.is_active.is_(True),
+        Product.base_price >= 0,
+    )
     if category:
         # Case/whitespace-insensitive: admin product entry is free text and can
         # drift from the Category.name casing used to build this query param.
@@ -54,7 +57,11 @@ async def get_product(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Product:
     result = await db.execute(
-        select(Product).where(Product.id == product_id, Product.is_active.is_(True))
+        select(Product).where(
+            Product.id == product_id,
+            Product.is_active.is_(True),
+            Product.base_price >= 0,
+        )
     )
     product = result.scalar_one_or_none()
     if product is None:

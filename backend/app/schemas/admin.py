@@ -8,6 +8,7 @@ class CouponCreate(BaseModel):
     discount_type: str  # "percent" | "flat"
     value: float = Field(ge=0)
     min_order: float = Field(default=0, ge=0)
+    max_uses: int | None = Field(default=None, ge=1)
     expires_at: datetime | None = None
 
     @field_validator("code")
@@ -33,7 +34,7 @@ class CouponUpdate(BaseModel):
     discount_type: str | None = None
     value: float | None = Field(default=None, ge=0)
     min_order: float | None = Field(default=None, ge=0)
-    max_uses: int | None = None
+    max_uses: int | None = Field(default=None, ge=1)
     is_active: bool | None = None
     expires_at: datetime | None = None
 
@@ -61,6 +62,9 @@ class CouponOut(BaseModel):
     discount_type: str
     value: float
     min_order: float
+    max_uses: int | None = None
+    used_count: int
+    is_active: bool
     expires_at: datetime | None = None
     created_at: datetime
 

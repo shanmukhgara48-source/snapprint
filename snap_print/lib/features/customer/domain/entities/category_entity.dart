@@ -5,6 +5,7 @@ class CategoryEntity {
     required this.icon,
     this.imageUrl,
     this.sortOrder = 0,
+    this.isActive = true,
   });
 
   final String id;
@@ -12,4 +13,5 @@ class CategoryEntity {
   final String icon;
   final String? imageUrl;
   final int sortOrder;
+  final bool isActive;
 }

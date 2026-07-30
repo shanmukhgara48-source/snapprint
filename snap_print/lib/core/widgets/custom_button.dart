@@ -58,7 +58,11 @@ class CustomButton extends StatelessWidget {
           onPressed: isLoading ? null : onPressed,
           style: OutlinedButton.styleFrom(
             foregroundColor: bgColor,
-            side: BorderSide(color: bgColor, width: 1.5),
+            side: BorderSide(
+              color: bgColor.withValues(alpha: 0.18),
+              width: 1.2,
+            ),
+            backgroundColor: AppColors.surface,
           ),
           child: child,
         ),
@@ -68,13 +72,26 @@ class CustomButton extends StatelessWidget {
     return SizedBox(
       width: width ?? double.infinity,
       height: height,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: bgColor,
-          foregroundColor: fgColor,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: bgColor.withValues(alpha: 0.18),
+              blurRadius: 22,
+              offset: const Offset(0, 12),
+            ),
+          ],
         ),
-        child: child,
+        child: ElevatedButton(
+          onPressed: isLoading ? null : onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: bgColor,
+            foregroundColor: fgColor,
+            disabledBackgroundColor: bgColor.withValues(alpha: 0.45),
+          ),
+          child: child,
+        ),
       ),
     );
   }

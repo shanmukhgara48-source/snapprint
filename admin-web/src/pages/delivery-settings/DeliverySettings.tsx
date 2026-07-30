@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import type { DeliverySetting } from "../../lib/types";
-import { Badge, Button, Card, Input, PageHeader, Spinner } from "../../components/ui";
+import { Badge, Button, Card, ErrorState, Input, PageHeader, Spinner } from "../../components/ui";
 import { useState } from "react";
 
 export default function DeliverySettings() {
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["delivery-settings"],
     queryFn: async () => (await api.get<DeliverySetting[]>("/admin/delivery-settings")).data,
   });
@@ -17,7 +17,8 @@ export default function DeliverySettings() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["delivery-settings"] }),
   });
 
-  if (isLoading || !data) return <Spinner />;
+  if (isLoading) return <Spinner />;
+  if (isError || !data) return <ErrorState message="Failed to load delivery settings." onRetry={() => refetch()} />;
 
   return (
     <div>

@@ -18,6 +18,7 @@ import '../../features/customer/presentation/screens/payment_screen.dart';
 import '../../features/customer/presentation/screens/order_confirmation_screen.dart';
 import '../../features/customer/presentation/screens/order_history_screen.dart';
 import '../../features/customer/presentation/screens/profile_screen.dart';
+import '../../features/ai_editor/presentation/screens/ai_photo_editor_screen.dart';
 import '../../features/delivery/presentation/screens/delivery_home_screen.dart';
 import '../../features/delivery/presentation/screens/delivery_order_detail_screen.dart';
 import '../../features/delivery/presentation/screens/delivery_proof_screen.dart';
@@ -38,6 +39,7 @@ class AppRoutes {
   static const productList = '/customer/products/:category';
   static const productDetail = '/customer/product/:id';
   static const customize = '/customer/customize';
+  static const aiPhotoEditor = '/customer/ai-photo-editor';
   static const cart = '/customer/cart';
   static const address = '/customer/address';
   static const checkout = '/customer/checkout';
@@ -53,7 +55,7 @@ class AppRoutes {
   static const privacyPolicy = '/privacy-policy';
 
   static String productListPath(String category) =>
-      '/customer/products/$category';
+      '/customer/products/${Uri.encodeComponent(category)}';
   static String productDetailPath(String id) => '/customer/product/$id';
   static String orderConfirmationPath(String id) =>
       '/customer/order-confirmation/$id';
@@ -79,9 +81,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         error: (err, stack) => AppRoutes.login,
         data: (user) {
           final isSplash = location == AppRoutes.splash;
-          final isAuthRoute = location == AppRoutes.login ||
-                              location == AppRoutes.otp ||
-                              location == AppRoutes.profileSetup;
+          final isAuthRoute =
+              location == AppRoutes.login ||
+              location == AppRoutes.otp ||
+              location == AppRoutes.profileSetup;
 
           // Always leave splash once auth state is known
           if (isSplash) {
@@ -182,15 +185,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Customer standalone routes
       GoRoute(
         path: AppRoutes.productList,
-        builder: (context, state) => ProductListScreen(
-          category: state.pathParameters['category']!,
-        ),
+        builder: (context, state) =>
+            ProductListScreen(category: state.pathParameters['category']!),
       ),
       GoRoute(
         path: AppRoutes.productDetail,
-        builder: (context, state) => ProductDetailScreen(
-          productId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            ProductDetailScreen(productId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: AppRoutes.customize,
@@ -201,6 +202,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             productName: extra['productName'] as String,
             preselectedSize: extra['preselectedSize'] as String?,
           );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.aiPhotoEditor,
+        builder: (context, state) {
+          final extra = state.extra as AiPhotoEditorArgs;
+          return AiPhotoEditorScreen(args: extra);
         },
       ),
       GoRoute(
@@ -226,9 +234,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.orderConfirmation,
-        builder: (context, state) => OrderConfirmationScreen(
-          orderId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            OrderConfirmationScreen(orderId: state.pathParameters['id']!),
       ),
 
       // Delivery shell
@@ -257,15 +264,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Delivery standalone routes
       GoRoute(
         path: AppRoutes.deliveryOrderDetail,
-        builder: (context, state) => DeliveryOrderDetailScreen(
-          orderId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            DeliveryOrderDetailScreen(orderId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: AppRoutes.deliveryProof,
-        builder: (context, state) => DeliveryProofScreen(
-          orderId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            DeliveryProofScreen(orderId: state.pathParameters['id']!),
       ),
     ],
   );

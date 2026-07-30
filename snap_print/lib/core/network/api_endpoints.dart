@@ -1,12 +1,22 @@
+import 'package:flutter/foundation.dart' show kReleaseMode;
+
 class ApiEndpoints {
   ApiEndpoints._();
 
   // Set SNAPPRINT_API_URL at build time via --dart-define=SNAPPRINT_API_URL=https://api.example.com
   // Defaults to Android emulator localhost for local development only.
-  static const String baseUrl = String.fromEnvironment(
+  static const String _configuredBaseUrl = String.fromEnvironment(
     'SNAPPRINT_API_URL',
-    defaultValue: 'http://10.0.2.2:8000',
   );
+  static const String _localDevBaseUrl = 'http://10.0.2.2:8000';
+
+  static String get baseUrl {
+    if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
+    if (kReleaseMode) {
+      throw StateError('SNAPPRINT_API_URL must be set for release builds.');
+    }
+    return _localDevBaseUrl;
+  }
 
   // Auth
   static const String verifyAuth = '/auth/verify';
@@ -45,18 +55,26 @@ class ApiEndpoints {
 
   // Delivery
   static const String deliveryAssigned = '/delivery/assigned';
-  static String deliveryUpdateStatus(String orderId) => '/delivery/$orderId/status';
+  static String deliveryUpdateStatus(String orderId) =>
+      '/delivery/$orderId/status';
 
   // Delivery Options (public)
   static const String deliveryOptions = '/delivery-options';
 
+  // AI Photo Editor
+  static const String aiPhotoStatus = '/ai/photo/status';
+  static const String aiPhotoEdit = '/ai/photo/edit';
+  static const String aiPhotoAnalyze = '/ai/photo/analyze';
+
   // Admin
   static const String adminProducts = '/admin/products';
   static const String adminDeliverySettings = '/admin/delivery-settings';
-  static String adminDeliverySetting(String type) => '/admin/delivery-settings/$type';
+  static String adminDeliverySetting(String type) =>
+      '/admin/delivery-settings/$type';
   static const String adminOrders = '/admin/orders';
   static const String adminUsers = '/admin/users';
   static const String adminCoupons = '/admin/coupons';
   static const String adminDeliveryPartners = '/admin/delivery-partners';
-  static String adminAssignDelivery(String orderId) => '/admin/orders/$orderId/assign';
+  static String adminAssignDelivery(String orderId) =>
+      '/admin/orders/$orderId/assign';
 }

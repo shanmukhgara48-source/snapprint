@@ -7,13 +7,26 @@ class CategoryModel extends CategoryEntity {
     required super.icon,
     super.imageUrl,
     super.sortOrder,
+    super.isActive,
   });
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) => CategoryModel(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        icon: json['icon'] as String? ?? '',
-        imageUrl: json['image_url'] as String?,
-        sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
-      );
+    id: _stringValue(json['id']),
+    name: _stringValue(json['name']),
+    icon: _stringValue(json['icon']),
+    imageUrl: _nullableStringValue(json['image_url']),
+    sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+    isActive: json['is_active'] as bool? ?? true,
+  );
+
+  static String _stringValue(Object? value) {
+    if (value == null) return '';
+    if (value is String) return value;
+    return value.toString();
+  }
+
+  static String? _nullableStringValue(Object? value) {
+    final text = _stringValue(value).trim();
+    return text.isEmpty ? null : text;
+  }
 }

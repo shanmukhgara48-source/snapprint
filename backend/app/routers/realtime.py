@@ -1,7 +1,7 @@
 """Authenticated WebSocket endpoints for realtime sync.
 
 Protocol (client → server):
-    {"type": "auth", "token": "<firebase id token | admin JWT>"}   (first message, within 10s)
+    {"type": "auth", "token": "<app JWT | firebase id token>"}     (first message, within 10s)
     {"type": "ping"}                                               (heartbeat)
 
 Protocol (server → client):
@@ -83,13 +83,12 @@ async def websocket_app(websocket: WebSocket) -> None:
         await _safe_close(websocket, 4401, "Auth required")
         return
 
-    # Same auth paths as the REST API: dev bypass token or Firebase ID token.
+    user_id: str | None = None
     firebase_uid: str | None = None
-    if settings.dev_bypass_secret and token.startswith(
-        f"dev_{settings.dev_bypass_secret}_"
-    ):
-        firebase_uid = token[len(f"dev_{settings.dev_bypass_secret}_"):]
-    else:
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        user_id = payload["user_id"]
+    except (JWTError, KeyError):
         try:
             # verify_firebase_token is a synchronous call — keep it off the loop
             decoded = await asyncio.to_thread(verify_firebase_token, token)
@@ -97,12 +96,15 @@ async def websocket_app(websocket: WebSocket) -> None:
         except Exception:
             firebase_uid = None
 
-    if firebase_uid is None:
+    if user_id is None and firebase_uid is None:
         await _safe_close(websocket, 4401, "Invalid token")
         return
 
     async with AsyncSessionLocal() as db:
-        result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
+        if user_id is not None:
+            result = await db.execute(select(User).where(User.id == user_id))
+        else:
+            result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
         user = result.scalar_one_or_none()
 
     if user is None or not user.is_active:

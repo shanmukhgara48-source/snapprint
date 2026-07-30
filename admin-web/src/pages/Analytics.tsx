@@ -1,16 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import type { ChartsAnalytics } from "../lib/types";
-import { Card, PageHeader, Spinner } from "../components/ui";
+import { Card, ErrorState, PageHeader, Spinner } from "../components/ui";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 export default function Analytics() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["analytics-charts"],
     queryFn: async () => (await api.get<ChartsAnalytics>("/admin/analytics/charts", { params: { days: 30 } })).data,
   });
 
-  if (isLoading || !data) return <Spinner />;
+  if (isLoading) return <Spinner />;
+  if (isError || !data) return <ErrorState message="Failed to load analytics." onRetry={() => refetch()} />;
 
   return (
     <div>

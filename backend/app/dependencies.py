@@ -22,23 +22,16 @@ async def get_current_user(
     User. The raw Firebase ID token is never re-verified per request."""
     token = credentials.credentials
 
-    # Dev bypass: token format "dev_{secret}_{firebase_uid}" (only when DEV_BYPASS_SECRET is set)
-    if settings.dev_bypass_secret and token.startswith(f"dev_{settings.dev_bypass_secret}_"):
-        prefix = f"dev_{settings.dev_bypass_secret}_"
-        firebase_uid = token[len(prefix):]
-        result = await db.execute(select(User).where(User.firebase_uid == firebase_uid))
-        user = result.scalar_one_or_none()
-    else:
-        try:
-            payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-            user_id = payload["user_id"]
-        except (JWTError, KeyError):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token",
-            )
-        result = await db.execute(select(User).where(User.id == user_id))
-        user = result.scalar_one_or_none()
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        user_id = payload["user_id"]
+    except (JWTError, KeyError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
 
     if user is None:
         raise HTTPException(

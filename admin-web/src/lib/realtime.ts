@@ -23,8 +23,14 @@ interface RealtimeEvent {
   entity_id?: string;
 }
 
+const realtimeApiBaseUrl = import.meta.env.VITE_API_URL;
+
+if (import.meta.env.PROD && !realtimeApiBaseUrl) {
+  throw new Error("VITE_API_URL must be set for production builds.");
+}
+
 function wsUrl(): string {
-  const base = import.meta.env.VITE_API_URL || "http://localhost:8000";
+  const base = realtimeApiBaseUrl || "http://localhost:8000";
   return `${base.replace(/^http/, "ws")}/ws/admin`;
 }
 

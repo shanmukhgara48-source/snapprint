@@ -14,6 +14,8 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/error_snackbar.dart';
+import '../../../../core/widgets/premium_network_image.dart';
+import '../../../ai_editor/presentation/screens/ai_photo_editor_screen.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/products_provider.dart';
@@ -31,11 +33,19 @@ class _PhotoSource {
 final _androidSources = [
   const _PhotoSource('gallery', 'Gallery', Icons.photo_library_outlined),
   const _PhotoSource('folder', 'Files', Icons.folder_open_outlined),
-  const _PhotoSource('google_photos', 'Google Photos', Icons.add_photo_alternate_outlined),
+  const _PhotoSource(
+    'google_photos',
+    'Google Photos',
+    Icons.add_photo_alternate_outlined,
+  ),
 ];
 
 final _iosSources = [
-  const _PhotoSource('photo_library', 'Photo Library', Icons.photo_library_outlined),
+  const _PhotoSource(
+    'photo_library',
+    'Photo Library',
+    Icons.photo_library_outlined,
+  ),
   const _PhotoSource('files', 'Files', Icons.folder_open_outlined),
   const _PhotoSource('icloud', 'iCloud Drive', Icons.cloud_outlined),
 ];
@@ -66,7 +76,9 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
   String? _lastSource;
 
   List<_PhotoSource> get _sources =>
-      (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ? _iosSources : _androidSources;
+      (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
+      ? _iosSources
+      : _androidSources;
 
   @override
   void initState() {
@@ -145,7 +157,9 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
       withData: kIsWeb,
     );
     if (result != null && result.files.isNotEmpty) {
-      final files = result.files.map((f) => XFile(f.path ?? f.name, bytes: f.bytes)).toList();
+      final files = result.files
+          .map((f) => XFile(f.path ?? f.name, bytes: f.bytes))
+          .toList();
       await _processFiles(files, multi: multi);
     }
   }
@@ -182,8 +196,14 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
       final client = ref.read(apiClientProvider);
       for (final file in files) {
         final filename = file.name.isNotEmpty ? file.name : 'photo.jpg';
-        final ext = filename.contains('.') ? filename.split('.').last.toLowerCase() : 'jpg';
-        final contentType = ext == 'png' ? 'image/png' : ext == 'webp' ? 'image/webp' : 'image/jpeg';
+        final ext = filename.contains('.')
+            ? filename.split('.').last.toLowerCase()
+            : 'jpg';
+        final contentType = ext == 'png'
+            ? 'image/png'
+            : ext == 'webp'
+            ? 'image/webp'
+            : 'image/jpeg';
 
         // Step 1 — ask backend for a presigned upload URL
         final presign = await client.get<Map<String, dynamic>>(
@@ -192,7 +212,9 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
         );
         final uploadUrl = presign.data?['upload_url'] as String?;
         final publicUrl = presign.data?['public_url'] as String?;
-        if (uploadUrl == null || publicUrl == null) throw Exception('Invalid presign response');
+        if (uploadUrl == null || publicUrl == null) {
+          throw Exception('Invalid presign response');
+        }
 
         // Step 2 — PUT file bytes directly to R2 (no server in the middle)
         final bytes = await file.readAsBytes();
@@ -224,6 +246,25 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
     });
   }
 
+  Future<void> _openAiEditor(int index) async {
+    if (!_requireAuth()) return;
+    if (_isUploading || index >= _uploadedUrls.length) {
+      showErrorSnackbar(context, 'Please wait for upload to complete');
+      return;
+    }
+    final editedUrl = await context.push<String>(
+      AppRoutes.aiPhotoEditor,
+      extra: AiPhotoEditorArgs(
+        imageUrl: _uploadedUrls[index],
+        productName: widget.productName,
+        selectedSize: _selectedSize ?? widget.preselectedSize ?? '',
+      ),
+    );
+    if (editedUrl == null || editedUrl.isEmpty || !mounted) return;
+    setState(() => _uploadedUrls[index] = editedUrl);
+    showSuccessSnackbar(context, 'AI-edited photo will be used for printing');
+  }
+
   // ── Photo tap handler ──────────────────────────────────────────────────────
 
   void _onTapUpload({required bool isPhotoCategory}) {
@@ -239,7 +280,8 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -258,22 +300,30 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Select photo from',
-                    style: Theme.of(context).textTheme.titleMedium),
+                child: Text(
+                  'Select photo from',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ),
             ),
             const Divider(height: 1),
-            ..._sources.map((s) => ListTile(
-                  leading: Icon(s.icon, color: AppColors.primary),
-                  title: Text(s.label),
-                  trailing: _lastSource == s.key
-                      ? const Icon(Icons.check_circle, color: AppColors.primary, size: 20)
-                      : null,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _pickFromSource(s.key, multi: isPhotoCategory);
-                  },
-                )),
+            ..._sources.map(
+              (s) => ListTile(
+                leading: Icon(s.icon, color: AppColors.primary),
+                title: Text(s.label),
+                trailing: _lastSource == s.key
+                    ? const Icon(
+                        Icons.check_circle,
+                        color: AppColors.primary,
+                        size: 20,
+                      )
+                    : null,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickFromSource(s.key, multi: isPhotoCategory);
+                },
+              ),
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -300,7 +350,10 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
       if (!mounted) return;
     }
     if (_uploadedUrls.isEmpty) {
-      showErrorSnackbar(context, 'Upload failed — check your connection and try again');
+      showErrorSnackbar(
+        context,
+        'Upload failed — check your connection and try again',
+      );
       return;
     }
     if (_selectedSize == null && sizes.isNotEmpty) {
@@ -310,33 +363,42 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
     setState(() => _isAdding = true);
 
     final selectedSizeObj = sizes.cast<dynamic>().firstWhere(
-          (s) => s.label == _selectedSize,
-          orElse: () => sizes.isNotEmpty ? sizes.first : null,
-        );
+      (s) => s.label == _selectedSize,
+      orElse: () => sizes.isNotEmpty ? sizes.first : null,
+    );
     final price = (selectedSizeObj?.price as num?)?.toDouble() ?? 0.0;
 
-    final catalogImageUrl = resolveCartProductImage(widget.productId);
+    final catalogImageUrl = resolveCartProductImage(
+      widget.productId,
+      productName: widget.productName,
+    );
 
     for (var i = 0; i < _uploadedUrls.length; i++) {
       final url = _uploadedUrls[i];
-      ref.read(cartProvider.notifier).addItem(CartItemEntity(
-            cartItemId:
-                '${widget.productId}_${DateTime.now().microsecondsSinceEpoch}_$i',
-            productId: widget.productId,
-            productName: widget.productName,
-            productImageUrl: catalogImageUrl,
-            selectedSize: _selectedSize ?? 'Default',
-            quantity: _quantity,
-            unitPrice: price,
-            customizationImageUrl: url,
-          ));
+      ref
+          .read(cartProvider.notifier)
+          .addItem(
+            CartItemEntity(
+              cartItemId:
+                  '${widget.productId}_${DateTime.now().microsecondsSinceEpoch}_$i',
+              productId: widget.productId,
+              productName: widget.productName,
+              productImageUrl: catalogImageUrl,
+              selectedSize: _selectedSize ?? 'Default',
+              quantity: _quantity,
+              unitPrice: price,
+              customizationImageUrl: url,
+            ),
+          );
     }
 
     setState(() => _isAdding = false);
     if (mounted) {
       final count = _uploadedUrls.length;
-      showSuccessSnackbar(context,
-          count == 1 ? 'Added to cart!' : '$count photos added to cart!');
+      showSuccessSnackbar(
+        context,
+        count == 1 ? 'Added to cart!' : '$count photos added to cart!',
+      );
       context.go(AppRoutes.cart);
     }
   }
@@ -350,13 +412,15 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(widget.productName)),
       body: productAsync.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
         error: (e, _) => Center(child: Text('$e')),
         data: (product) {
           final isPhotoCategory = product.category == 'photo_prints';
           final hasImages = _selectedImages.isNotEmpty;
-          final allUploaded = !_isUploading && _uploadedUrls.length >= _selectedImages.length;
+          final allUploaded =
+              !_isUploading && _uploadedUrls.length >= _selectedImages.length;
           final hasSize = _selectedSize != null || product.sizes.isEmpty;
 
           return Column(
@@ -371,13 +435,17 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
                       // STEP 1 — Photo(s)
                       _StepHeader(
                         step: '1',
-                        label: isPhotoCategory ? 'Select Photos' : 'Upload Photo',
+                        label: isPhotoCategory
+                            ? 'Select Photos'
+                            : 'Upload Photo',
                       ),
                       const SizedBox(height: 12),
                       _buildPhotoSection(isPhotoCategory),
 
                       // STEP 2 — Size (only when photos uploaded & product has sizes)
-                      if (hasImages && allUploaded && product.sizes.isNotEmpty) ...[
+                      if (hasImages &&
+                          allUploaded &&
+                          product.sizes.isNotEmpty) ...[
                         const SizedBox(height: 28),
                         _StepHeader(step: '2', label: AppStrings.selectSize),
                         const SizedBox(height: 12),
@@ -417,7 +485,10 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
               // ── Add to Cart ──────────────────────────────────────────────
               SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   child: CustomButton(
                     label: _cartLabel(isPhotoCategory),
                     icon: Icons.shopping_cart_outlined,
@@ -449,19 +520,25 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
           ),
           child: _isUploading
               ? const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary))
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                )
               : Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.add_photo_alternate,
-                        size: 52, color: AppColors.primary),
+                    const Icon(
+                      Icons.add_photo_alternate,
+                      size: 52,
+                      color: AppColors.primary,
+                    ),
                     const SizedBox(height: 10),
                     Text(
                       isPhotoCategory
                           ? 'Tap to select photos'
                           : 'Tap to upload photo',
                       style: const TextStyle(
-                          color: AppColors.primary, fontWeight: FontWeight.w600),
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -469,7 +546,9 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
                           ? 'Opens ${_sources.firstWhere((s) => s.key == _lastSource, orElse: () => _sources.first).label}'
                           : 'Gallery · Files · ${(!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ? "iCloud" : "Google Photos"}',
                       style: const TextStyle(
-                          color: AppColors.textSecondary, fontSize: 12),
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -501,31 +580,47 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
                     child: const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add_photo_alternate,
-                            color: AppColors.primary, size: 26),
+                        Icon(
+                          Icons.add_photo_alternate,
+                          color: AppColors.primary,
+                          size: 26,
+                        ),
                         SizedBox(height: 4),
-                        Text('Add More',
-                            style: TextStyle(
-                                fontSize: 11, color: AppColors.primary)),
+                        Text(
+                          'Add More',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.primary,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 );
               }
 
-              final uploading =
-                  _isUploading && i >= _uploadedUrls.length;
+              final uploading = _isUploading && i >= _uploadedUrls.length;
 
               return Stack(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: _XFileThumbnail(
-                      file: _selectedImages[i],
+                  if (i < _uploadedUrls.length)
+                    PremiumNetworkImage(
+                      imageUrl: _uploadedUrls[i],
                       width: 100,
                       height: 120,
+                      borderRadius: 12,
+                      cacheWidth: 320,
+                      cacheHeight: 380,
+                    )
+                  else
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: _XFileThumbnail(
+                        file: _selectedImages[i],
+                        width: 100,
+                        height: 120,
+                      ),
                     ),
-                  ),
                   if (uploading)
                     Positioned.fill(
                       child: Container(
@@ -538,7 +633,46 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
                             width: 22,
                             height: 22,
                             child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2),
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (!uploading && i < _uploadedUrls.length)
+                    Positioned(
+                      left: 4,
+                      bottom: 4,
+                      child: GestureDetector(
+                        onTap: () => _openAiEditor(i),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.88),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.auto_awesome_rounded,
+                                size: 12,
+                                color: AppColors.accent,
+                              ),
+                              SizedBox(width: 3),
+                              Text(
+                                'AI',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -550,9 +684,14 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
                       onTap: () => _removeImage(i),
                       child: Container(
                         decoration: const BoxDecoration(
-                            color: Colors.black54, shape: BoxShape.circle),
-                        child: const Icon(Icons.close,
-                            size: 16, color: Colors.white),
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -565,8 +704,7 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
         Text(
           '${_selectedImages.length} photo${_selectedImages.length != 1 ? 's' : ''} selected'
           '${_isUploading ? '  •  Uploading…' : ''}',
-          style: const TextStyle(
-              color: AppColors.textSecondary, fontSize: 12),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
         ),
       ],
     );
@@ -584,19 +722,20 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
           onTap: () => setState(() => _selectedSize = size.label),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             decoration: BoxDecoration(
               color: selected ? AppColors.primary : AppColors.surface,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                  color: selected ? AppColors.primary : AppColors.border),
+                color: selected ? AppColors.primary : AppColors.border,
+              ),
               boxShadow: selected
                   ? [
                       BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.25),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2))
+                        color: AppColors.primary.withValues(alpha: 0.25),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
                     ]
                   : null,
             ),
@@ -640,8 +779,10 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Text('$_quantity',
-              style: Theme.of(context).textTheme.headlineSmall),
+          child: Text(
+            '$_quantity',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
         ),
         _QtyButton(
           icon: Icons.add,
@@ -654,7 +795,9 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
           Text(
             '= ${_quantity * _selectedImages.length} prints total',
             style: const TextStyle(
-                color: AppColors.textSecondary, fontSize: 13),
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
           ),
         ],
       ],
@@ -685,13 +828,18 @@ class _StepHeader extends StatelessWidget {
           width: 26,
           height: 26,
           decoration: const BoxDecoration(
-              color: AppColors.primary, shape: BoxShape.circle),
+            color: AppColors.primary,
+            shape: BoxShape.circle,
+          ),
           child: Center(
-            child: Text(step,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700)),
+            child: Text(
+              step,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -723,28 +871,35 @@ class _ChangeSourceBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Text('Change:',
-              style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500)),
+          const Text(
+            'Change:',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const SizedBox(width: 10),
-          ...inactive.map((s) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    visualDensity: VisualDensity.compact,
-                    side: const BorderSide(color: AppColors.primary),
-                    foregroundColor: AppColors.primary,
-                    textStyle: const TextStyle(fontSize: 11),
+          ...inactive.map(
+            (s) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
                   ),
-                  icon: Icon(s.icon, size: 14),
-                  label: Text(s.label),
-                  onPressed: () => onTap(s.key),
+                  visualDensity: VisualDensity.compact,
+                  side: const BorderSide(color: AppColors.primary),
+                  foregroundColor: AppColors.primary,
+                  textStyle: const TextStyle(fontSize: 11),
                 ),
-              )),
+                icon: Icon(s.icon, size: 14),
+                label: Text(s.label),
+                onPressed: () => onTap(s.key),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -752,7 +907,11 @@ class _ChangeSourceBar extends StatelessWidget {
 }
 
 class _XFileThumbnail extends StatefulWidget {
-  const _XFileThumbnail({required this.file, required this.width, required this.height});
+  const _XFileThumbnail({
+    required this.file,
+    required this.width,
+    required this.height,
+  });
   final XFile file;
   final double width;
   final double height;
@@ -780,10 +939,17 @@ class _XFileThumbnailState extends State<_XFileThumbnail> {
             width: widget.width,
             height: widget.height,
             color: AppColors.accentLight,
-            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           );
         }
-        return Image.memory(snap.data!, width: widget.width, height: widget.height, fit: BoxFit.cover);
+        return Image.memory(
+          snap.data!,
+          width: widget.width,
+          height: widget.height,
+          fit: BoxFit.cover,
+        );
       },
     );
   }

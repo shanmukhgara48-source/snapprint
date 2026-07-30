@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import type { OrderDetail as OrderDetailType, UserListItem } from "../../lib/types";
-import { Badge, Button, Card, PageHeader, Spinner } from "../../components/ui";
+import { Badge, Button, Card, ErrorState, PageHeader, Spinner } from "../../components/ui";
 import { ArrowLeft } from "lucide-react";
 
 // Must match backend/app/routers/delivery.py VALID_STATUS_TRANSITIONS + "cancelled".
@@ -17,7 +17,7 @@ export default function OrderDetail() {
   const [assignId, setAssignId] = useState("");
   const syncedOrderId = useRef<string | null>(null);
 
-  const { data: order, isLoading } = useQuery({
+  const { data: order, isLoading, isError, refetch } = useQuery({
     queryKey: ["order", id],
     queryFn: async () => (await api.get<OrderDetailType>(`/admin/orders/${id}`)).data,
   });
@@ -47,7 +47,8 @@ export default function OrderDetail() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["order", id] }),
   });
 
-  if (isLoading || !order) return <Spinner />;
+  if (isLoading) return <Spinner />;
+  if (isError || !order) return <ErrorState message="Failed to load order." onRetry={() => refetch()} />;
 
   return (
     <div>

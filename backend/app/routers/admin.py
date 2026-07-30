@@ -137,7 +137,7 @@ async def admin_update_category(
     category = result.scalar_one_or_none()
     if category is None:
         raise HTTPException(status_code=404, detail="Category not found")
-    changes = payload.model_dump(exclude_none=True)
+    changes = payload.model_dump(exclude_unset=True)
     for field, value in changes.items():
         setattr(category, field, value)
     await db.commit()
@@ -158,6 +158,31 @@ async def admin_delete_category(
     category = result.scalar_one_or_none()
     if category is None:
         raise HTTPException(status_code=404, detail="Category not found")
+
+    product_ref = await db.execute(
+        select(Product.id).where(Product.category_id == category_id).limit(1)
+    )
+    if product_ref.scalar_one_or_none() is not None:
+        category.is_active = False
+        await db.commit()
+        await db.refresh(category)
+        await log_admin_action(
+            db,
+            admin["admin_user_id"],
+            "category.deactivate",
+            "category",
+            category_id,
+            details={"reason": "delete requested but category has products"},
+            ip_address=_client_ip(request),
+        )
+        await emit_event(
+            "category",
+            "updated",
+            category_id,
+            CategoryOut.model_validate(category).model_dump(mode="json"),
+        )
+        return
+
     await db.delete(category)
     await db.commit()
     await log_admin_action(db, admin["admin_user_id"], "category.delete", "category", category_id, ip_address=_client_ip(request))
@@ -203,7 +228,7 @@ async def admin_update_banner(
     banner = result.scalar_one_or_none()
     if banner is None:
         raise HTTPException(status_code=404, detail="Banner not found")
-    changes = payload.model_dump(exclude_none=True)
+    changes = payload.model_dump(exclude_unset=True)
     for field, value in changes.items():
         setattr(banner, field, value)
     await db.commit()
@@ -273,7 +298,7 @@ async def admin_update_product(
     product = result.scalar_one_or_none()
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
-    changes = payload.model_dump(exclude_none=True)
+    changes = payload.model_dump(exclude_unset=True)
     for field, value in changes.items():
         setattr(product, field, value)
     await db.commit()
@@ -331,7 +356,7 @@ async def admin_bulk_update_products(
     db: Annotated[AsyncSession, Depends(get_db)],
     admin: Annotated[dict, Depends(require_admin)],
 ) -> list[Product]:
-    changes = payload.update.model_dump(exclude_none=True)
+    changes = payload.update.model_dump(exclude_unset=True)
     if not payload.ids or not changes:
         raise HTTPException(status_code=422, detail="ids and at least one update field required")
     result = await db.execute(select(Product).where(Product.id.in_(payload.ids)))
@@ -806,7 +831,7 @@ async def admin_update_coupon(
     coupon = result.scalar_one_or_none()
     if coupon is None:
         raise HTTPException(status_code=404, detail="Coupon not found")
-    changes = payload.model_dump(exclude_none=True)
+    changes = payload.model_dump(exclude_unset=True)
     for field, value in changes.items():
         setattr(coupon, field, value)
     if coupon.discount_type == "percent" and coupon.value > 100:
@@ -877,7 +902,7 @@ async def admin_update_delivery_setting(
     setting = result.scalar_one_or_none()
     if setting is None:
         raise HTTPException(status_code=404, detail="Delivery setting not found")
-    changes = payload.model_dump(exclude_none=True)
+    changes = payload.model_dump(exclude_unset=True)
     for field, value in changes.items():
         setattr(setting, field, value)
     await db.commit()

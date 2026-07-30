@@ -2,14 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import type { UserDetail } from "../../lib/types";
-import { Badge, Button, Card, PageHeader, Spinner } from "../../components/ui";
+import { Badge, Button, Card, ErrorState, PageHeader, Spinner } from "../../components/ui";
 import { ArrowLeft } from "lucide-react";
 
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
 
-  const { data: user, isLoading } = useQuery({
+  const { data: user, isLoading, isError, refetch } = useQuery({
     queryKey: ["user", id],
     queryFn: async () => (await api.get<UserDetail>(`/admin/users/${id}`)).data,
   });
@@ -29,7 +29,8 @@ export default function CustomerDetail() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["user", id] }),
   });
 
-  if (isLoading || !user) return <Spinner />;
+  if (isLoading) return <Spinner />;
+  if (isError || !user) return <ErrorState message="Failed to load customer." onRetry={() => refetch()} />;
 
   return (
     <div>

@@ -9,12 +9,20 @@ import '../../../../core/firebase/firebase_auth_service.dart';
 import '../../../../core/firebase/firestore_service.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
+import '../../../../core/realtime/realtime_service.dart';
 import '../../domain/entities/user_entity.dart';
 
 const _storageKeyDevToken = 'dev_auth_token';
 const _storageKeyDevUid = 'dev_firebase_uid';
 
 const _storageKeyRole = 'user_role';
+
+/// Non-null when the last attempt to exchange the Firebase session for an
+/// app access token (see [AuthNotifier._syncBackend]) failed. Surfaced by
+/// CustomerShell as a top banner so a broken backend session is visible
+/// instead of silently causing "Not authenticated" errors on every
+/// subsequent cart/checkout/profile action.
+final authSyncErrorProvider = StateProvider<String?>((ref) => null);
 
 class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier {
   final _storage = const FlutterSecureStorage();
@@ -90,10 +98,20 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
       });
       final accessToken = (response.data as Map<String, dynamic>)['access_token'] as String?;
       if (accessToken != null) setAppAuthToken(accessToken);
+      ref.read(authSyncErrorProvider.notifier).state = null;
       dev.log('[PhoneAuth] backend sync success uid=${firebaseUser.uid}', name: 'SnapPrint');
     } catch (e) {
+      ref.read(authSyncErrorProvider.notifier).state =
+          "Couldn't sync your session with the server. Cart, checkout, and orders may not work until you retry.";
       dev.log('[PhoneAuth] backend sync failed (non-fatal): $e', name: 'SnapPrint');
     }
+  }
+
+  /// Re-attempts [_syncBackend] for the currently signed-in Firebase user.
+  /// Called from the CustomerShell sync-error banner's retry action.
+  Future<void> retrySync() async {
+    final firebaseUser = ref.read(firebaseAuthServiceProvider).currentUser;
+    if (firebaseUser != null) await _syncBackend(firebaseUser);
   }
 
   /// Called by FcmService whenever the device's FCM token is issued or
@@ -236,6 +254,9 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
       await _storage.write(key: _storageKeyDevUid, value: firebaseUid);
       await _storage.write(key: 'dev_phone', value: phone);
       await _storage.write(key: 'dev_display_name', value: displayName);
+      // Dev login never fires Firebase's authStateChanges, so the realtime
+      // service's auth listener won't see this sign-in — kick it directly.
+      ref.read(realtimeServiceProvider).reconnect();
 
       _verifiedJustNow = true;
       _notifyListeners();
@@ -255,6 +276,9 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
     setAppAuthToken(null);
     await ref.read(firebaseAuthServiceProvider).signOut();
     await _storage.deleteAll();
+    // Signing out of a dev session doesn't fire Firebase's authStateChanges
+    // either, so explicitly tear down the realtime connection.
+    ref.read(realtimeServiceProvider).disconnectNow();
     state = const AsyncData(null);
     _notifyListeners();
   }

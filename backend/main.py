@@ -1,6 +1,6 @@
 import logging
-import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,10 +23,11 @@ from app.models.admin_user import AdminUser
 from app.models.category import Category
 from app.models.delivery_setting import DeliverySetting
 from app.models.product import Product
-from app.routers import admin, addresses, auth, banners, cart, categories, coupons, delivery, delivery_options, orders, payments, products, realtime, upload
+from app.routers import admin, addresses, ai_editor, auth, banners, cart, categories, coupons, delivery, delivery_options, orders, payments, products, realtime, upload
+from app.seed_data import DEFAULT_CATEGORIES, DEFAULT_PRODUCTS
 from app.services.password import hash_password
 
-_IS_PROD = os.getenv("ENV", "development").lower() == "production"
+_IS_PROD = settings.is_production
 
 # Fail fast if critical secrets are missing in production
 if _IS_PROD:
@@ -34,10 +35,21 @@ if _IS_PROD:
         "SECRET_KEY": settings.secret_key,
         "RAZORPAY_KEY_ID": settings.razorpay_key_id,
         "RAZORPAY_KEY_SECRET": settings.razorpay_key_secret,
+        "FIREBASE_STORAGE_BUCKET": settings.firebase_storage_bucket,
         "R2_ACCESS_KEY_ID": settings.r2_access_key_id,
         "R2_SECRET_ACCESS_KEY": settings.r2_secret_access_key,
+        "R2_ACCOUNT_ID": settings.r2_account_id,
+        "R2_PUBLIC_URL": settings.r2_public_url,
         "ADMIN_PASSWORD": settings.admin_password,
     }.items() if not v]
+    if (
+        not settings.firebase_credentials_json
+        and (
+            not settings.firebase_credentials_path
+            or not Path(settings.firebase_credentials_path).exists()
+        )
+    ):
+        _missing.append("FIREBASE_CREDENTIALS_JSON or FIREBASE_CREDENTIALS_PATH")
     # DATABASE_URL always has a value (pydantic default), so check it's not
     # still pointing at the local-dev default — that would mean it was never
     # actually set for this deploy.
@@ -47,101 +59,18 @@ if _IS_PROD:
         raise RuntimeError(f"Missing required production env vars: {', '.join(_missing)}")
     if settings.dev_bypass_secret:
         raise RuntimeError("DEV_BYPASS_SECRET must be empty when ENV=production")
+    if settings.admin_password == "changeme123":
+        raise RuntimeError("ADMIN_PASSWORD must be changed when ENV=production")
+    if settings.allowed_hosts == "*":
+        raise RuntimeError("ALLOWED_HOSTS must be restricted when ENV=production")
+    if settings.razorpay_key_id.startswith("rzp_test_"):
+        raise RuntimeError("RAZORPAY_KEY_ID must use live keys when ENV=production")
 
 _DEFAULT_DELIVERY_SETTINGS = [
     DeliverySetting(type="free",     label="Free Delivery",     price=0,  days_label="5-7 business days"),
     DeliverySetting(type="standard", label="Standard Delivery", price=49, days_label="3-4 business days"),
     DeliverySetting(type="express",  label="Express Delivery",  price=99, days_label="1-2 business days"),
 ]
-
-_DEFAULT_CATEGORIES = [
-    Category(name="photo_prints", icon="photo", sort_order=0),
-    Category(name="mugs", icon="coffee", sort_order=1),
-    Category(name="albums", icon="book", sort_order=2),
-    Category(name="frames", icon="frame", sort_order=3),
-    Category(name="digital_frames", icon="tv", sort_order=4),
-]
-
-_DEFAULT_PRODUCTS = [
-    Product(
-        name="Photo Prints",
-        category="photo_prints",
-        base_price=10.0,
-        sizes=[
-            {"label": "Wallet (2x3)",  "price": 10.0},
-            {"label": "4x6",           "price": 15.0},
-            {"label": "5x7",           "price": 30.0},
-            {"label": "8x10",          "price": 65.0},
-            {"label": "A4",            "price": 90.0},
-            {"label": "A3",            "price": 150.0},
-        ],
-        description="High-quality glossy photo prints in popular sizes.",
-        images=[],
-        is_active=True,
-    ),
-    Product(
-        name="Classic Photo Mug",
-        category="mugs",
-        base_price=299.0,
-        sizes=[
-            {"label": "11oz", "price": 299.0},
-            {"label": "15oz", "price": 349.0},
-        ],
-        description="Personalised ceramic mug with your favourite photo.",
-        images=[],
-        is_active=True,
-    ),
-    Product(
-        name="Magic Mug",
-        category="mugs",
-        base_price=399.0,
-        sizes=[
-            {"label": "11oz", "price": 399.0},
-        ],
-        description="Colour-changing magic mug — photo appears when hot.",
-        images=[],
-        is_active=True,
-    ),
-    Product(
-        name="Photo Album",
-        category="albums",
-        base_price=499.0,
-        sizes=[
-            {"label": "4x6 (36 photos)",  "price": 499.0},
-            {"label": "5x7 (24 photos)",  "price": 699.0},
-            {"label": "8x10 (20 photos)", "price": 999.0},
-        ],
-        description="Premium soft-cover photo album.",
-        images=[],
-        is_active=True,
-    ),
-    Product(
-        name="Photo Frame",
-        category="frames",
-        base_price=199.0,
-        sizes=[
-            {"label": "4x6",  "price": 199.0},
-            {"label": "5x7",  "price": 299.0},
-            {"label": "8x10", "price": 499.0},
-        ],
-        description="Classic wooden photo frame with your printed photo.",
-        images=[],
-        is_active=True,
-    ),
-    Product(
-        name="Digital Photo Frame",
-        category="digital_frames",
-        base_price=1999.0,
-        sizes=[
-            {"label": "7-inch",  "price": 1999.0},
-            {"label": "10-inch", "price": 2999.0},
-        ],
-        description="Wi-Fi enabled digital frame — update photos from your phone.",
-        images=[],
-        is_active=True,
-    ),
-]
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -165,25 +94,38 @@ async def lifespan(app: FastAPI):
 
         # Seed default categories
         category_ids: dict[str, str] = {}
-        for category in _DEFAULT_CATEGORIES:
+        for category_data in DEFAULT_CATEGORIES:
             existing = await db.execute(
-                select(Category).where(Category.name == category.name)
+                select(Category).where(Category.name == category_data["name"])
             )
             existing_category = existing.scalar_one_or_none()
             if existing_category is None:
+                category = Category(**category_data)
                 db.add(category)
+                await db.flush()
                 category_ids[category.name] = category.id
             else:
-                category_ids[category.name] = existing_category.id
+                for field, value in category_data.items():
+                    setattr(existing_category, field, value)
+                category_ids[existing_category.name] = existing_category.id
 
-        # Seed default products (one per category, skip if any exist in that category)
-        for product in _DEFAULT_PRODUCTS:
+        # Seed and refresh products from the bundled catalog.
+        for product_data in DEFAULT_PRODUCTS:
+            data = dict(product_data)
+            data["category_id"] = category_ids.get(data["category"])
             existing = await db.execute(
-                select(Product).where(Product.category == product.category).limit(1)
+                select(Product).where(
+                    Product.name == data["name"],
+                    Product.category == data["category"],
+                )
             )
-            if existing.scalar_one_or_none() is None:
-                product.category_id = category_ids.get(product.category)
+            existing_product = existing.scalar_one_or_none()
+            if existing_product is None:
+                product = Product(**data)
                 db.add(product)
+            else:
+                for field, value in data.items():
+                    setattr(existing_product, field, value)
 
         # Bootstrap a super_admin from env credentials if no admin exists yet.
         # Subsequent admin management happens via the admin panel (AdminUser table),
@@ -215,17 +157,8 @@ app = FastAPI(
     openapi_url=None if _IS_PROD else "/openapi.json",
 )
 
-_ALLOWED_ORIGINS = [
-    o.strip()
-    for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
-    if o.strip()
-]
-
-_ALLOWED_HOSTS = [
-    h.strip()
-    for h in os.getenv("ALLOWED_HOSTS", "*").split(",")
-    if h.strip()
-]
+_ALLOWED_ORIGINS = settings.allowed_origin_list
+_ALLOWED_HOSTS = settings.allowed_host_list
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -281,6 +214,7 @@ app.include_router(delivery.router)
 app.include_router(delivery_options.router)
 app.include_router(admin.router)
 app.include_router(upload.router)
+app.include_router(ai_editor.router)
 app.include_router(realtime.router)
 
 

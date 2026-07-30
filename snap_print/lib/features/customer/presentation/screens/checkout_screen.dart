@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +7,7 @@ import '../../../../core/constants/product_images.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/error_snackbar.dart';
+import '../../../../core/widgets/premium_network_image.dart';
 import '../../../../core/network/api_client.dart';
 import '../../data/datasources/customer_remote_datasource.dart';
 import '../../domain/entities/cart_item_entity.dart';
@@ -45,17 +45,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final razorpayOrder = await ds.createRazorpayOrder(cart.total);
 
       if (mounted) {
-        context.push(AppRoutes.payment, extra: {
-          'amount': (razorpayOrder['amount'] as num).toDouble(),
-          'razorpayOrderId': razorpayOrder['razorpay_order_id'] as String,
-          'addressId': selectedAddress.id,
-          'deliveryType': cart.deliveryTypeKey,
-          'couponCode': cart.couponCode,
-        });
+        context.push(
+          AppRoutes.payment,
+          extra: {
+            'amount': (razorpayOrder['amount'] as num).toDouble(),
+            'razorpayOrderId': razorpayOrder['razorpay_order_id'] as String,
+            'addressId': selectedAddress.id,
+            'deliveryType': cart.deliveryTypeKey,
+            'couponCode': cart.couponCode,
+          },
+        );
       }
     } catch (e) {
       if (mounted) {
-        final msg = e is AppException ? e.message : 'Something went wrong. Please try again.';
+        final msg = e is AppException
+            ? e.message
+            : 'Something went wrong. Please try again.';
         showErrorSnackbar(context, msg);
       }
     } finally {
@@ -72,43 +77,61 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final deliveryOptionsAsync = ref.watch(deliveryOptionsProvider);
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text(AppStrings.checkout)),
       body: Column(
         children: [
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
               children: [
-                // Delivery Options
-                Text(AppStrings.deliveryOptions,
-                    style: Theme.of(context).textTheme.headlineSmall),
+                const _CheckoutSteps(currentStep: 2),
+                const SizedBox(height: 24),
+                Text(
+                  AppStrings.deliveryOptions,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
                 const SizedBox(height: 12),
                 deliveryOptionsAsync.when(
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, s) => Text('$e',
-                      style: const TextStyle(color: AppColors.error)),
+                  loading: () =>
+                      const LinearProgressIndicator(color: AppColors.accent),
+                  error: (e, s) => Text(
+                    '$e',
+                    style: const TextStyle(color: AppColors.error),
+                  ),
                   data: (options) => Column(
                     children: options.map((option) {
                       final selected = cart.deliveryTypeKey == option.type;
                       return GestureDetector(
                         onTap: () => cartNotifier.setDeliveryOption(
-                            option.type, option.price),
+                          option.type,
+                          option.price,
+                        ),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
                           decoration: BoxDecoration(
                             color: selected
-                                ? AppColors.accentLight
+                                ? AppColors.primary
                                 : AppColors.surface,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(22),
                             border: Border.all(
                               color: selected
-                                  ? AppColors.primary
-                                  : AppColors.border,
-                              width: selected ? 2 : 1,
+                                  ? AppColors.accent
+                                  : AppColors.divider,
+                              width: selected ? 1.5 : 1,
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.045),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
                           ),
                           child: Row(
                             children: [
@@ -116,20 +139,35 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 selected
                                     ? Icons.radio_button_checked
                                     : Icons.radio_button_unchecked,
-                                color: AppColors.primary,
+                                color: selected
+                                    ? AppColors.accent
+                                    : AppColors.textHint,
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(option.label,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w600)),
-                                    Text(option.daysLabel,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall),
+                                    Text(
+                                      option.label,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        color: selected
+                                            ? Colors.white
+                                            : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    Text(
+                                      option.daysLabel,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: selected
+                                                ? Colors.white70
+                                                : AppColors.textSecondary,
+                                          ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -140,8 +178,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 style: TextStyle(
                                   color: option.price == 0
                                       ? AppColors.success
+                                      : selected
+                                      ? Colors.white
                                       : AppColors.textPrimary,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w900,
                                 ),
                               ),
                             ],
@@ -154,12 +194,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
                 const SizedBox(height: 24),
 
-                // Delivery Address
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(AppStrings.deliveryAddress,
-                        style: Theme.of(context).textTheme.headlineSmall),
+                    Text(
+                      AppStrings.deliveryAddress,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
                     TextButton(
                       onPressed: () => context.push(AppRoutes.address),
                       child: const Text('Manage'),
@@ -168,15 +209,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ),
                 const SizedBox(height: 8),
                 addressAsync.when(
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, s) =>
-                      Text('$e', style: const TextStyle(color: AppColors.error)),
+                  loading: () =>
+                      const LinearProgressIndicator(color: AppColors.accent),
+                  error: (e, s) => Text(
+                    '$e',
+                    style: const TextStyle(color: AppColors.error),
+                  ),
                   data: (addresses) {
                     if (addresses.isEmpty) {
-                      return Card(
+                      return Container(
+                        decoration: _checkoutCardDecoration(),
                         child: ListTile(
-                          leading: const Icon(Icons.add_location_alt_outlined,
-                              color: AppColors.primary),
+                          leading: const Icon(
+                            Icons.add_location_alt_outlined,
+                            color: AppColors.accent,
+                          ),
                           title: const Text('Add delivery address'),
                           onTap: () => context.push(AppRoutes.address),
                         ),
@@ -186,24 +233,31 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       children: addresses.map((addr) {
                         final isSelected = selectedAddress?.id == addr.id;
                         return GestureDetector(
-                          onTap: () => ref
-                              .read(selectedAddressProvider.notifier)
-                              .state = addr,
+                          onTap: () =>
+                              ref.read(selectedAddressProvider.notifier).state =
+                                  addr,
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             margin: const EdgeInsets.only(bottom: 8),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? AppColors.accentLight
+                                  ? AppColors.primary
                                   : AppColors.surface,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(22),
                               border: Border.all(
                                 color: isSelected
-                                    ? AppColors.primary
-                                    : AppColors.border,
-                                width: isSelected ? 2 : 1,
+                                    ? AppColors.accent
+                                    : AppColors.divider,
+                                width: isSelected ? 1.5 : 1,
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.045),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
                             ),
                             child: Row(
                               children: [
@@ -211,13 +265,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   isSelected
                                       ? Icons.radio_button_checked
                                       : Icons.radio_button_unchecked,
-                                  color: AppColors.primary,
+                                  color: isSelected
+                                      ? AppColors.accent
+                                      : AppColors.textHint,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
                                     '${addr.fullAddress}, ${addr.city} - ${addr.pincode}',
-                                    style: const TextStyle(fontSize: 13),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : AppColors.textPrimary,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -231,25 +293,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
                 const SizedBox(height: 24),
 
-                // Items preview
-                Text('Your Items',
-                    style: Theme.of(context).textTheme.headlineSmall),
+                Text(
+                  'Your Items',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
                 const SizedBox(height: 10),
                 _CartItemsPreview(items: cart.items),
                 const SizedBox(height: 24),
 
-                // Order Summary
-                Text(AppStrings.orderSummary,
-                    style: Theme.of(context).textTheme.headlineSmall),
+                Text(
+                  AppStrings.orderSummary,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
                 const SizedBox(height: 12),
-                Card(
+                Container(
+                  decoration: _checkoutCardDecoration(),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
                         _SummaryRow(
-                            label: '${cart.itemCount} item(s)',
-                            value: '₹${cart.subtotal.toStringAsFixed(0)}'),
+                          label: '${cart.itemCount} item(s)',
+                          value: '₹${cart.subtotal.toStringAsFixed(0)}',
+                        ),
                         const SizedBox(height: 8),
                         _SummaryRow(
                           label: AppStrings.deliveryCharge,
@@ -281,12 +347,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
           SafeArea(
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: CustomButton(
-                label: AppStrings.placeOrder,
-                isLoading: _isPlacing,
-                onPressed: _placeOrder,
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: _checkoutCardDecoration(radius: 28),
+                child: CustomButton(
+                  label: AppStrings.placeOrder,
+                  isLoading: _isPlacing,
+                  onPressed: _placeOrder,
+                ),
               ),
             ),
           ),
@@ -294,6 +363,53 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       ),
     );
   }
+}
+
+class _CheckoutSteps extends StatelessWidget {
+  const _CheckoutSteps({required this.currentStep});
+  final int currentStep;
+
+  @override
+  Widget build(BuildContext context) {
+    const steps = ['Bag', 'Address', 'Payment'];
+    return Row(
+      children: List.generate(steps.length, (index) {
+        final active = index <= currentStep;
+        return Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: active ? AppColors.primary : AppColors.divider,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              if (index != steps.length - 1) const SizedBox(width: 8),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+BoxDecoration _checkoutCardDecoration({double radius = 24}) {
+  return BoxDecoration(
+    color: AppColors.surface,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: AppColors.divider),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.045),
+        blurRadius: 22,
+        offset: const Offset(0, 12),
+      ),
+    ],
+  );
 }
 
 class _CartItemsPreview extends StatelessWidget {
@@ -312,21 +428,25 @@ class _CartItemsPreview extends StatelessWidget {
           final item = items[i];
           final imageUrl = item.customizationImageUrl?.isNotEmpty == true
               ? item.customizationImageUrl!
-              : resolveCartProductImage(item.productId);
+              : item.productImageUrl.isNotEmpty
+              ? item.productImageUrl
+              : resolveCartProductImage(
+                  item.productId,
+                  productName: item.productName,
+                );
           return Column(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: imageUrl.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: imageUrl,
-                        width: 76,
-                        height: 76,
-                        fit: BoxFit.cover,
-                        errorWidget: (ctx, url, err) =>
-                            _imgPlaceholder(item.productId),
-                      )
-                    : _imgPlaceholder(item.productId),
+              PremiumNetworkImage(
+                imageUrl: imageUrl,
+                categoryId: categoryFromProductId(
+                  item.productId,
+                  fallbackName: item.productName,
+                ),
+                width: 76,
+                height: 76,
+                borderRadius: 10,
+                cacheWidth: 180,
+                cacheHeight: 180,
               ),
               const SizedBox(height: 5),
               SizedBox(
@@ -334,9 +454,10 @@ class _CartItemsPreview extends StatelessWidget {
                 child: Text(
                   item.productName,
                   style: const TextStyle(
-                      fontSize: 10,
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w500),
+                    fontSize: 10,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
@@ -346,29 +467,6 @@ class _CartItemsPreview extends StatelessWidget {
           );
         },
       ),
-    );
-  }
-
-  Widget _imgPlaceholder(String productId) {
-    final cat = categoryFromProductId(productId);
-    final colors = switch (cat) {
-      'photo_prints' => [const Color(0xFF1B5E20), const Color(0xFF66BB6A)],
-      'photo_books' => [const Color(0xFF4A148C), const Color(0xFFAB47BC)],
-      'frames_wall_decor' => [const Color(0xFFB71C1C), const Color(0xFFEF5350)],
-      'personalized_gifts' => [const Color(0xFF0D47A1), const Color(0xFF42A5F5)],
-      _ => [AppColors.primaryDark, AppColors.primary],
-    };
-    return Container(
-      width: 76,
-      height: 76,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-            colors: colors,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: const Icon(Icons.image_outlined, color: Colors.white54, size: 28),
     );
   }
 }
@@ -390,15 +488,21 @@ class _SummaryRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: TextStyle(
-                fontSize: isBold ? 16 : 14,
-                fontWeight: isBold ? FontWeight.w700 : FontWeight.w400)),
-        Text(value,
-            style: TextStyle(
-                fontSize: isBold ? 18 : 14,
-                fontWeight: isBold ? FontWeight.w700 : FontWeight.w600,
-                color: valueColor)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isBold ? 16 : 14,
+            fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isBold ? 18 : 14,
+            fontWeight: isBold ? FontWeight.w700 : FontWeight.w600,
+            color: valueColor,
+          ),
+        ),
       ],
     );
   }

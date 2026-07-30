@@ -1,12 +1,13 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/constants/product_images.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/error_snackbar.dart';
+import '../../../../core/widgets/premium_network_image.dart';
 import '../../data/repositories/customer_repository_impl.dart';
 import '../providers/cart_provider.dart';
 
@@ -66,234 +67,297 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
     if (cart.items.isEmpty) {
       return Scaffold(
+        backgroundColor: AppColors.background,
         appBar: AppBar(title: const Text(AppStrings.cart)),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.shopping_cart_outlined,
-                  size: 72, color: AppColors.textHint),
-              const SizedBox(height: 16),
-              Text(AppStrings.cartEmpty,
-                  style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              Text(AppStrings.cartEmptySubtitle,
-                  style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: 24),
-              CustomButton(
-                label: 'Browse Products',
-                width: 200,
-                onPressed: () => context.go(AppRoutes.customerHome),
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.all(28),
+              decoration: _cartCardDecoration(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const _CartIconBubble(icon: Icons.shopping_bag_rounded),
+                  const SizedBox(height: 18),
+                  Text(
+                    AppStrings.cartEmpty,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    AppStrings.cartEmptySubtitle,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  CustomButton(
+                    label: 'Browse Products',
+                    width: 210,
+                    onPressed: () => context.go(AppRoutes.customerHome),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       );
     }
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(title: Text('${AppStrings.cart} (${cart.itemCount})')),
       body: Column(
         children: [
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               children: [
-                // Cart items
-                ...cart.items.map((item) => Dismissible(
-                      key: Key(item.cartItemId),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 16),
-                        decoration: BoxDecoration(
-                          color: AppColors.errorLight,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.delete_outline,
-                            color: AppColors.error),
+                ...cart.items.map(
+                  (item) => Dismissible(
+                    key: Key(item.cartItemId),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorLight,
+                        borderRadius: BorderRadius.circular(24),
                       ),
-                      onDismissed: (_) =>
-                          notifier.removeItem(item.cartItemId),
-                      child: Card(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: CachedNetworkImage(
-                                  imageUrl: item.customizationImageUrl ??
-                                      item.productImageUrl,
-                                  width: 64,
-                                  height: 64,
-                                  fit: BoxFit.cover,
-                                  errorWidget: (c, u, e) => Container(
-                                    width: 64,
-                                    height: 64,
-                                    color: AppColors.accentLight,
-                                    child: const Icon(Icons.image_outlined,
-                                        color: AppColors.primary),
-                                  ),
-                                ),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: AppColors.error,
+                      ),
+                    ),
+                    onDismissed: (_) => notifier.removeItem(item.cartItemId),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: _cartCardDecoration(),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: PremiumNetworkImage(
+                              imageUrl:
+                                  item.customizationImageUrl ??
+                                  (item.productImageUrl.isNotEmpty
+                                      ? item.productImageUrl
+                                      : resolveCartProductImage(
+                                          item.productId,
+                                          productName: item.productName,
+                                        )),
+                              categoryId: categoryFromProductId(
+                                item.productId,
+                                fallbackName: item.productName,
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(item.productName,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 14)),
-                                    const SizedBox(height: 2),
-                                    Text(item.selectedSize,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      '₹${item.totalPrice.toStringAsFixed(0)}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.primary,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Quantity control
-                              Row(
-                                children: [
-                                  _SmallQtyBtn(
-                                    icon: Icons.remove,
-                                    onTap: () => notifier.updateQuantity(
-                                        item.cartItemId, item.quantity - 1),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8),
-                                    child: Text('${item.quantity}',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w700)),
-                                  ),
-                                  _SmallQtyBtn(
-                                    icon: Icons.add,
-                                    onTap: () => notifier.updateQuantity(
-                                        item.cartItemId, item.quantity + 1),
-                                  ),
-                                ],
-                              ),
-                            ],
+                              width: 72,
+                              height: 72,
+                              borderRadius: 18,
+                              cacheWidth: 180,
+                              cacheHeight: 180,
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.productName,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  item.selectedSize,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '₹${item.totalPrice.toStringAsFixed(0)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.primary,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          _QuantityStepper(
+                            quantity: item.quantity,
+                            onDecrement: () => notifier.updateQuantity(
+                              item.cartItemId,
+                              item.quantity - 1,
+                            ),
+                            onIncrement: () => notifier.updateQuantity(
+                              item.cartItemId,
+                              item.quantity + 1,
+                            ),
+                          ),
+                        ],
                       ),
-                    )),
-
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 8),
-
-                // Coupon
-                if (cart.couponCode != null)
-                  // Applied state — show code chip with remove button
-                  Row(
+                _CouponPanel(
+                  controller: _couponController,
+                  couponCode: cart.couponCode,
+                  isLoading: _applyingCoupon,
+                  onApply: _applyCoupon,
+                  onRemove: () {
+                    notifier.removeCoupon();
+                    _couponController.clear();
+                  },
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: _cartCardDecoration(radius: 24),
+                  child: Column(
                     children: [
-                      const Icon(Icons.local_offer,
-                          color: AppColors.success, size: 18),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${cart.couponCode!} applied',
-                        style: const TextStyle(
-                          color: AppColors.success,
-                          fontWeight: FontWeight.w600,
+                      _PriceLine(
+                        label: AppStrings.subtotal,
+                        value: '₹${cart.subtotal.toStringAsFixed(0)}',
+                      ),
+                      const SizedBox(height: 8),
+                      _PriceLine(
+                        label: AppStrings.deliveryCharge,
+                        value: cart.deliveryCharge == 0
+                            ? AppStrings.free
+                            : '₹${cart.deliveryCharge.toStringAsFixed(0)}',
+                        valueColor: cart.deliveryCharge == 0
+                            ? AppColors.success
+                            : null,
+                      ),
+                      if (cart.discount > 0) ...[
+                        const SizedBox(height: 8),
+                        _PriceLine(
+                          label: AppStrings.discount,
+                          value: '- ₹${cart.discount.toStringAsFixed(0)}',
+                          valueColor: AppColors.success,
                         ),
+                      ],
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Divider(),
                       ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () {
-                          notifier.removeCoupon();
-                          _couponController.clear();
-                        },
-                        child: const Text('Remove',
-                            style: TextStyle(color: AppColors.error)),
-                      ),
-                    ],
-                  )
-                else
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _couponController,
-                          decoration: const InputDecoration(
-                            hintText: AppStrings.enterCouponCode,
-                            prefixIcon: Icon(Icons.local_offer_outlined),
-                            isDense: true,
-                          ),
-                          textCapitalization: TextCapitalization.characters,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: _applyingCoupon ? null : _applyCoupon,
-                        child: _applyingCoupon
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Text(AppStrings.apply),
+                      _PriceLine(
+                        label: AppStrings.total,
+                        value: '₹${cart.total.toStringAsFixed(0)}',
+                        isBold: true,
                       ),
                     ],
                   ),
-                const SizedBox(height: 20),
-
-                // Price breakdown
-                _PriceLine(
-                    label: AppStrings.subtotal,
-                    value: '₹${cart.subtotal.toStringAsFixed(0)}'),
-                const SizedBox(height: 6),
-                _PriceLine(
-                  label: AppStrings.deliveryCharge,
-                  value: cart.deliveryCharge == 0
-                      ? AppStrings.free
-                      : '₹${cart.deliveryCharge.toStringAsFixed(0)}',
-                  valueColor: cart.deliveryCharge == 0
-                      ? AppColors.success
-                      : null,
                 ),
-                if (cart.discount > 0) ...[
-                  const SizedBox(height: 6),
-                  _PriceLine(
-                    label: AppStrings.discount,
-                    value: '- ₹${cart.discount.toStringAsFixed(0)}',
-                    valueColor: AppColors.success,
-                  ),
-                ],
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 10),
-                  child: Divider(),
-                ),
-                _PriceLine(
-                  label: AppStrings.total,
-                  value: '₹${cart.total.toStringAsFixed(0)}',
-                  isBold: true,
-                ),
-                const SizedBox(height: 8),
               ],
             ),
           ),
-
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: CustomButton(
-                label: AppStrings.proceedToCheckout,
-                onPressed: () => context.push(AppRoutes.checkout),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: _cartCardDecoration(radius: 28),
+                child: CustomButton(
+                  label: AppStrings.proceedToCheckout,
+                  onPressed: () => context.push(AppRoutes.checkout),
+                ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CouponPanel extends StatelessWidget {
+  const _CouponPanel({
+    required this.controller,
+    required this.couponCode,
+    required this.isLoading,
+    required this.onApply,
+    required this.onRemove,
+  });
+
+  final TextEditingController controller;
+  final String? couponCode;
+  final bool isLoading;
+  final VoidCallback onApply;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    if (couponCode != null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: _cartCardDecoration(radius: 20),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.local_offer_rounded,
+              color: AppColors.success,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '$couponCode applied',
+              style: const TextStyle(
+                color: AppColors.success,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const Spacer(),
+            TextButton(
+              onPressed: onRemove,
+              child: const Text(
+                'Remove',
+                style: TextStyle(color: AppColors.error),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: _cartCardDecoration(radius: 22),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: AppStrings.enterCouponCode,
+                prefixIcon: Icon(Icons.local_offer_outlined),
+                isDense: true,
+              ),
+              textCapitalization: TextCapitalization.characters,
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: isLoading ? null : onApply,
+            child: isLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text(AppStrings.apply),
           ),
         ],
       ),
@@ -322,19 +386,57 @@ class _PriceLine extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: isBold ? 16 : 14,
-            fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
+            fontWeight: isBold ? FontWeight.w900 : FontWeight.w600,
             color: AppColors.textSecondary,
           ),
         ),
         Text(
           value,
           style: TextStyle(
-            fontSize: isBold ? 18 : 14,
-            fontWeight: isBold ? FontWeight.w700 : FontWeight.w600,
+            fontSize: isBold ? 20 : 14,
+            fontWeight: FontWeight.w900,
             color: valueColor ?? (isBold ? AppColors.textPrimary : null),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _QuantityStepper extends StatelessWidget {
+  const _QuantityStepper({
+    required this.quantity,
+    required this.onDecrement,
+    required this.onIncrement,
+  });
+
+  final int quantity;
+  final VoidCallback onDecrement;
+  final VoidCallback onIncrement;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.beige,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          _SmallQtyBtn(icon: Icons.add_rounded, onTap: onIncrement),
+          SizedBox(
+            height: 28,
+            child: Center(
+              child: Text(
+                '$quantity',
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+          ),
+          _SmallQtyBtn(icon: Icons.remove_rounded, onTap: onDecrement),
+        ],
+      ),
     );
   }
 }
@@ -349,14 +451,48 @@ class _SmallQtyBtn extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 26,
-        height: 26,
+        width: 28,
+        height: 28,
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(6),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.divider),
         ),
-        child: Icon(icon, size: 14, color: AppColors.primary),
+        child: Icon(icon, size: 15, color: AppColors.primary),
       ),
     );
   }
+}
+
+class _CartIconBubble extends StatelessWidget {
+  const _CartIconBubble({required this.icon});
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 78,
+      height: 78,
+      decoration: BoxDecoration(
+        color: AppColors.accentLight,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Icon(icon, size: 38, color: AppColors.accent),
+    );
+  }
+}
+
+BoxDecoration _cartCardDecoration({double radius = 24}) {
+  return BoxDecoration(
+    color: AppColors.surface,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: AppColors.divider),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.045),
+        blurRadius: 22,
+        offset: const Offset(0, 12),
+      ),
+    ],
+  );
 }

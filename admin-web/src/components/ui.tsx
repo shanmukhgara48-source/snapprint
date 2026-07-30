@@ -80,6 +80,19 @@ export function Spinner() {
   );
 }
 
+export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="py-12 text-center text-sm">
+      <p className="text-red-400">{message}</p>
+      {onRetry && (
+        <Button variant="secondary" className="mx-auto mt-3" onClick={onRetry}>
+          Retry
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export function MockBanner({ note }: { note?: string }) {
   return (
     <div className="mb-5 rounded-lg border border-yellow-900/60 bg-yellow-950/40 px-4 py-2.5 text-xs text-yellow-400">

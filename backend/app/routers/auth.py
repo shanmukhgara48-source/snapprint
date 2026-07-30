@@ -151,7 +151,7 @@ async def dev_login(
         await db.commit()
         await db.refresh(user)
 
-    dev_token = f"dev_{settings.dev_bypass_secret}_{user.firebase_uid}"
+    dev_token = _create_app_access_token(user)
     return DevLoginResponse(
         dev_token=dev_token,
         firebase_uid=user.firebase_uid,
