@@ -11,6 +11,6 @@ passlib[bcrypt]==1.7.4
 python-multipart==0.0.12
 httpx>=0.28.1,<1.0.0
 uvicorn[standard]==0.31.1
-boto3==1.35.36
+boto3==1.43.59
 gunicorn==23.0.0
 google-genai>=1.29.0
