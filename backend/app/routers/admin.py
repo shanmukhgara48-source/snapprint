@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 
 import firebase_admin.storage
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, File
+from PIL import Image
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,10 +32,12 @@ from ..models import (
     User,
 )
 from ..models.delivery_setting import DeliverySetting
-from ..services.firebase_service import get_firebase_app, send_broadcast_notification, notify_order_confirmed
+from ..services.firebase_service import get_firebase_app, send_broadcast_notification, notify_order_confirmed, set_user_role_claim
 from ..services.admin_audit import log_admin_action
 from ..services.event_bus import emit_event
 from ..services.password import hash_password
+from ..services.order_status import validate_order_status_transition
+from ..services.payment_service import amount_to_paise, refund_razorpay_payment
 from ..schemas.admin import CouponCreate, CouponOut, CouponUpdate
 from ..schemas.banner import BannerCreate, BannerOut, BannerUpdate
 from ..schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
@@ -47,22 +50,46 @@ def _client_ip(request: Request) -> str | None:
     return request.client.host if request.client else None
 
 
+async def _resolve_product_category_id(
+    db: AsyncSession,
+    category: str,
+    category_id: str | None,
+) -> str:
+    query = (
+        select(Category).where(Category.id == category_id)
+        if category_id
+        else select(Category).where(Category.name == category)
+    )
+    result = await db.execute(query)
+    category_row = result.scalar_one_or_none()
+    if category_row is None or category_row.name != category:
+        raise HTTPException(422, "Product category does not match an existing category.")
+    return category_row.id
+
+
 # ── Image Upload ──────────────────────────────────────────────────────────────
 
 _ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 _MAX_FILE_BYTES = 5 * 1024 * 1024  # 5 MB
+_MAX_IMAGE_PIXELS = 25_000_000
 _EXTENSION_BY_CONTENT_TYPE = {
     "image/jpeg": "jpg",
     "image/png": "png",
     "image/webp": "webp",
     "image/gif": "gif",
 }
+_FORMAT_BY_CONTENT_TYPE = {
+    "image/jpeg": "JPEG",
+    "image/png": "PNG",
+    "image/webp": "WEBP",
+    "image/gif": "GIF",
+}
 
 
 @router.post("/upload", response_model=dict)
 async def upload_image(
     file: Annotated[UploadFile, File(...)],
-    _: Annotated[User, Depends(require_admin)],
+    _: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> dict:
     """
     Upload a product image to Firebase Storage.
@@ -77,8 +104,21 @@ async def upload_image(
         )
 
     content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Image file is empty")
     if len(content) > _MAX_FILE_BYTES:
         raise HTTPException(status_code=413, detail="File exceeds 5 MB limit")
+    try:
+        with Image.open(io.BytesIO(content)) as image:
+            image_format = image.format
+            width, height = image.size
+            image.verify()
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Image file is corrupt or unsupported") from exc
+    if image_format != _FORMAT_BY_CONTENT_TYPE[file.content_type]:
+        raise HTTPException(status_code=400, detail="Declared image type does not match file content")
+    if width <= 0 or height <= 0 or width * height > _MAX_IMAGE_PIXELS:
+        raise HTTPException(status_code=413, detail="Image dimensions exceed the limit")
 
     # Derive the extension from the validated content-type, never from the
     # client-supplied filename — an unsanitized filename could inject path
@@ -89,8 +129,8 @@ async def upload_image(
     get_firebase_app()  # ensure initialised
     bucket = firebase_admin.storage.bucket(settings.firebase_storage_bucket)
     blob = bucket.blob(blob_name)
-    blob.upload_from_string(content, content_type=file.content_type)
-    blob.make_public()
+    await asyncio.to_thread(blob.upload_from_string, content, content_type=file.content_type)
+    await asyncio.to_thread(blob.make_public)
 
     return {"url": blob.public_url}
 
@@ -111,7 +151,7 @@ async def admin_create_category(
     request: Request,
     payload: CategoryCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> Category:
     existing = await db.execute(select(Category).where(Category.name == payload.name))
     if existing.scalar_one_or_none():
@@ -131,7 +171,7 @@ async def admin_update_category(
     category_id: str,
     payload: CategoryUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> Category:
     result = await db.execute(select(Category).where(Category.id == category_id))
     category = result.scalar_one_or_none()
@@ -152,7 +192,7 @@ async def admin_delete_category(
     request: Request,
     category_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> None:
     result = await db.execute(select(Category).where(Category.id == category_id))
     category = result.scalar_one_or_none()
@@ -205,7 +245,7 @@ async def admin_create_banner(
     request: Request,
     payload: BannerCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> Banner:
     banner = Banner(**payload.model_dump())
     db.add(banner)
@@ -222,13 +262,17 @@ async def admin_update_banner(
     banner_id: str,
     payload: BannerUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> Banner:
     result = await db.execute(select(Banner).where(Banner.id == banner_id))
     banner = result.scalar_one_or_none()
     if banner is None:
         raise HTTPException(status_code=404, detail="Banner not found")
     changes = payload.model_dump(exclude_unset=True)
+    starts_at = changes.get("starts_at", banner.starts_at)
+    ends_at = changes.get("ends_at", banner.ends_at)
+    if starts_at and ends_at and ends_at <= starts_at:
+        raise HTTPException(status_code=422, detail="ends_at must be after starts_at")
     for field, value in changes.items():
         setattr(banner, field, value)
     await db.commit()
@@ -243,7 +287,7 @@ async def admin_delete_banner(
     request: Request,
     banner_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> None:
     result = await db.execute(select(Banner).where(Banner.id == banner_id))
     banner = result.scalar_one_or_none()
@@ -275,9 +319,15 @@ async def admin_create_product(
     request: Request,
     payload: ProductCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> Product:
-    product = Product(**payload.model_dump())
+    data = payload.model_dump()
+    data["category_id"] = await _resolve_product_category_id(
+        db,
+        payload.category,
+        payload.category_id,
+    )
+    product = Product(**data)
     db.add(product)
     await db.commit()
     await db.refresh(product)
@@ -292,15 +342,28 @@ async def admin_update_product(
     product_id: str,
     payload: ProductUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> Product:
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
     changes = payload.model_dump(exclude_unset=True)
+    if "category" in changes or "category_id" in changes:
+        changes["category_id"] = await _resolve_product_category_id(
+            db,
+            changes.get("category", product.category),
+            changes.get("category_id")
+            if "category" in changes
+            else product.category_id,
+        )
     for field, value in changes.items():
         setattr(product, field, value)
+    if product.base_price <= 0 and not product.sizes:
+        raise HTTPException(
+            status_code=422,
+            detail="A product must have a positive base or size price",
+        )
     await db.commit()
     await db.refresh(product)
     await log_admin_action(db, admin["admin_user_id"], "product.update", "product", product.id, details=changes, ip_address=_client_ip(request))
@@ -320,7 +383,7 @@ async def admin_delete_product(
     request: Request,
     product_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> None:
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
@@ -341,12 +404,12 @@ async def admin_delete_product(
 
 
 class BulkProductUpdate(BaseModel):
-    ids: list[str]
+    ids: list[str] = Field(min_length=1, max_length=500)
     update: ProductUpdate
 
 
 class BulkProductIds(BaseModel):
-    ids: list[str]
+    ids: list[str] = Field(min_length=1, max_length=500)
 
 
 @router.post("/products/bulk-update", response_model=list[ProductOut])
@@ -354,7 +417,7 @@ async def admin_bulk_update_products(
     request: Request,
     payload: BulkProductUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> list[Product]:
     changes = payload.update.model_dump(exclude_unset=True)
     if not payload.ids or not changes:
@@ -363,9 +426,22 @@ async def admin_bulk_update_products(
     products = list(result.scalars().all())
     if not products:
         raise HTTPException(status_code=404, detail="No matching products")
+    if "category" in changes or "category_id" in changes:
+        changes["category_id"] = await _resolve_product_category_id(
+            db,
+            changes.get("category", products[0].category),
+            changes.get("category_id")
+            if "category" in changes
+            else products[0].category_id,
+        )
     for product in products:
         for field, value in changes.items():
             setattr(product, field, value)
+        if product.base_price <= 0 and not product.sizes:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{product.name} must have a positive base or size price",
+            )
     await db.commit()
     await log_admin_action(db, admin["admin_user_id"], "product.bulk_update", "product", ",".join(payload.ids), details=changes, ip_address=_client_ip(request))
     for product in products:
@@ -379,7 +455,7 @@ async def admin_bulk_delete_products(
     request: Request,
     payload: BulkProductIds,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> None:
     if not payload.ids:
         raise HTTPException(status_code=422, detail="ids required")
@@ -503,7 +579,7 @@ async def admin_export_orders(
 
 
 class AssignDeliveryRequest(BaseModel):
-    delivery_partner_id: str
+    delivery_partner_id: str = Field(min_length=1, max_length=128)
 
 
 @router.post("/orders/{order_id}/assign")
@@ -512,12 +588,17 @@ async def admin_assign_delivery(
     order_id: str,
     payload: AssignDeliveryRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[
+        dict,
+        Depends(require_admin_role("super_admin", "manager", "support_staff")),
+    ],
 ) -> dict:
     result = await db.execute(select(Order).where(Order.id == order_id))
     order = result.scalar_one_or_none()
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
+    if order.status in {"delivered", "cancelled"}:
+        raise HTTPException(status_code=409, detail="Terminal orders cannot be assigned")
 
     partner_result = await db.execute(
         select(User).where(
@@ -545,7 +626,7 @@ async def admin_assign_delivery(
 class OrderUpdateRequest(BaseModel):
     # Must match delivery.py's VALID_STATUS_TRANSITIONS states plus "cancelled".
     status: Literal["confirmed", "picked_up", "out_for_delivery", "delivered", "cancelled"] | None = None
-    notes: str | None = None
+    notes: str | None = Field(default=None, max_length=5000)
 
 
 @router.get("/orders/{order_id}")
@@ -579,11 +660,15 @@ async def admin_get_order(
         "customer_phone": order.customer.phone if order.customer else None,
         "delivery_partner_id": order.delivery_partner_id,
         "address": (
-            f"{order.address.full_address}, {order.address.city} - {order.address.pincode}"
+            f"{order.delivery_address_snapshot}, {order.delivery_city_snapshot} - {order.delivery_pincode_snapshot}"
+            if order.delivery_address_snapshot
+            else f"{order.address.full_address}, {order.address.city} - {order.address.pincode}"
             if order.address else None
         ),
         "razorpay_order_id": order.razorpay_order_id,
         "razorpay_payment_id": order.razorpay_payment_id,
+        "razorpay_refund_id": order.razorpay_refund_id,
+        "refund_status": order.refund_status,
         "created_at": order.created_at.isoformat(),
         "estimated_delivery": order.estimated_delivery.isoformat() if order.estimated_delivery else None,
         "items": [
@@ -610,10 +695,23 @@ async def admin_update_order(
     order_id: str,
     payload: OrderUpdateRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[
+        dict,
+        Depends(
+            require_admin_role(
+                "super_admin", "manager", "support_staff", "printing_staff"
+            )
+        ),
+    ],
 ) -> dict:
     result = await db.execute(
-        select(Order).options(selectinload(Order.customer)).where(Order.id == order_id)
+        select(Order)
+        .options(
+            selectinload(Order.customer),
+            selectinload(Order.items).selectinload(OrderItem.product),
+        )
+        .where(Order.id == order_id)
+        .with_for_update()
     )
     order = result.scalar_one_or_none()
     if order is None:
@@ -624,9 +722,52 @@ async def admin_update_order(
         order.notes = payload.notes
         changes["notes"] = payload.notes
     if payload.status is not None:
-        order.status = payload.status
-        changes["status"] = payload.status
-        db.add(DeliveryTracking(order_id=order.id, status=payload.status))
+        admin_role = admin.get("admin_role")
+        if admin_role == "support_staff":
+            raise HTTPException(403, "Support staff can edit notes but not order status.")
+        if payload.status == "cancelled" and admin_role not in {
+            "super_admin",
+            "manager",
+        }:
+            raise HTTPException(403, "Only managers can cancel an order.")
+        if validate_order_status_transition(order.status, payload.status):
+            if payload.status == "cancelled" and order.razorpay_payment_id:
+                try:
+                    refund = await asyncio.to_thread(
+                        refund_razorpay_payment,
+                        order.razorpay_payment_id,
+                        amount_to_paise(order.total_price),
+                        receipt=f"snapprint-{order.id}",
+                    )
+                except Exception as exc:
+                    raise HTTPException(
+                        502,
+                        "The payment could not be refunded; the order remains active.",
+                    ) from exc
+                if refund["amount"] != amount_to_paise(order.total_price):
+                    raise HTTPException(
+                        502,
+                        "The payment provider returned an incomplete refund.",
+                    )
+                order.razorpay_refund_id = refund["id"] or order.razorpay_refund_id
+                order.refund_status = refund["status"]
+
+            if payload.status == "cancelled":
+                for item in order.items:
+                    if item.product and item.product.tracks_inventory:
+                        item.product.stock_quantity += item.quantity
+                if order.coupon_code:
+                    coupon_result = await db.execute(
+                        select(Coupon)
+                        .where(Coupon.code == order.coupon_code)
+                        .with_for_update()
+                    )
+                    coupon = coupon_result.scalar_one_or_none()
+                    if coupon is not None and coupon.used_count > 0:
+                        coupon.used_count -= 1
+            order.status = payload.status
+            changes["status"] = payload.status
+            db.add(DeliveryTracking(order_id=order.id, status=payload.status))
 
     await db.commit()
     await log_admin_action(db, admin["admin_user_id"], "order.update", "order", order_id, details=changes, ip_address=_client_ip(request))
@@ -637,6 +778,15 @@ async def admin_update_order(
         {"status": order.status, "notes": order.notes},
         user_id=order.user_id,
     )
+    if payload.status == "cancelled":
+        for item in order.items:
+            if item.product and item.product.tracks_inventory:
+                await emit_event(
+                    "product",
+                    "updated",
+                    item.product.id,
+                    ProductOut.model_validate(item.product).model_dump(mode="json"),
+                )
 
     # This is the pending -> confirmed transition (the customer's first
     # confirmation that their order was accepted) — send the push notification
@@ -718,7 +868,7 @@ async def admin_update_user(
     user_id: str,
     payload: UserUpdateRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> dict:
     """Suspend/reactivate a customer or delivery-partner account."""
     result = await db.execute(select(User).where(User.id == user_id))
@@ -752,7 +902,7 @@ async def admin_promote_to_delivery(
     request: Request,
     user_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> dict:
     """Promote an existing customer account to delivery partner role."""
     result = await db.execute(select(User).where(User.id == user_id))
@@ -764,6 +914,10 @@ async def admin_promote_to_delivery(
     user.role = "delivery"
     await db.commit()
     await db.refresh(user)
+    try:
+        set_user_role_claim(user.firebase_uid, "delivery")
+    except Exception:
+        pass
     await log_admin_action(db, admin["admin_user_id"], "user.promote", "user", user_id, details={"new_role": "delivery"}, ip_address=_client_ip(request))
     await emit_event("user", "role_changed", user_id, {"role": "delivery"}, user_id=user_id)
     return {"id": user.id, "phone": user.phone, "role": user.role, "message": "Promoted to delivery partner"}
@@ -774,7 +928,7 @@ async def admin_demote_to_customer(
     request: Request,
     user_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> dict:
     """Revert a delivery partner back to customer role."""
     result = await db.execute(select(User).where(User.id == user_id))
@@ -784,6 +938,10 @@ async def admin_demote_to_customer(
     user.role = "customer"
     await db.commit()
     await db.refresh(user)
+    try:
+        set_user_role_claim(user.firebase_uid, "customer")
+    except Exception:
+        pass
     await log_admin_action(db, admin["admin_user_id"], "user.demote", "user", user_id, details={"new_role": "customer"}, ip_address=_client_ip(request))
     await emit_event("user", "role_changed", user_id, {"role": "customer"}, user_id=user_id)
     return {"id": user.id, "phone": user.phone, "role": user.role, "message": "Demoted to customer"}
@@ -805,7 +963,7 @@ async def admin_create_coupon(
     request: Request,
     payload: CouponCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> Coupon:
     existing = await db.execute(select(Coupon).where(Coupon.code == payload.code))
     if existing.scalar_one_or_none():
@@ -825,7 +983,7 @@ async def admin_update_coupon(
     coupon_id: str,
     payload: CouponUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> Coupon:
     result = await db.execute(select(Coupon).where(Coupon.id == coupon_id))
     coupon = result.scalar_one_or_none()
@@ -848,7 +1006,7 @@ async def admin_delete_coupon(
     request: Request,
     coupon_id: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> None:
     result = await db.execute(select(Coupon).where(Coupon.id == coupon_id))
     coupon = result.scalar_one_or_none()
@@ -873,9 +1031,9 @@ class DeliverySettingOut(BaseModel):
 
 
 class DeliverySettingUpdate(BaseModel):
-    label: str | None = None
-    price: float | None = Field(default=None, ge=0)
-    days_label: str | None = None
+    label: str | None = Field(default=None, min_length=1, max_length=100)
+    price: float | None = Field(default=None, ge=0, le=1_000_000)
+    days_label: str | None = Field(default=None, min_length=1, max_length=100)
     is_active: bool | None = None
 
 
@@ -894,7 +1052,7 @@ async def admin_update_delivery_setting(
     delivery_type: str,
     payload: DeliverySettingUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> DeliverySetting:
     result = await db.execute(
         select(DeliverySetting).where(DeliverySetting.type == delivery_type)
@@ -960,7 +1118,7 @@ async def admin_update_setting(
     key: str,
     payload: SettingUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> dict:
     result = await db.execute(select(AppSetting).where(AppSetting.key == key))
     setting = result.scalar_one_or_none()
@@ -980,8 +1138,8 @@ async def admin_update_setting(
 # ── Notifications ─────────────────────────────────────────────────────────────
 
 class BroadcastNotificationRequest(BaseModel):
-    title: str
-    body: str
+    title: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=2000)
 
 
 @router.post("/notifications/broadcast", status_code=201)
@@ -989,7 +1147,7 @@ async def admin_broadcast_notification(
     request: Request,
     payload: BroadcastNotificationRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    admin: Annotated[dict, Depends(require_admin)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager"))],
 ) -> dict:
     """Push an announcement to every app user via the FCM 'all_users' topic."""
     if not payload.title.strip() or not payload.body.strip():
@@ -1089,15 +1247,15 @@ async def admin_list_login_history(
 # ── Admin user management (super_admin only) ────────────────────────────────
 
 class AdminUserCreate(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=3, max_length=128, pattern=r"^[A-Za-z0-9_.-]+$")
+    password: str = Field(min_length=12, max_length=512)
     role: str  # super_admin | manager | support_staff | printing_staff | delivery_staff
 
 
 class AdminUserUpdate(BaseModel):
     role: str | None = None
     is_active: bool | None = None
-    password: str | None = None
+    password: str | None = Field(default=None, min_length=12, max_length=512)
 
 
 _VALID_ADMIN_ROLES = {"super_admin", "manager", "support_staff", "printing_staff", "delivery_staff"}

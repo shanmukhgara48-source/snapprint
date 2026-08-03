@@ -16,11 +16,11 @@ router = APIRouter(prefix="/cart", tags=["cart"])
 async def calculate(
     payload: CartCalculateRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_customer)],
+    user: Annotated[User, Depends(require_customer)],
 ) -> CartCalculateResponse:
     """
     Server-side cart price calculation.
     Always call this before showing the checkout summary — it fetches
     authoritative prices from the DB so client-side totals can't be tampered.
     """
-    return await calculate_cart(db, payload)
+    return await calculate_cart(db, payload, user_id=user.id)

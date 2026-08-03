@@ -26,29 +26,34 @@ class ProductModel extends ProductEntity {
     super.deliveryInfo,
     super.sortOrder,
     super.stockQuantity,
+    super.tracksInventory,
     super.isFeatured,
     super.isTrending,
   });
 
   // REST API factory — matches the Postgres-backed /products response shape.
   factory ProductModel.fromJson(Map<String, dynamic> json) => ProductModel(
-        id: json['id'].toString(),
-        name: json['name'] as String,
-        categoryId: json['category_id'] as String? ?? json['category'] as String? ?? '',
-        categoryName: json['category'] as String? ?? '',
-        basePrice: (json['base_price'] as num).toDouble(),
-        sizes: (json['sizes'] as List<dynamic>? ?? [])
-            .map((s) => ProductSizeModel.fromJson(s as Map<String, dynamic>))
-            .toList(),
-        images: (json['images'] as List<dynamic>? ?? [])
-            .map((e) => e as String)
-            .toList(),
-        description: json['description'] as String?,
-        material: null,
-        deliveryInfo: null,
-        sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
-        stockQuantity: (json['stock_quantity'] as num?)?.toInt() ?? 0,
-        isFeatured: json['is_featured'] as bool? ?? false,
-        isTrending: json['is_trending'] as bool? ?? false,
-      );
+    id: json['id'].toString(),
+    name: json['name'] as String,
+    categoryId:
+        json['category_id'] as String? ?? json['category'] as String? ?? '',
+    categoryName: json['category'] as String? ?? '',
+    basePrice:
+        (json['base_price'] as num? ?? json['starting_price'] as num? ?? 0)
+            .toDouble(),
+    sizes: (json['sizes'] as List<dynamic>? ?? [])
+        .map((s) => ProductSizeModel.fromJson(s as Map<String, dynamic>))
+        .toList(),
+    images: (json['images'] as List<dynamic>? ?? [])
+        .map((e) => e as String)
+        .toList(),
+    description: json['description'] as String?,
+    material: null,
+    deliveryInfo: null,
+    sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+    stockQuantity: (json['stock_quantity'] as num?)?.toInt() ?? 0,
+    tracksInventory: json['tracks_inventory'] as bool? ?? false,
+    isFeatured: json['is_featured'] as bool? ?? false,
+    isTrending: json['is_trending'] as bool? ?? false,
+  );
 }

@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +13,7 @@ from ..dependencies import require_customer
 from ..models import Coupon, User
 
 router = APIRouter(prefix="/coupons", tags=["coupons"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 class ActiveCouponOut(BaseModel):
@@ -32,6 +35,7 @@ async def list_active_coupons(
     result = await db.execute(
         select(Coupon).where(
             Coupon.is_active.is_(True),
+            Coupon.owner_user_id.is_(None),
             or_(Coupon.expires_at.is_(None), Coupon.expires_at >= now),
         ).order_by(Coupon.created_at.desc())
     )
@@ -43,8 +47,8 @@ async def list_active_coupons(
 
 
 class CouponValidateRequest(BaseModel):
-    code: str
-    subtotal: float
+    code: str = Field(min_length=1, max_length=64)
+    subtotal: float = Field(ge=0, le=10_000_000)
 
 
 class CouponValidateResponse(BaseModel):
@@ -55,10 +59,12 @@ class CouponValidateResponse(BaseModel):
 
 
 @router.post("/validate", response_model=CouponValidateResponse)
+@limiter.limit("20/minute")
 async def validate_coupon(
+    request: Request,
     payload: CouponValidateRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_customer)],
+    user: Annotated[User, Depends(require_customer)],
 ) -> CouponValidateResponse:
     """
     Quickly validates a coupon code against the current cart subtotal.
@@ -68,6 +74,7 @@ async def validate_coupon(
         select(Coupon).where(
             Coupon.code == payload.code.strip().upper(),
             Coupon.is_active.is_(True),
+            or_(Coupon.owner_user_id.is_(None), Coupon.owner_user_id == user.id),
         )
     )
     coupon = result.scalar_one_or_none()

@@ -99,7 +99,7 @@ class ProductCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        'From ₹${product.basePrice.toStringAsFixed(0)}',
+                        product.priceLabel,
                         style: const TextStyle(
                           color: AppColors.primary,
                           fontSize: 12,
@@ -114,7 +114,7 @@ class ProductCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
-                          Icons.add_rounded,
+                          Icons.chevron_right_rounded,
                           size: 16,
                           color: AppColors.primary,
                         ),

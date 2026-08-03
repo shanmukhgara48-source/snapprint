@@ -11,9 +11,11 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/realtime/realtime_service.dart';
 import '../../domain/entities/user_entity.dart';
+import '../../data/models/user_model.dart';
 
 const _storageKeyDevToken = 'dev_auth_token';
 const _storageKeyDevUid = 'dev_firebase_uid';
+const _storageKeyDevUserId = 'dev_user_id';
 
 const _storageKeyRole = 'user_role';
 
@@ -24,7 +26,8 @@ const _storageKeyRole = 'user_role';
 /// subsequent cart/checkout/profile action.
 final authSyncErrorProvider = StateProvider<String?>((ref) => null);
 
-class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier {
+class AuthNotifier extends AsyncNotifier<UserEntity?>
+    implements ChangeNotifier {
   final _storage = const FlutterSecureStorage();
   final _listeners = <VoidCallback>[];
 
@@ -42,26 +45,29 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
     if (storedDevToken != null && storedDevUid != null) {
       setDevAuthToken(storedDevToken);
       return UserEntity(
-        id: storedDevUid,
+        id: await _storage.read(key: _storageKeyDevUserId) ?? storedDevUid,
         firebaseUid: storedDevUid,
         phone: await _storage.read(key: 'dev_phone') ?? '',
-        role: 'customer',
+        role: await _storage.read(key: _storageKeyRole) ?? 'customer',
         isActive: true,
-        displayName: await _storage.read(key: 'dev_display_name') ?? 'Test User',
+        displayName:
+            await _storage.read(key: 'dev_display_name') ?? 'Test User',
       );
     }
 
     final firebaseUser = ref.read(firebaseAuthServiceProvider).currentUser;
     if (firebaseUser == null) return null;
     // Ensure PostgreSQL record exists for cached Firebase sessions too
-    await _syncBackend(firebaseUser);
-    return _loadFromFirestore(firebaseUser);
+    final backendUser = await _syncBackend(firebaseUser);
+    final profile = await _loadFromFirestore(firebaseUser);
+    return _mergeBackendProfile(backendUser, profile);
   }
 
   Future<UserEntity?> _loadFromFirestore(User firebaseUser) async {
     try {
-      final user =
-          await ref.read(firestoreServiceProvider).getUser(firebaseUser.uid);
+      final user = await ref
+          .read(firestoreServiceProvider)
+          .getUser(firebaseUser.uid);
       if (user != null) {
         await _storage.write(key: _storageKeyRole, value: user.role);
       }
@@ -81,37 +87,83 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
   /// (see ApiClient's _AuthInterceptor); it's re-minted here on every
   /// sign-in, auto-verify, and cold-start restore, so no separate refresh
   /// flow is needed for its ~7-day lifetime.
-  Future<void> _syncBackend(User firebaseUser, {String role = 'customer', String? fcmToken}) async {
+  Future<UserEntity?> _syncBackend(
+    User firebaseUser, {
+    String role = 'customer',
+    String? fcmToken,
+  }) async {
     try {
       final idToken = await firebaseUser.getIdToken();
       if (idToken == null) {
-        dev.log('[PhoneAuth] backend sync skipped — no id token', name: 'SnapPrint');
-        return;
+        dev.log(
+          '[PhoneAuth] backend sync skipped — no id token',
+          name: 'SnapPrint',
+        );
+        return null;
       }
       final token = fcmToken ?? await ref.read(fcmServiceProvider).getToken();
       final client = ref.read(apiClientProvider);
-      final response = await client.post(ApiEndpoints.verifyAuth, data: {
-        'id_token': idToken,
-        'phone': firebaseUser.phoneNumber ?? '',
-        'role': role,
-        'fcm_token': ?token,
-      });
-      final accessToken = (response.data as Map<String, dynamic>)['access_token'] as String?;
+      final response = await client.post(
+        ApiEndpoints.verifyAuth,
+        data: {
+          'id_token': idToken,
+          'phone': firebaseUser.phoneNumber ?? '',
+          'role': role,
+          'fcm_token': ?token,
+        },
+      );
+      final accessToken =
+          (response.data as Map<String, dynamic>)['access_token'] as String?;
       if (accessToken != null) setAppAuthToken(accessToken);
+      final userData =
+          (response.data as Map<String, dynamic>)['user']
+              as Map<String, dynamic>;
+      final user = UserModel.fromBackend(userData);
+      await _storage.write(key: _storageKeyRole, value: user.role);
       ref.read(authSyncErrorProvider.notifier).state = null;
-      dev.log('[PhoneAuth] backend sync success uid=${firebaseUser.uid}', name: 'SnapPrint');
+      dev.log(
+        '[PhoneAuth] backend sync success uid=${firebaseUser.uid}',
+        name: 'SnapPrint',
+      );
+      return user;
     } catch (e) {
       ref.read(authSyncErrorProvider.notifier).state =
           "Couldn't sync your session with the server. Cart, checkout, and orders may not work until you retry.";
-      dev.log('[PhoneAuth] backend sync failed (non-fatal): $e', name: 'SnapPrint');
+      dev.log(
+        '[PhoneAuth] backend sync failed (non-fatal): $e',
+        name: 'SnapPrint',
+      );
+      return null;
     }
+  }
+
+  UserEntity? _mergeBackendProfile(
+    UserEntity? backendUser,
+    UserEntity? profile,
+  ) {
+    if (backendUser == null) return profile;
+    return UserEntity(
+      id: backendUser.id,
+      firebaseUid: backendUser.firebaseUid,
+      phone: backendUser.phone,
+      role: backendUser.role,
+      isActive: backendUser.isActive,
+      displayName: profile?.displayName,
+      fcmToken: backendUser.fcmToken,
+    );
   }
 
   /// Re-attempts [_syncBackend] for the currently signed-in Firebase user.
   /// Called from the CustomerShell sync-error banner's retry action.
   Future<void> retrySync() async {
     final firebaseUser = ref.read(firebaseAuthServiceProvider).currentUser;
-    if (firebaseUser != null) await _syncBackend(firebaseUser);
+    if (firebaseUser != null) {
+      final backendUser = await _syncBackend(firebaseUser);
+      if (backendUser != null) {
+        state = AsyncData(_mergeBackendProfile(backendUser, state.valueOrNull));
+        _notifyListeners();
+      }
+    }
   }
 
   /// Called by FcmService whenever the device's FCM token is issued or
@@ -128,12 +180,18 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
     final completer = Completer<String>();
     final authService = ref.read(firebaseAuthServiceProvider);
 
-    dev.log('[PhoneAuth] verifyPhoneNumber called for: $phoneNumber', name: 'SnapPrint');
+    dev.log(
+      '[PhoneAuth] verifyPhoneNumber called for: $phoneNumber',
+      name: 'SnapPrint',
+    );
 
     authService.verifyPhoneNumber(
       phoneNumber: phoneNumber,
       codeSent: (verificationId, _) {
-        dev.log('[PhoneAuth] codeSent — verificationId: $verificationId', name: 'SnapPrint');
+        dev.log(
+          '[PhoneAuth] codeSent — verificationId: $verificationId',
+          name: 'SnapPrint',
+        );
         if (!completer.isCompleted) completer.complete(verificationId);
       },
       verificationFailed: (e) {
@@ -147,8 +205,9 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
         // Android only: auto-detected OTP — sign in without user input
         try {
           final userCred = await authService.signInWithCredential(credential);
-          await _syncBackend(userCred.user!);
-          final user = await _loadFromFirestore(userCred.user!);
+          final backendUser = await _syncBackend(userCred.user!);
+          final profile = await _loadFromFirestore(userCred.user!);
+          final user = _mergeBackendProfile(backendUser, profile);
           if (user != null) {
             state = AsyncData(user);
             _notifyListeners();
@@ -181,17 +240,16 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
       if (firebaseUser == null) throw Exception('Authentication failed');
 
       // Sync into PostgreSQL backend (creates record if new, no-ops if existing)
-      await _syncBackend(firebaseUser);
-
-      final user = await _loadFromFirestore(firebaseUser);
-      if (user == null) {
+      final backendUser = await _syncBackend(firebaseUser);
+      final profile = await _loadFromFirestore(firebaseUser);
+      if (profile == null) {
         // Firebase auth complete, but no Firestore profile — new user
         state = const AsyncData(null);
         return true;
       }
 
       _verifiedJustNow = true;
-      state = AsyncData(user);
+      state = AsyncData(_mergeBackendProfile(backendUser, profile));
       _notifyListeners();
       return false;
     } catch (e, st) {
@@ -213,13 +271,17 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
         throw Exception('Session expired. Please verify your phone again.');
       }
 
-      final user = await ref.read(firestoreServiceProvider).createUser(
+      final profile = await ref
+          .read(firestoreServiceProvider)
+          .createUser(
             uid: firebaseUser.uid,
             phone: phone,
             role: role,
             displayName: displayName,
           );
 
+      final backendUser = await _syncBackend(firebaseUser, role: role);
+      final user = _mergeBackendProfile(backendUser, profile) ?? profile;
       await _storage.write(key: _storageKeyRole, value: user.role);
       _verifiedJustNow = true;
       _notifyListeners();
@@ -235,15 +297,17 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
     // Dev bypass secret comes from --dart-define=DEV_BYPASS_SECRET=... at build time only
     const devSecret = String.fromEnvironment('DEV_BYPASS_SECRET');
     if (devSecret.isEmpty) {
-      throw Exception('DEV_BYPASS_SECRET is not set. Pass --dart-define=DEV_BYPASS_SECRET=<value>');
+      throw Exception(
+        'DEV_BYPASS_SECRET is not set. Pass --dart-define=DEV_BYPASS_SECRET=<value>',
+      );
     }
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final client = ref.read(apiClientProvider);
-      final resp = await client.post(ApiEndpoints.devLogin, data: {
-        'phone': phone,
-        'secret': devSecret,
-      });
+      final resp = await client.post(
+        ApiEndpoints.devLogin,
+        data: {'phone': phone, 'secret': devSecret},
+      );
       final data = resp.data as Map<String, dynamic>;
       final devToken = data['dev_token'] as String;
       final firebaseUid = data['firebase_uid'] as String;
@@ -252,6 +316,14 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
       setDevAuthToken(devToken);
       await _storage.write(key: _storageKeyDevToken, value: devToken);
       await _storage.write(key: _storageKeyDevUid, value: firebaseUid);
+      await _storage.write(
+        key: _storageKeyDevUserId,
+        value: userData['id'] as String,
+      );
+      await _storage.write(
+        key: _storageKeyRole,
+        value: userData['role'] as String? ?? 'customer',
+      );
       await _storage.write(key: 'dev_phone', value: phone);
       await _storage.write(key: 'dev_display_name', value: displayName);
       // Dev login never fires Firebase's authStateChanges, so the realtime
@@ -264,8 +336,8 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> implements ChangeNotifier 
         id: userData['id'] as String,
         firebaseUid: firebaseUid,
         phone: phone,
-        role: 'customer',
-        isActive: true,
+        role: userData['role'] as String? ?? 'customer',
+        isActive: userData['is_active'] as bool? ?? true,
         displayName: displayName,
       );
     });

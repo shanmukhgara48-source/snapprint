@@ -36,6 +36,7 @@ class PaymentScreen extends ConsumerStatefulWidget {
 class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   late Razorpay _razorpay;
   bool _isProcessing = false;
+  _PaymentCredentials? _successfulPayment;
 
   @override
   void initState() {
@@ -61,7 +62,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     // Test keys are fine in debug/profile builds (local dev, QA) — only
     // release builds must be rejected if they still carry a test key.
     const razorpayKeyId = String.fromEnvironment('RAZORPAY_KEY_ID');
-    final misconfigured = razorpayKeyId.isEmpty ||
+    final misconfigured =
+        razorpayKeyId.isEmpty ||
         (kReleaseMode && razorpayKeyId.startsWith('rzp_test_'));
     if (misconfigured) {
       showErrorSnackbar(
@@ -90,27 +92,37 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   void _handleSuccess(PaymentSuccessResponse response) async {
+    if (!mounted) return;
     // Guard against incomplete Razorpay response
     if (response.paymentId == null || response.signature == null) {
+      setState(() => _isProcessing = false);
       showErrorSnackbar(
         context,
         'Payment response incomplete. Please contact support.',
       );
       return;
     }
-    setState(() => _isProcessing = true);
+    _successfulPayment = _PaymentCredentials(
+      paymentId: response.paymentId!,
+      orderId: response.orderId ?? widget.razorpayOrderId,
+      signature: response.signature!,
+    );
+    await _finalizeOrder();
+  }
+
+  Future<void> _finalizeOrder() async {
+    final payment = _successfulPayment;
+    if (payment == null) return;
+    if (mounted) setState(() => _isProcessing = true);
     try {
       final ds = ref.read(customerDataSourceProvider);
       final cart = ref.read(cartProvider);
-      final paymentId = response.paymentId!;
-      final orderId = response.orderId ?? widget.razorpayOrderId;
-      final signature = response.signature!;
 
       // Step 1: Verify Razorpay signature
       await ds.verifyPayment({
-        'razorpay_payment_id': paymentId,
-        'razorpay_order_id': orderId,
-        'razorpay_signature': signature,
+        'razorpay_payment_id': payment.paymentId,
+        'razorpay_order_id': payment.orderId,
+        'razorpay_signature': payment.signature,
       });
 
       // Step 2: Create the actual order in our database
@@ -129,9 +141,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'address_id': widget.addressId,
         'delivery_type': widget.deliveryType,
         if (widget.couponCode != null) 'coupon_code': widget.couponCode,
-        'razorpay_payment_id': paymentId,
-        'razorpay_order_id': orderId,
-        'razorpay_signature': signature,
+        'razorpay_payment_id': payment.paymentId,
+        'razorpay_order_id': payment.orderId,
+        'razorpay_signature': payment.signature,
       });
 
       ref.read(cartProvider.notifier).clearCart();
@@ -141,17 +153,24 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         context.go(AppRoutes.orderConfirmationPath(order.id));
       }
     } catch (e) {
-      setState(() => _isProcessing = false);
-      if (mounted) showErrorSnackbar(context, AppStrings.serverError);
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        showErrorSnackbar(
+          context,
+          'Payment received. Tap Complete order to finish securely.',
+        );
+      }
     }
   }
 
   void _handleError(PaymentFailureResponse response) {
+    if (!mounted) return;
     setState(() => _isProcessing = false);
     showErrorSnackbar(context, response.message ?? AppStrings.paymentFailed);
   }
 
   void _handleExternalWallet(ExternalWalletResponse response) {
+    if (!mounted) return;
     setState(() => _isProcessing = false);
   }
 
@@ -230,10 +249,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             const SizedBox(height: 24),
 
             CustomButton(
-              label: _isProcessing ? 'Processing...' : AppStrings.payNow,
+              label: _isProcessing
+                  ? 'Processing...'
+                  : _successfulPayment != null
+                  ? 'Complete order'
+                  : AppStrings.payNow,
               isLoading: _isProcessing,
               icon: Icons.payment_rounded,
-              onPressed: _isProcessing ? null : _openRazorpay,
+              onPressed: _isProcessing
+                  ? null
+                  : _successfulPayment != null
+                  ? _finalizeOrder
+                  : _openRazorpay,
             ),
             const SizedBox(height: 12),
             Text(
@@ -247,6 +274,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       ),
     );
   }
+}
+
+class _PaymentCredentials {
+  const _PaymentCredentials({
+    required this.paymentId,
+    required this.orderId,
+    required this.signature,
+  });
+
+  final String paymentId;
+  final String orderId;
+  final String signature;
 }
 
 class _PaymentBadge extends StatelessWidget {

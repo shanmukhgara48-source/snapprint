@@ -1,22 +1,23 @@
 import asyncio
 import base64
+import binascii
 import json
 import os
-import struct
+import re
 import uuid
 from dataclasses import dataclass
 from io import BytesIO
-from urllib.parse import urlparse
 
-import boto3
-import httpx
 from fastapi import HTTPException
+from PIL import Image
 
 from ..config import settings
 from ..schemas.ai_editor import AiAnalyzeResponse, AiEditResponse
+from .r2_storage import build_media_url, owned_media_key, r2_client
 
 
 _ALLOWED_OPERATIONS = {
+    "auto",
     "enhance",
     "portrait",
     "background",
@@ -40,9 +41,6 @@ class _ImagePayload:
 
 
 class AiPhotoEditorService:
-    def __init__(self) -> None:
-        self._public_base = settings.r2_public_url.rstrip("/")
-
     async def edit(
         self,
         *,
@@ -55,8 +53,11 @@ class AiPhotoEditorService:
         mask_image_base64: str | None,
         previous_interaction_id: str | None,
         rights_confirmed: bool,
+        public_base_url: str,
     ) -> AiEditResponse:
         operation = operation.strip().lower().replace("-", "_")
+        if operation in {"auto", "prompt"}:
+            operation = _classify_prompt_operation(prompt)
         if operation not in _ALLOWED_OPERATIONS:
             raise HTTPException(status_code=400, detail="Unsupported AI edit operation.")
         if "watermark" in prompt.lower() and not rights_confirmed:
@@ -65,7 +66,7 @@ class AiPhotoEditorService:
                 detail="Confirm that you own this image and have the right to remove the watermark.",
             )
 
-        source = await self._download_owned_image(image_url)
+        source = await self._download_owned_image(image_url, user_id)
         edit_prompt = self._build_edit_prompt(
             operation=operation,
             prompt=prompt,
@@ -73,19 +74,28 @@ class AiPhotoEditorService:
             selected_size=selected_size,
             has_mask=bool(mask_image_base64),
         )
-        result = await asyncio.to_thread(
-            self._run_gemini_edit,
-            source,
-            edit_prompt,
-            mask_image_base64,
-            previous_interaction_id,
-        )
-        public_url = await asyncio.to_thread(
-            self._store_result,
-            user_id,
-            result["image_bytes"],
-            result["mime_type"],
-        )
+        try:
+            result = await asyncio.to_thread(
+                self._run_gemini_edit,
+                source,
+                edit_prompt,
+                mask_image_base64,
+                previous_interaction_id,
+            )
+            public_url = await asyncio.to_thread(
+                self._store_result,
+                user_id,
+                result["image_bytes"],
+                result["mime_type"],
+                public_base_url,
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="The AI editing service is temporarily unavailable.",
+            ) from exc
         return AiEditResponse(
             edited_image_url=public_url,
             interaction_id=result.get("interaction_id"),
@@ -96,11 +106,12 @@ class AiPhotoEditorService:
     async def analyze(
         self,
         *,
+        user_id: str,
         image_url: str,
         product_name: str,
         selected_size: str,
     ) -> AiAnalyzeResponse:
-        source = await self._download_owned_image(image_url)
+        source = await self._download_owned_image(image_url, user_id)
         baseline = self._baseline_analysis(source, product_name, selected_size)
         try:
             gemini = await asyncio.to_thread(
@@ -115,28 +126,35 @@ class AiPhotoEditorService:
             gemini = {}
         return self._merge_analysis(baseline, gemini)
 
-    async def _download_owned_image(self, image_url: str) -> _ImagePayload:
-        if not self._public_base:
-            raise HTTPException(status_code=500, detail="R2_PUBLIC_URL is not configured.")
-        parsed = urlparse(image_url)
-        allowed = urlparse(self._public_base)
-        if parsed.scheme not in {"https", "http"} or parsed.netloc != allowed.netloc:
-            raise HTTPException(status_code=400, detail="Only SnapPrint-hosted images can be edited.")
-
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
-            response = await client.get(image_url)
-        if response.status_code >= 400:
-            raise HTTPException(status_code=400, detail="Could not fetch the selected image.")
-
-        mime_type = response.headers.get("content-type", "image/jpeg").split(";")[0]
-        if mime_type not in {"image/jpeg", "image/png", "image/webp"}:
-            raise HTTPException(status_code=400, detail="Only JPEG, PNG and WebP images can be edited.")
-        if len(response.content) > 12 * 1024 * 1024:
+    async def _download_owned_image(self, image_url: str, user_id: str) -> _ImagePayload:
+        key = owned_media_key(image_url, str(user_id))
+        if key is None:
+            raise HTTPException(status_code=403, detail="You do not have access to this image.")
+        try:
+            result = await asyncio.to_thread(
+                r2_client().get_object,
+                Bucket=settings.r2_bucket_name,
+                Key=key,
+            )
+            data = await asyncio.to_thread(result["Body"].read, settings.ai_max_source_bytes + 1)
+            result["Body"].close()
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="Could not fetch the selected image.") from exc
+        if len(data) > settings.ai_max_source_bytes:
             raise HTTPException(status_code=413, detail="Image is too large for AI editing.")
-
-        width, height = _read_image_size(response.content)
+        mime_type = str(result.get("ContentType", "")).split(";", 1)[0]
+        if mime_type not in {"image/jpeg", "image/png", "image/webp"}:
+            raise HTTPException(status_code=400, detail="Could not fetch the selected image.")
+        try:
+            with Image.open(BytesIO(data)) as image:
+                width, height = image.size
+                image.verify()
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail="The selected image is corrupt.") from exc
+        if width * height > settings.ai_max_source_pixels:
+            raise HTTPException(status_code=413, detail="Image dimensions exceed the AI limit.")
         return _ImagePayload(
-            data=response.content,
+            data=data,
             mime_type=mime_type,
             width=width,
             height=height,
@@ -173,7 +191,7 @@ class AiPhotoEditorService:
             "response_format": {
                 "type": "image",
                 "mime_type": "image/jpeg",
-                "image_size": "2K",
+                "image_size": "4K",
             },
         }
         if previous_interaction_id:
@@ -188,8 +206,13 @@ class AiPhotoEditorService:
         if not encoded:
             raise HTTPException(status_code=502, detail="Gemini image response was empty.")
 
+        try:
+            image_bytes = base64.b64decode(encoded, validate=True)
+        except (binascii.Error, TypeError, ValueError) as exc:
+            raise HTTPException(status_code=502, detail="Gemini returned invalid image data.") from exc
+
         return {
-            "image_bytes": base64.b64decode(encoded),
+            "image_bytes": image_bytes,
             "mime_type": getattr(image_block, "mime_type", None) or "image/jpeg",
             "interaction_id": getattr(interaction, "id", None),
             "summary": getattr(interaction, "output_text", "") or "",
@@ -226,23 +249,37 @@ class AiPhotoEditorService:
             return {}
         return json.loads(text[start : end + 1])
 
-    def _store_result(self, user_id: str, image_bytes: bytes, mime_type: str) -> str:
+    def _store_result(
+        self,
+        user_id: str,
+        image_bytes: bytes,
+        mime_type: str,
+        public_base_url: str,
+    ) -> str:
+        if not image_bytes or len(image_bytes) > settings.ai_max_source_bytes:
+            raise HTTPException(status_code=502, detail="AI returned an invalid image size.")
+        expected_format = {"image/jpeg": "JPEG", "image/png": "PNG"}.get(mime_type)
+        if expected_format is None:
+            raise HTTPException(status_code=502, detail="AI returned an unsupported image type.")
+        try:
+            with Image.open(BytesIO(image_bytes)) as image:
+                image_format = image.format
+                width, height = image.size
+                image.verify()
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=502, detail="AI returned a corrupt image.") from exc
+        if image_format != expected_format or width * height > settings.ai_max_source_pixels:
+            raise HTTPException(status_code=502, detail="AI returned an invalid image.")
         ext = "png" if mime_type == "image/png" else "jpg"
         key = f"ai-edits/{user_id}/{uuid.uuid4()}.{ext}"
-        client = boto3.client(
-            "s3",
-            endpoint_url=f"https://{settings.r2_account_id}.r2.cloudflarestorage.com",
-            aws_access_key_id=settings.r2_access_key_id,
-            aws_secret_access_key=settings.r2_secret_access_key,
-            region_name="auto",
-        )
-        client.put_object(
+        r2_client().put_object(
             Bucket=settings.r2_bucket_name,
             Key=key,
             Body=image_bytes,
             ContentType=mime_type,
+            CacheControl="private, max-age=31536000, immutable",
         )
-        return f"{self._public_base}/{key}"
+        return build_media_url(public_base_url, key)
 
     def _client(self):
         api_key = settings.google_api_key or settings.gemini_api_key
@@ -335,7 +372,7 @@ class AiPhotoEditorService:
         if isinstance(suggestions, str):
             suggestions = [suggestions]
         return AiAnalyzeResponse(
-            score=int(gemini.get("score") or baseline["score"]),
+            score=max(0, min(100, int(gemini.get("score") or baseline["score"]))),
             resolution=baseline["resolution"],
             dpi_estimate=baseline["dpi_estimate"],
             blur=str(gemini.get("blur") or baseline["blur"]),
@@ -353,29 +390,138 @@ def _strip_data_url(value: str) -> str:
     return value.split(",", 1)[1] if "," in value else value
 
 
-def _read_image_size(data: bytes) -> tuple[int | None, int | None]:
-    if data.startswith(b"\x89PNG\r\n\x1a\n") and len(data) >= 24:
-        return struct.unpack(">II", data[16:24])
-    if data.startswith(b"\xff\xd8"):
-        stream = BytesIO(data)
-        stream.read(2)
-        while True:
-            marker_prefix = stream.read(1)
-            if marker_prefix != b"\xff":
-                return None, None
-            marker = stream.read(1)
-            while marker == b"\xff":
-                marker = stream.read(1)
-            if marker in {b"\xc0", b"\xc2"}:
-                block = stream.read(7)
-                height, width = struct.unpack(">HH", block[1:5])
-                return width, height
-            length_bytes = stream.read(2)
-            if len(length_bytes) != 2:
-                return None, None
-            length = struct.unpack(">H", length_bytes)[0]
-            stream.seek(length - 2, 1)
-    return None, None
+def _classify_prompt_operation(prompt: str) -> str:
+    text = " ".join(prompt.lower().strip().split())
+    if not text:
+        return "prompt"
+    if _has_any(
+        text,
+        "remove background",
+        "remove the background",
+        "transparent background",
+        "make the background transparent",
+        "cut out",
+        "cutout",
+        "replace background",
+        "replace the background",
+        "change background",
+        "change the background",
+        "blur background",
+        "replace the sky",
+        "change the sky",
+        "sky with",
+        "blue sky",
+        "beach",
+        "mountain",
+        "forest",
+        "office",
+        "cafe",
+        "space",
+        "moon",
+    ):
+        return "background"
+    if _has_any(
+        text,
+        "remove people",
+        "remove person",
+        "remove object",
+        "remove objects",
+        "remove chair",
+        "chair",
+        "car",
+        "dog",
+        "cat",
+        "remove wire",
+        "remove wires",
+        "remove text",
+        "photobomber",
+        "watermark",
+    ):
+        return "object_removal"
+    if _has_any(
+        text,
+        "upscale",
+        "4k",
+        "super resolution",
+        "increase quality",
+        "sharpen",
+        "deblur",
+        "denoise",
+    ):
+        return "upscale"
+    if _has_any(text, "colorize", "colourize"):
+        return "colorize"
+    if _has_any(
+        text,
+        "restore",
+        "scratch",
+        "scratches",
+        "faded",
+        "torn",
+        "old photo",
+        "repair",
+    ):
+        return "restore"
+    if _has_any(
+        text,
+        "face",
+        "smile",
+        "acne",
+        "wrinkle",
+        "teeth",
+        "eye",
+        "hair",
+        "portrait",
+    ):
+        return "portrait"
+    if _has_any(
+        text,
+        "anime",
+        "pixar",
+        "disney",
+        "ghibli",
+        "cartoon",
+        "pencil",
+        "sketch",
+        "watercolor",
+        "oil painting",
+        "pop art",
+        "comic",
+        "clay",
+        "lego",
+        "minecraft",
+        "cyberpunk",
+        "vaporwave",
+        "cinematic",
+        "vintage",
+        "matte",
+        "film",
+        "warm",
+        "cool",
+        "black and white",
+        "black & white",
+        "grayscale",
+        "monochrome",
+    ):
+        return "filter"
+    if _has_any(
+        text,
+        "enhance",
+        "hdr",
+        "brightness",
+        "contrast",
+        "saturation",
+        "professional",
+    ):
+        return "enhance"
+    return "prompt"
+
+
+def _has_any(text: str, *needles: str) -> bool:
+    return any(
+        re.search(rf"(?<![a-z0-9]){re.escape(needle)}(?![a-z0-9])", text)
+        for needle in needles
+    )
 
 
 def _estimate_dpi(width: int, height: int, selected_size: str) -> str:

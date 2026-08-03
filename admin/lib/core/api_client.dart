@@ -1,15 +1,39 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 // Set at build time: --dart-define=SNAPPRINT_API_URL=https://api.snapprint.in
-const _baseUrl = String.fromEnvironment(
-  'SNAPPRINT_API_URL',
-  defaultValue: 'http://localhost:8000',
-);
+const _configuredBaseUrl = String.fromEnvironment('SNAPPRINT_API_URL');
+const _localDevBaseUrl = 'http://localhost:8000';
 const _tokenKey = 'admin_token';
 
+String get _baseUrl {
+  final value = _configuredBaseUrl.isEmpty
+      ? (kReleaseMode
+            ? throw StateError(
+                'SNAPPRINT_API_URL must be set for release builds.',
+              )
+            : _localDevBaseUrl)
+      : _configuredBaseUrl;
+  final uri = Uri.tryParse(value);
+  if (uri == null || !uri.hasAuthority) {
+    throw StateError('SNAPPRINT_API_URL must be an absolute URL.');
+  }
+  if (kReleaseMode && uri.scheme != 'https') {
+    throw StateError('SNAPPRINT_API_URL must use HTTPS in release builds.');
+  }
+  return value;
+}
+
 class AdminApiClient {
+  static const _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
+  );
+
   late final Dio dio = Dio(BaseOptions(
     baseUrl: _baseUrl,
     headers: {'Content-Type': 'application/json'},
@@ -19,8 +43,7 @@ class AdminApiClient {
     ..interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final prefs = await SharedPreferences.getInstance();
-          final token = prefs.getString(_tokenKey);
+          final token = await _storage.read(key: _tokenKey);
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
@@ -30,19 +53,14 @@ class AdminApiClient {
     );
 
   Future<void> saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
+    await _storage.write(key: _tokenKey, value: token);
   }
 
   Future<void> clearToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
+    await _storage.delete(key: _tokenKey);
   }
 
-  Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_tokenKey);
-  }
+  Future<String?> getToken() => _storage.read(key: _tokenKey);
 }
 
 final adminApiClientProvider =

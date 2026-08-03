@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+from decimal import Decimal, ROUND_HALF_UP
 
 import razorpay
 
@@ -12,19 +13,30 @@ def get_razorpay_client() -> razorpay.Client:
     )
 
 
-def create_razorpay_order(amount_inr: float, currency: str = "INR") -> dict:
+def amount_to_paise(amount_inr: Decimal | float | str) -> int:
+    return int(
+        (Decimal(str(amount_inr)) * 100).quantize(
+            Decimal("1"), rounding=ROUND_HALF_UP
+        )
+    )
+
+
+def create_razorpay_order(
+    amount_inr: Decimal | float | str,
+    currency: str = "INR",
+) -> dict:
     """Create a Razorpay order. Amount in INR — converted to paise internally."""
     client = get_razorpay_client()
     order = client.order.create(
         {
-            "amount": int(amount_inr * 100),  # paise
+            "amount": amount_to_paise(amount_inr),
             "currency": currency,
             "payment_capture": 1,
         }
     )
     return {
         "razorpay_order_id": order["id"],
-        "amount": amount_inr,
+        "amount": float(amount_inr),
         "currency": currency,
         "order_id": order["id"],
     }
@@ -58,3 +70,46 @@ def get_paid_amount_paise(razorpay_order_id: str) -> int:
     client = get_razorpay_client()
     order = client.order.fetch(razorpay_order_id)
     return int(order["amount_paid"])
+
+
+def fetch_razorpay_payment(razorpay_payment_id: str) -> dict:
+    payment = get_razorpay_client().payment.fetch(razorpay_payment_id)
+    return {
+        "id": str(payment.get("id", "")),
+        "order_id": str(payment.get("order_id", "")),
+        "amount": int(payment.get("amount", 0)),
+        "status": str(payment.get("status", "")),
+        "amount_refunded": int(payment.get("amount_refunded", 0)),
+        "refund_status": payment.get("refund_status"),
+    }
+
+
+def refund_razorpay_payment(
+    razorpay_payment_id: str,
+    amount_paise: int,
+    *,
+    receipt: str,
+) -> dict:
+    """Issue an idempotent full refund for a captured payment."""
+    client = get_razorpay_client()
+    payment = client.payment.fetch(razorpay_payment_id)
+    if int(payment.get("amount_refunded", 0)) >= amount_paise:
+        return {
+            "id": "",
+            "status": "processed",
+            "amount": amount_paise,
+        }
+    refund = client.payment.refund(
+        razorpay_payment_id,
+        {
+            "amount": amount_paise,
+            "speed": "normal",
+            "receipt": receipt,
+            "notes": {"snapprint_order_id": receipt.removeprefix("snapprint-")},
+        },
+    )
+    return {
+        "id": str(refund.get("id", "")),
+        "status": str(refund.get("status", "pending")),
+        "amount": int(refund.get("amount", 0)),
+    }

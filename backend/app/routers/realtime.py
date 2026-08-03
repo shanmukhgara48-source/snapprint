@@ -19,13 +19,13 @@ import asyncio
 import json
 import logging
 
+import jwt
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from jose import JWTError, jwt
 from sqlalchemy import select
 
 from ..config import settings
 from ..database import AsyncSessionLocal
-from ..models import User
+from ..models import AdminUser, User
 from ..services.event_bus import event_bus
 from ..services.firebase_service import verify_firebase_token
 
@@ -42,7 +42,8 @@ async def _safe_close(websocket: WebSocket, code: int, reason: str) -> None:
     normal client-side disconnect, not a server error, so swallow it."""
     try:
         await websocket.close(code=code, reason=reason)
-    except RuntimeError:
+    except Exception:
+        logger.debug("WebSocket disconnected before the close frame was sent")
         pass
 
 
@@ -88,7 +89,7 @@ async def websocket_app(websocket: WebSocket) -> None:
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         user_id = payload["user_id"]
-    except (JWTError, KeyError):
+    except (jwt.PyJWTError, KeyError):
         try:
             # verify_firebase_token is a synchronous call — keep it off the loop
             decoded = await asyncio.to_thread(verify_firebase_token, token)
@@ -138,8 +139,20 @@ async def websocket_admin(websocket: WebSocket) -> None:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         if payload.get("role") != "admin" or not payload.get("admin_user_id"):
             raise ValueError("Not an admin token")
-    except (JWTError, ValueError):
+    except (jwt.PyJWTError, ValueError):
         await _safe_close(websocket, 4401, "Invalid admin token")
+        return
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(AdminUser).where(
+                AdminUser.id == payload["admin_user_id"],
+                AdminUser.is_active.is_(True),
+            )
+        )
+        admin_user = result.scalar_one_or_none()
+    if admin_user is None:
+        await _safe_close(websocket, 4403, "Admin account not available")
         return
 
     channels = ["admin", "catalog"]
@@ -147,7 +160,7 @@ async def websocket_admin(websocket: WebSocket) -> None:
     await websocket.send_text(json.dumps({"type": "auth_ok", "channels": channels}))
     logger.info(
         "WS admin connected admin_user=%s (total=%d)",
-        payload["admin_user_id"],
+        admin_user.id,
         event_bus.connection_count(),
     )
 

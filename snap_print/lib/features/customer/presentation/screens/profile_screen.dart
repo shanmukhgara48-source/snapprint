@@ -338,29 +338,35 @@ class _MenuItem extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: _profileCardDecoration(radius: 22),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-        leading: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: (iconColor ?? AppColors.accent).withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(15),
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 5,
           ),
-          child: Icon(icon, color: iconColor ?? AppColors.accent, size: 20),
-        ),
-        title: Text(
-          label,
-          style: TextStyle(
-            color: textColor ?? AppColors.textPrimary,
-            fontWeight: FontWeight.w800,
+          leading: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: (iconColor ?? AppColors.accent).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(icon, color: iconColor ?? AppColors.accent, size: 20),
           ),
+          title: Text(
+            label,
+            style: TextStyle(
+              color: textColor ?? AppColors.textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          trailing: const Icon(
+            Icons.chevron_right_rounded,
+            color: AppColors.textHint,
+          ),
+          onTap: onTap,
         ),
-        trailing: const Icon(
-          Icons.chevron_right_rounded,
-          color: AppColors.textHint,
-        ),
-        onTap: onTap,
       ),
     );
   }

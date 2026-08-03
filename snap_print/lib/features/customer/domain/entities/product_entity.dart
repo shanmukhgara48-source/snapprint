@@ -18,6 +18,7 @@ class ProductEntity {
     this.deliveryInfo,
     this.sortOrder = 0,
     this.stockQuantity = 0,
+    this.tracksInventory = false,
     this.isFeatured = false,
     this.isTrending = false,
   });
@@ -34,6 +35,7 @@ class ProductEntity {
   final String? deliveryInfo;
   final int sortOrder;
   final int stockQuantity;
+  final bool tracksInventory;
   final bool isFeatured;
   final bool isTrending;
 
@@ -42,4 +44,21 @@ class ProductEntity {
 
   // Primary/cover image — most call sites only need one image.
   String get imageUrl => images.isNotEmpty ? images.first : '';
+
+  double get effectivePrice {
+    final prices = <double>[
+      if (basePrice > 0) basePrice,
+      ...sizes.where((size) => size.price > 0).map((size) => size.price),
+    ];
+    if (prices.isEmpty) return 0;
+    return prices.reduce((a, b) => a < b ? a : b);
+  }
+
+  bool get hasKnownPrice => effectivePrice > 0;
+
+  String get priceLabel => hasKnownPrice
+      ? 'From ₹${effectivePrice.toStringAsFixed(0)}'
+      : 'Price unavailable';
+
+  bool get isInStock => !tracksInventory || stockQuantity > 0;
 }

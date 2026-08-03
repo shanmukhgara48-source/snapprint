@@ -14,6 +14,7 @@ export interface Product {
   images: string[];
   sort_order: number;
   stock_quantity: number;
+  tracks_inventory: boolean;
   is_featured: boolean;
   is_trending: boolean;
   is_active: boolean;
@@ -78,6 +79,8 @@ export interface OrderDetail {
   address: string | null;
   razorpay_order_id: string | null;
   razorpay_payment_id: string | null;
+  razorpay_refund_id: string | null;
+  refund_status: string | null;
   created_at: string;
   estimated_delivery: string | null;
   items: OrderItemDetail[];

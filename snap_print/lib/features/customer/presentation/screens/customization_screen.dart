@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
@@ -10,16 +9,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/product_images.dart';
-import '../../../../core/network/api_client.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/error_snackbar.dart';
 import '../../../../core/widgets/premium_network_image.dart';
 import '../../../ai_editor/presentation/screens/ai_photo_editor_screen.dart';
+import '../../../ai_editor/data/upload_repository.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/products_provider.dart';
 import '../../domain/entities/cart_item_entity.dart';
+import '../../domain/entities/product_entity.dart';
 
 const _kSourcePrefKey = 'snap_photo_source';
 
@@ -193,41 +193,15 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
   Future<void> _uploadImages(List<XFile> files) async {
     setState(() => _isUploading = true);
     try {
-      final client = ref.read(apiClientProvider);
+      final uploader = ref.read(uploadRepositoryProvider);
       for (final file in files) {
         final filename = file.name.isNotEmpty ? file.name : 'photo.jpg';
-        final ext = filename.contains('.')
-            ? filename.split('.').last.toLowerCase()
-            : 'jpg';
-        final contentType = ext == 'png'
-            ? 'image/png'
-            : ext == 'webp'
-            ? 'image/webp'
-            : 'image/jpeg';
 
-        // Step 1 — ask backend for a presigned upload URL
-        final presign = await client.get<Map<String, dynamic>>(
-          '/upload/presign',
-          queryParameters: {'filename': filename, 'content_type': contentType},
-        );
-        final uploadUrl = presign.data?['upload_url'] as String?;
-        final publicUrl = presign.data?['public_url'] as String?;
-        if (uploadUrl == null || publicUrl == null) {
-          throw Exception('Invalid presign response');
-        }
-
-        // Step 2 — PUT file bytes directly to R2 (no server in the middle)
         final bytes = await file.readAsBytes();
-        await Dio().put<void>(
-          uploadUrl,
-          data: bytes,
-          options: Options(
-            contentType: contentType,
-            headers: {'Content-Length': bytes.length},
-            sendTimeout: const Duration(minutes: 2),
-            receiveTimeout: const Duration(minutes: 2),
-            validateStatus: (status) => status != null && status < 400,
-          ),
+        final publicUrl = await uploader.uploadBytes(
+          bytes: bytes,
+          filename: filename,
+          contentType: imageContentTypeForFilename(filename),
         );
 
         if (mounted) setState(() => _uploadedUrls.add(publicUrl));
@@ -333,8 +307,13 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
 
   // ── Add to cart ────────────────────────────────────────────────────────────
 
-  Future<void> _addToCart(List<dynamic> sizes) async {
+  Future<void> _addToCart(ProductEntity product) async {
+    final sizes = product.sizes;
     if (!_requireAuth()) return;
+    if (!product.isInStock) {
+      showErrorSnackbar(context, 'This product is currently out of stock');
+      return;
+    }
     if (_selectedImages.isEmpty) {
       showErrorSnackbar(context, 'Please select a photo first');
       return;
@@ -360,13 +339,17 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
       showErrorSnackbar(context, 'Please select a size');
       return;
     }
-    setState(() => _isAdding = true);
-
     final selectedSizeObj = sizes.cast<dynamic>().firstWhere(
       (s) => s.label == _selectedSize,
       orElse: () => sizes.isNotEmpty ? sizes.first : null,
     );
-    final price = (selectedSizeObj?.price as num?)?.toDouble() ?? 0.0;
+    final price =
+        (selectedSizeObj?.price as num?)?.toDouble() ?? product.effectivePrice;
+    if (price <= 0) {
+      showErrorSnackbar(context, 'Price is unavailable for this product');
+      return;
+    }
+    setState(() => _isAdding = true);
 
     final catalogImageUrl = resolveCartProductImage(
       widget.productId,
@@ -493,7 +476,9 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
                     label: _cartLabel(isPhotoCategory),
                     icon: Icons.shopping_cart_outlined,
                     isLoading: _isAdding || _isUploading,
-                    onPressed: () => _addToCart(product.sizes),
+                    onPressed: product.isInStock
+                        ? () => _addToCart(product)
+                        : null,
                   ),
                 ),
               ),

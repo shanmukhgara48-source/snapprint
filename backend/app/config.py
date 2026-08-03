@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/snapprint"
     secret_key: str = ""  # MUST be set via env — app raises on startup if empty
     frontend_url: str = "http://localhost:3000"
+    public_api_url: str = ""
     allowed_origins: str = "http://localhost:3000"
     allowed_hosts: str = "*"
 
@@ -32,6 +33,16 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     gemini_image_model: str = "gemini-3.1-flash-image"
     gemini_text_model: str = "gemini-3.5-flash"
+
+    # Dedicated segmentation worker. Background removal is intentionally
+    # separate from generative image editing so the original pixels, alpha,
+    # and full resolution survive the operation.
+    ai_segmentation_url: str = ""
+    ai_segmentation_token: str = ""
+    ai_segmentation_model: str = "ZhengPeng7/BiRefNet_HR-matting"
+    ai_segmentation_timeout_seconds: int = 150
+    ai_max_source_bytes: int = 50 * 1024 * 1024
+    ai_max_source_pixels: int = 50_000_000
 
     # Admin credentials
     admin_username: str = "admin"

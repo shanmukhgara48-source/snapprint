@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..database import Base
@@ -14,6 +14,12 @@ class Coupon(Base):
         String, primary_key=True, default=lambda: str(uuid.uuid4())
     )
     code: Mapped[str] = mapped_column(String, unique=True, index=True)
+    owner_user_id: Mapped[str | None] = mapped_column(
+        String,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     discount_type: Mapped[str] = mapped_column(String, default="percent")  # percent | fixed
     value: Mapped[float] = mapped_column(Float)
     min_order: Mapped[float] = mapped_column(Float, default=0)

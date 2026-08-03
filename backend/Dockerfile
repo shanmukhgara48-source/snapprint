@@ -23,11 +23,12 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run migrations then start with multiple workers behind a reverse proxy
+# The event bus is process-local, so keep one worker until Redis fan-out is added.
 CMD alembic upgrade head && uvicorn main:app \
     --host 0.0.0.0 \
     --port 8000 \
-    --workers 2 \
+    --workers 1 \
+    --ws websockets-sansio \
     --proxy-headers \
     --forwarded-allow-ips="*" \
     --access-log

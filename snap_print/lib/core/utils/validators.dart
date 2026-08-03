@@ -22,14 +22,18 @@ class Validators {
 
   static String? pincode(String? value) {
     if (value == null || value.isEmpty) return 'Pincode is required';
-    if (!RegExp(r'^\d{6}$').hasMatch(value)) return 'Enter a valid 6-digit pincode';
+    if (!RegExp(r'^\d{6}$').hasMatch(value)) {
+      return 'Enter a valid 6-digit pincode';
+    }
     return null;
   }
 
   static String? price(String? value) {
     if (value == null || value.isEmpty) return 'Price is required';
     final parsed = double.tryParse(value);
-    if (parsed == null || parsed < 0) return 'Enter a valid price';
+    if (parsed == null || !parsed.isFinite || parsed < 0) {
+      return 'Enter a valid price';
+    }
     return null;
   }
 

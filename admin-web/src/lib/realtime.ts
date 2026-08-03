@@ -60,7 +60,7 @@ export function useAdminRealtime() {
     let closed = false;
 
     function connect() {
-      const token = localStorage.getItem("admin_token");
+      const token = sessionStorage.getItem("admin_token");
       if (!token || closed) return;
 
       ws = new WebSocket(wsUrl());

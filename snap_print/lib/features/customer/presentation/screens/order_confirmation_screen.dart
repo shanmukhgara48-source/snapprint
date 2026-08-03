@@ -24,8 +24,14 @@ class OrderConfirmationScreen extends ConsumerWidget {
         onRefresh: () async => ref.invalidate(orderDetailProvider(orderId)),
         child: orderAsync.when(
           loading: () => const Center(
-              child: CircularProgressIndicator(color: AppColors.primary)),
-          error: (e, s) => _SuccessView(orderId: orderId, estimatedDelivery: null),
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
+          error: (e, s) => _SuccessView(
+            orderId: orderId,
+            estimatedDelivery: null,
+            detailsUnavailable: true,
+            onRetry: () => ref.invalidate(orderDetailProvider(orderId)),
+          ),
           data: (order) => _SuccessView(
             orderId: order.id,
             estimatedDelivery: order.estimatedDelivery,
@@ -42,10 +48,14 @@ class _SuccessView extends StatelessWidget {
     required this.orderId,
     required this.estimatedDelivery,
     this.status,
+    this.detailsUnavailable = false,
+    this.onRetry,
   });
   final String orderId;
   final DateTime? estimatedDelivery;
   final String? status;
+  final bool detailsUnavailable;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -80,12 +90,40 @@ class _SuccessView extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Your order has been placed successfully!',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
+
+          if (detailsUnavailable) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warningLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Your order was placed, but its latest details could not be loaded.',
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Retry',
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // Order details card
           Container(
@@ -103,17 +141,16 @@ class _SuccessView extends StatelessWidget {
             ),
             child: Column(
               children: [
-                _DetailRow(
-                  label: AppStrings.orderId,
-                  value: '#$orderId',
-                ),
+                _DetailRow(label: AppStrings.orderId, value: '#$orderId'),
                 if (status != null) ...[
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Status',
-                          style: Theme.of(context).textTheme.bodyMedium),
+                      Text(
+                        'Status',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
                       OrderStatusChip(status: status!),
                     ],
                   ),
@@ -157,17 +194,19 @@ class _DetailRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: AppColors.textSecondary)),
+        Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+        ),
         Flexible(
-          child: Text(value,
-              textAlign: TextAlign.right,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w700, fontSize: 14)),
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          ),
         ),
       ],
     );

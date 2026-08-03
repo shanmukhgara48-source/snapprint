@@ -1,11 +1,8 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import clsx from "clsx";
 import {
   LayoutDashboard,
   Package,
   Tags,
-  Image,
-  Printer,
   ShoppingCart,
   Ticket,
   GalleryHorizontal,
@@ -13,19 +10,14 @@ import {
   CreditCard,
   Users,
   UserCog,
-  MessageCircle,
-  Star,
   Bell,
   BarChart3,
-  FileText,
-  ShieldAlert,
   Settings as SettingsIcon,
-  ScrollText,
-  DatabaseBackup,
   LogOut,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useAdminRealtime } from "../lib/realtime";
+import { Link, useNavigate, usePathname } from "../lib/router";
 
 const sections: { label: string; items: { to: string; label: string; icon: typeof Package }[] }[] = [
   {
@@ -33,7 +25,6 @@ const sections: { label: string; items: { to: string; label: string; icon: typeo
     items: [
       { to: "/", label: "Dashboard", icon: LayoutDashboard },
       { to: "/analytics", label: "Analytics", icon: BarChart3 },
-      { to: "/reports", label: "Reports", icon: FileText },
     ],
   },
   {
@@ -41,8 +32,6 @@ const sections: { label: string; items: { to: string; label: string; icon: typeo
     items: [
       { to: "/products", label: "Products", icon: Package },
       { to: "/categories", label: "Categories", icon: Tags },
-      { to: "/photo-uploads", label: "Photo Uploads", icon: Image },
-      { to: "/print-queue", label: "Print Queue", icon: Printer },
     ],
   },
   {
@@ -60,25 +49,21 @@ const sections: { label: string; items: { to: string; label: string; icon: typeo
     items: [
       { to: "/customers", label: "Customers", icon: Users },
       { to: "/admins", label: "Employees", icon: UserCog },
-      { to: "/support", label: "Support", icon: MessageCircle },
-      { to: "/reviews", label: "Reviews", icon: Star },
     ],
   },
   {
     label: "System",
     items: [
       { to: "/notifications", label: "Notifications", icon: Bell },
-      { to: "/security", label: "Security", icon: ShieldAlert },
-      { to: "/system-logs", label: "System Logs", icon: ScrollText },
-      { to: "/backup", label: "Backup", icon: DatabaseBackup },
       { to: "/settings", label: "Settings", icon: SettingsIcon },
     ],
   },
 ];
 
-export default function Layout() {
+export default function Layout({ children }: { children: React.ReactNode }) {
   const { username, role, logout } = useAuth();
   const navigate = useNavigate();
+  const pathname = usePathname();
   useAdminRealtime(); // live cache invalidation for every screen
 
   return (
@@ -97,20 +82,20 @@ export default function Layout() {
                 {section.label}
               </div>
               {section.items.map((item) => (
-                <NavLink
+                <Link
                   key={item.to}
                   to={item.to}
-                  end={item.to === "/"}
-                  className={({ isActive }) =>
-                    clsx(
-                      "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
-                      isActive ? "bg-accent/10 text-accent" : "text-neutral-300 hover:bg-surface-2",
-                    )
-                  }
+                  className={clsx(
+                    "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
+                    pathname === item.to ||
+                      (item.to !== "/" && pathname.startsWith(`${item.to}/`))
+                      ? "bg-accent/10 text-accent"
+                      : "text-neutral-300 hover:bg-surface-2",
+                  )}
                 >
                   <item.icon size={16} />
                   {item.label}
-                </NavLink>
+                </Link>
               ))}
             </div>
           ))}
@@ -123,7 +108,7 @@ export default function Layout() {
           <button
             onClick={() => {
               logout();
-              navigate("/login");
+              navigate("/login", { replace: true });
             }}
             className="flex items-center gap-2 text-xs text-neutral-400 hover:text-white"
           >
@@ -132,7 +117,7 @@ export default function Layout() {
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto p-8">
-        <Outlet />
+        {children}
       </main>
     </div>
   );

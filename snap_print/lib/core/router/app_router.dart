@@ -138,6 +138,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.otp,
+        redirect: (context, state) =>
+            state.extra is Map<String, dynamic> ? null : AppRoutes.login,
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>;
           return OtpScreen(
@@ -153,6 +155,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.profileSetup,
+        redirect: (context, state) =>
+            state.extra is Map<String, dynamic> ? null : AppRoutes.login,
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>;
           return RegisterScreen(phone: extra['phone'] as String);
@@ -195,6 +199,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.customize,
+        redirect: (context, state) =>
+            state.extra is Map<String, dynamic> ? null : AppRoutes.customerHome,
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>;
           return CustomizationScreen(
@@ -206,6 +212,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.aiPhotoEditor,
+        redirect: (context, state) =>
+            state.extra is AiPhotoEditorArgs ? null : AppRoutes.customerHome,
         builder: (context, state) {
           final extra = state.extra as AiPhotoEditorArgs;
           return AiPhotoEditorScreen(args: extra);
@@ -221,6 +229,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.payment,
+        redirect: (context, state) =>
+            state.extra is Map<String, dynamic> ? null : AppRoutes.checkout,
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>;
           return PaymentScreen(

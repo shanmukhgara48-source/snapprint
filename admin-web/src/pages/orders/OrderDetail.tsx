@@ -1,16 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, Link } from "react-router-dom";
+import { Link } from "../../lib/router";
 import { api } from "../../lib/api";
 import type { OrderDetail as OrderDetailType, UserListItem } from "../../lib/types";
 import { Badge, Button, Card, ErrorState, PageHeader, Spinner } from "../../components/ui";
 import { ArrowLeft } from "lucide-react";
 
-// Must match backend/app/routers/delivery.py VALID_STATUS_TRANSITIONS + "cancelled".
-const STATUS_OPTIONS = ["confirmed", "picked_up", "out_for_delivery", "delivered", "cancelled"];
+const STATUS_TRANSITIONS: Record<string, string[]> = {
+  confirmed: ["picked_up", "cancelled"],
+  picked_up: ["out_for_delivery", "cancelled"],
+  out_for_delivery: ["delivered"],
+  delivered: [],
+  cancelled: [],
+};
 
-export default function OrderDetail() {
-  const { id } = useParams<{ id: string }>();
+export default function OrderDetail({ id }: { id: string }) {
   const qc = useQueryClient();
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("");
@@ -40,6 +44,7 @@ export default function OrderDetail() {
   const updateMut = useMutation({
     mutationFn: (payload: { status?: string; notes?: string }) => api.patch(`/admin/orders/${id}`, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["order", id] }),
+    onError: () => setStatus(order?.status ?? ""),
   });
 
   const assignMut = useMutation({
@@ -104,6 +109,12 @@ export default function OrderDetail() {
               ₹{order.total_price} ({order.delivery_type}, +₹{order.delivery_charge}
               {order.discount > 0 && `, -₹${order.discount} ${order.coupon_code ?? ""}`})
             </div>
+            {order.refund_status && (
+              <div className="mt-3 text-xs text-neutral-400">
+                Refund: {order.refund_status}
+                {order.razorpay_refund_id ? ` (${order.razorpay_refund_id})` : ""}
+              </div>
+            )}
           </Card>
 
           <Card>
@@ -111,17 +122,28 @@ export default function OrderDetail() {
             <select
               value={status}
               onChange={(e) => {
-                setStatus(e.target.value);
-                updateMut.mutate({ status: e.target.value });
+                const nextStatus = e.target.value;
+                if (
+                  nextStatus === "cancelled" &&
+                  !confirm("Cancel this order and refund its captured payment?")
+                ) {
+                  return;
+                }
+                setStatus(nextStatus);
+                updateMut.mutate({ status: nextStatus });
               }}
+              disabled={updateMut.isPending}
               className="mb-3 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-white"
             >
-              {STATUS_OPTIONS.map((s) => (
+              {[order.status, ...(STATUS_TRANSITIONS[order.status] ?? [])].map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
               ))}
             </select>
+            {updateMut.isError && (
+              <p className="mb-3 text-xs text-red-400">Could not update the order status.</p>
+            )}
 
             <div className="mb-2 text-xs text-neutral-500">Assign delivery partner</div>
             <select

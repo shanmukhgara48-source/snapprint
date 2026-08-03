@@ -10,13 +10,14 @@ from alembic import context
 
 # Load app models so Alembic can detect schema changes
 from app.database import Base  # noqa: F401 — registers DeclarativeBase
+from app.config import settings
 import app.models  # noqa: F401 — import all models to populate Base.metadata
 
 # Alembic Config object
 config = context.config
 
 # Override DB URL from environment (required on Railway/cloud deployments)
-_db_url = os.environ.get("DATABASE_URL")
+_db_url = os.environ.get("DATABASE_URL") or settings.database_url
 if _db_url:
     # Railway provides postgres:// — SQLAlchemy needs postgresql+asyncpg://
     _db_url = _db_url.replace("postgres://", "postgresql+asyncpg://", 1)

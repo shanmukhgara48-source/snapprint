@@ -69,7 +69,7 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
     if (_selectedSizeIndex != null && widget.product.sizes.isNotEmpty) {
       return widget.product.sizes[_selectedSizeIndex!].price;
     }
-    return widget.product.basePrice;
+    return widget.product.effectivePrice;
   }
 
   @override
@@ -132,13 +132,23 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                       const SizedBox(height: 8),
 
                       Text(
-                        'Starting from ₹${product.basePrice.toStringAsFixed(0)}',
+                        product.priceLabel,
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
                           color: AppColors.accent,
                         ),
                       ),
+                      if (!product.isInStock) ...[
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Currently out of stock',
+                          style: TextStyle(
+                            color: AppColors.error,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
 
                       if (product.description != null &&
                           product.description!.isNotEmpty) ...[
@@ -289,20 +299,24 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                   Expanded(
                     flex: 2,
                     child: CustomButton(
-                      label: AppStrings.customize,
+                      label: product.isInStock
+                          ? AppStrings.customize
+                          : 'Out of stock',
                       icon: Icons.edit_rounded,
-                      onPressed: () => context.push(
-                        AppRoutes.customize,
-                        extra: {
-                          'productId': product.id,
-                          'productName': product.name,
-                          'preselectedSize':
-                              _selectedSizeIndex != null &&
-                                  product.sizes.isNotEmpty
-                              ? product.sizes[_selectedSizeIndex!].label
-                              : null,
-                        },
-                      ),
+                      onPressed: product.isInStock
+                          ? () => context.push(
+                              AppRoutes.customize,
+                              extra: {
+                                'productId': product.id,
+                                'productName': product.name,
+                                'preselectedSize':
+                                    _selectedSizeIndex != null &&
+                                        product.sizes.isNotEmpty
+                                    ? product.sizes[_selectedSizeIndex!].label
+                                    : null,
+                              },
+                            )
+                          : null,
                     ),
                   ),
                 ],

@@ -4,24 +4,24 @@
 // backend, real Postgres DB, and real WebSocket connection on the physical
 // device. Firebase OTP is substituted with the app's built-in dev-login
 // bypass (kDebugMode-gated, see login_screen.dart _showDevLogin) since real
-// SMS delivery cannot be scripted. Razorpay's native checkout UI is bypassed
-// by placing orders directly via POST /orders, matching the existing project
-// E2E test convention.
+// SMS delivery cannot be scripted.
 
 import 'package:flutter/cupertino.dart' show CupertinoNavigationBarBackButton;
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:snap_print/main.dart' as app;
 
 import 'qa_admin_api.dart';
 
-// Emulator-only run (no physical device attached this session): 10.0.2.2 is
-// the Android emulator's alias for the host loopback, matching the app's own
-// default in api_endpoints.dart. Must be launched with a matching
-// --dart-define=SNAPPRINT_API_URL so app.main() and this AdminApi helper hit
-// the same backend instance.
-const _apiBase = 'http://10.0.2.2:8000';
+// Defaults to the Android emulator's host-loopback alias. Physical devices and
+// CI must pass the same SNAPPRINT_API_URL define used by the application.
+const _apiBase = String.fromEnvironment(
+  'SNAPPRINT_API_URL',
+  defaultValue: 'http://10.0.2.2:8000',
+);
 
 // Both calls are native MethodChannel round-trips; on this physical device
 // they have been observed to hang indefinitely (no exception, no return)
@@ -30,10 +30,20 @@ const _apiBase = 'http://10.0.2.2:8000';
 // convertFlutterSurfaceToImage() may only be called once per test (it asserts
 // on a second call), so it's guarded separately from the per-screenshot call.
 bool _surfaceConverted = false;
-Future<void> _shot(IntegrationTestWidgetsFlutterBinding binding, String name) async {
+const _captureScreenshots = bool.fromEnvironment(
+  'SNAPPRINT_QA_SCREENSHOTS',
+  defaultValue: false,
+);
+Future<void> _shot(
+  IntegrationTestWidgetsFlutterBinding binding,
+  String name,
+) async {
+  if (!_captureScreenshots) return;
   try {
     if (!_surfaceConverted) {
-      await binding.convertFlutterSurfaceToImage().timeout(const Duration(seconds: 10));
+      await binding.convertFlutterSurfaceToImage().timeout(
+        const Duration(seconds: 10),
+      );
       _surfaceConverted = true;
     }
     await binding.takeScreenshot(name).timeout(const Duration(seconds: 10));
@@ -49,14 +59,14 @@ Future<void> _shot(IntegrationTestWidgetsFlutterBinding binding, String name) as
 /// device that hung this suite for 15+ minutes before we caught it. A fixed
 /// pump budget gives the UI the same real time to react without depending on
 /// every animation in the tree eventually stopping.
-Future<void> _pumpFor(WidgetTester tester, Duration total, {Duration step = const Duration(milliseconds: 500)}) async {
+Future<void> _pumpFor(
+  WidgetTester tester,
+  Duration total, {
+  Duration step = const Duration(milliseconds: 500),
+}) async {
   final end = DateTime.now().add(total);
-  var i = 0;
   while (DateTime.now().isBefore(end)) {
-    debugPrint('QA_PUMP start #$i @ ${DateTime.now().toIso8601String()}');
     await tester.pump(step);
-    debugPrint('QA_PUMP done  #$i @ ${DateTime.now().toIso8601String()}');
-    i++;
   }
 }
 
@@ -112,14 +122,18 @@ Future<void> _scrollCarouselUntilVisible(
     await _pumpFor(tester, const Duration(milliseconds: 400));
   }
   if (sectionHeader.evaluate().isEmpty) return;
+  await tester.ensureVisible(sectionHeader.first);
+  await _pumpFor(tester, const Duration(milliseconds: 400));
 
-  final section =
-      find.ancestor(of: sectionHeader, matching: find.byType(Column)).first;
-  final scrollable =
-      find.descendant(of: section, matching: find.byType(Scrollable)).first;
+  final scrollable = find.byKey(ValueKey('product-carousel-$sectionTitle'));
+  if (scrollable.hitTestable().evaluate().isEmpty) return;
   for (var i = 0; i < maxTries; i++) {
-    if (itemFinder.evaluate().isNotEmpty) return;
-    await tester.drag(scrollable, const Offset(-200, 0), warnIfMissed: false);
+    if (itemFinder.hitTestable().evaluate().isNotEmpty) return;
+    await tester.drag(
+      scrollable.hitTestable(),
+      const Offset(-200, 0),
+      warnIfMissed: false,
+    );
     await _pumpFor(tester, const Duration(milliseconds: 400));
   }
 }
@@ -129,7 +143,10 @@ Future<void> _scrollCarouselUntilVisible(
 /// tree; this is not a fixed sleep substituting for correctness, it is the
 /// same margin a human tester would give the screen before deciding "nothing
 /// happened".
-Future<void> _waitForSync(WidgetTester tester, {Duration duration = const Duration(seconds: 2)}) async {
+Future<void> _waitForSync(
+  WidgetTester tester, {
+  Duration duration = const Duration(seconds: 2),
+}) async {
   await Future<void>.delayed(duration);
   await _pumpFor(tester, const Duration(milliseconds: 1500));
 }
@@ -138,10 +155,39 @@ void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   final admin = AdminApi(baseUrl: _apiBase);
 
-  testWidgets('SnapPrint QA — Admin Panel is the single source of truth', (tester) async {
+  testWidgets('SnapPrint QA — Admin Panel is the single source of truth', (
+    tester,
+  ) async {
     debugPrint('QA_STEP admin.login() starting');
     await admin.login();
     debugPrint('QA_STEP admin.login() done');
+    await admin.cleanupQaFixtures();
+
+    String? productIdToClean;
+    String? categoryIdToClean;
+    String? bannerIdToClean;
+    String? couponIdToClean;
+    addTearDown(() async {
+      if (productIdToClean != null) {
+        await admin.deleteIfPresent('/admin/products/$productIdToClean');
+      }
+      if (categoryIdToClean != null) {
+        await admin.deleteIfPresent('/admin/categories/$categoryIdToClean');
+      }
+      if (bannerIdToClean != null) {
+        await admin.deleteIfPresent('/admin/banners/$bannerIdToClean');
+      }
+      if (couponIdToClean != null) {
+        await admin.deleteIfPresent('/admin/coupons/$couponIdToClean');
+      }
+    });
+
+    // `flutter test -d` reinstalls the APK without guaranteeing app-data
+    // removal. Make the first-time login path deterministic even after a
+    // previous QA run left a dev session or draft cart on the emulator.
+    debugPrint('QA_STEP clearing persisted customer session');
+    await const FlutterSecureStorage().deleteAll();
+    await (await SharedPreferences.getInstance()).clear();
 
     debugPrint('QA_STEP app.main() starting');
     app.main();
@@ -152,12 +198,18 @@ void main() {
     debugPrint('QA_STEP screenshot 00 done');
 
     // ---- Dev login (substitutes real Firebase OTP; see file header) ----
-    expect(find.text('v1.0.0-debug'), findsOneWidget,
-        reason: 'Debug build marker not found — is this a release build?');
+    expect(
+      find.text('v1.0.0-debug'),
+      findsOneWidget,
+      reason: 'Debug build marker not found — is this a release build?',
+    );
     await tester.longPress(find.text('v1.0.0-debug'), warnIfMissed: false);
     await _pumpFor(tester, const Duration(seconds: 2));
     expect(find.text('Dev Login'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Login'), warnIfMissed: false);
+    await tester.tap(
+      find.widgetWithText(ElevatedButton, 'Login'),
+      warnIfMissed: false,
+    );
     await _pumpFor(tester, const Duration(seconds: 4));
     await _shot(binding, '01_home_after_dev_login');
 
@@ -171,23 +223,41 @@ void main() {
       basePrice: 321,
       isFeatured: true,
       sizes: [
-        {'label': '11oz', 'price': 321.0}
+        {'label': '11oz', 'price': 321.0},
       ],
     );
+    productIdToClean = productId;
     await _waitForSync(tester);
     await _scrollCarouselUntilVisible(
-        tester, 'Featured Products', find.text(productName));
-    expect(find.text(productName), findsWidgets,
-        reason: 'New featured product did not appear on Home without refresh');
-    expect(find.text('₹321'), findsWidgets);
+      tester,
+      'Featured Prints',
+      find.text(productName),
+    );
+    expect(
+      find.text(productName),
+      findsWidgets,
+      reason: 'New featured product did not appear on Home without refresh',
+    );
+    expect(find.textContaining('₹321'), findsWidgets);
     await _shot(binding, '02_product_created_home_featured');
 
-    await admin.updateProduct(productId, {'base_price': 777});
+    await admin.updateProduct(productId, {
+      'base_price': 777,
+      'sizes': [
+        {'label': '11oz', 'price': 777.0},
+      ],
+    });
     await _waitForSync(tester);
     await _scrollCarouselUntilVisible(
-        tester, 'Featured Products', find.text('₹777'));
-    expect(find.text('₹777'), findsWidgets,
-        reason: 'Price change did not propagate live to Home');
+      tester,
+      'Featured Prints',
+      find.textContaining('₹777'),
+    );
+    expect(
+      find.textContaining('₹777'),
+      findsWidgets,
+      reason: 'Price change did not propagate live to Home',
+    );
     await _shot(binding, '03_product_price_changed');
 
     await admin.updateProduct(productId, {'is_trending': true});
@@ -201,9 +271,15 @@ void main() {
     );
     await _pumpFor(tester, const Duration(seconds: 1));
     await _scrollCarouselUntilVisible(
-        tester, 'Trending Products', find.text(productName));
-    expect(find.text(productName), findsWidgets,
-        reason: 'Product flagged trending did not appear in Trending section');
+      tester,
+      'Trending Products',
+      find.text(productName),
+    );
+    expect(
+      find.text(productName),
+      findsWidgets,
+      reason: 'Product flagged trending did not appear in Trending section',
+    );
     await _shot(binding, '04_product_trending_section');
 
     // Search
@@ -220,7 +296,11 @@ void main() {
     );
     await tester.enterText(find.byType(TextField).first, productName);
     await _pumpFor(tester, const Duration(seconds: 1));
-    expect(find.text(productName), findsWidgets, reason: 'Product not found via Search');
+    expect(
+      find.text(productName),
+      findsWidgets,
+      reason: 'Product not found via Search',
+    );
     await _shot(binding, '05_product_in_search');
     await tester.enterText(find.byType(TextField).first, '');
     await _pumpFor(tester, const Duration(seconds: 1));
@@ -228,8 +308,12 @@ void main() {
     // Visibility off (is_active = false) -> disappears from Home/Search
     await admin.updateProduct(productId, {'is_active': false});
     await _waitForSync(tester);
-    expect(find.text(productName), findsNothing,
-        reason: 'Deactivated product still visible on Home — visibility toggle not respected live');
+    expect(
+      find.text(productName),
+      findsNothing,
+      reason:
+          'Deactivated product still visible on Home — visibility toggle not respected live',
+    );
     await _shot(binding, '06_product_hidden_after_deactivate');
 
     await admin.updateProduct(productId, {'is_active': true});
@@ -246,8 +330,17 @@ void main() {
     // tapping it, rather than trusting it's still where a previous scroll
     // left it.
     await _scrollCarouselUntilVisible(
-        tester, 'Featured Products', find.text(productName));
-    await tester.tap(find.text(productName).first, warnIfMissed: false);
+      tester,
+      'Featured Prints',
+      find.text(productName),
+    );
+    final tappableProduct = find.text(productName).hitTestable();
+    expect(
+      tappableProduct,
+      findsWidgets,
+      reason: 'Featured product card was built but could not be tapped',
+    );
+    await tester.tap(tappableProduct.first, warnIfMissed: false);
     await _pumpFor(tester, const Duration(seconds: 1));
     await _shot(binding, '07_product_detail');
     // NB: this app's Product Detail screen has no direct "Add to Cart" CTA —
@@ -264,30 +357,42 @@ void main() {
     // above missed its target (e.g. carousel scrolled again mid-rebuild),
     // we'd still be on Home, which has no back affordance since it's the
     // ShellRoute root, and an unconditional pageBack() would throw.
-    final hasBackAffordance = find.byTooltip('Back').evaluate().isNotEmpty ||
+    final hasBackAffordance =
+        find.byTooltip('Back').evaluate().isNotEmpty ||
         find.byType(CupertinoNavigationBarBackButton).evaluate().isNotEmpty;
     if (hasBackAffordance) {
       await tester.pageBack();
     } else {
-      debugPrint('QA_STEP no back affordance found — tap into product detail likely missed, skipping pageBack');
+      debugPrint(
+        'QA_STEP no back affordance found — tap into product detail likely missed, skipping pageBack',
+      );
     }
     await _pumpFor(tester, const Duration(seconds: 1));
-    final cartIcon = find.byIcon(Icons.shopping_cart_outlined);
+    final cartIcon = find.byIcon(Icons.shopping_bag_outlined);
     if (cartIcon.evaluate().isNotEmpty) {
       await tester.tap(cartIcon.first, warnIfMissed: false);
       await _pumpFor(tester, const Duration(seconds: 1));
       await _shot(binding, '08_cart_before_price_change');
 
       if (find.text(productName).evaluate().isNotEmpty) {
-        await admin.updateProduct(productId, {'base_price': 999});
+        await admin.updateProduct(productId, {
+          'base_price': 999,
+          'sizes': [
+            {'label': '11oz', 'price': 999.0},
+          ],
+        });
         await _waitForSync(tester);
-        expect(find.text('₹999'), findsWidgets,
-            reason: 'Cart line price did not reprice live after admin change');
+        expect(
+          find.textContaining('₹999'),
+          findsWidgets,
+          reason: 'Cart line price did not reprice live after admin change',
+        );
         await _shot(binding, '09_cart_after_price_change_live_reprice');
       }
     }
 
     await admin.deleteProduct(productId);
+    productIdToClean = null;
     await _waitForSync(tester);
 
     // ============================================================
@@ -295,26 +400,39 @@ void main() {
     // ============================================================
     final categoryName = 'QA Cat ${DateTime.now().millisecondsSinceEpoch}';
     final categoryId = await admin.createCategory(name: categoryName);
-    await tester.pageBack();
+    categoryIdToClean = categoryId;
+    final categoryBackAffordance =
+        find.byTooltip('Back').evaluate().isNotEmpty ||
+        find.byType(CupertinoNavigationBarBackButton).evaluate().isNotEmpty;
+    if (categoryBackAffordance) {
+      await tester.pageBack();
+    }
     await _pumpFor(tester, const Duration(seconds: 1));
     await _waitForSync(tester);
     await _scrollUntilVisible(
       tester,
       find.text(categoryName),
       find.byType(Scrollable).first,
-      const Offset(0, -300),
+      const Offset(0, 300),
     );
-    expect(find.text(categoryName), findsWidgets,
-        reason: 'New category not shown in Home category grid without refresh');
+    expect(
+      find.text(categoryName),
+      findsWidgets,
+      reason: 'New category not shown in Home category grid without refresh',
+    );
     await _shot(binding, '10_category_created_home');
 
     await admin.updateCategory(categoryId, {'is_active': false});
     await _waitForSync(tester);
-    expect(find.text(categoryName), findsNothing,
-        reason: 'Hidden category still shown on Home');
+    expect(
+      find.text(categoryName),
+      findsNothing,
+      reason: 'Hidden category still shown on Home',
+    );
     await _shot(binding, '11_category_hidden');
 
     await admin.deleteCategory(categoryId);
+    categoryIdToClean = null;
     await _waitForSync(tester);
 
     // ============================================================
@@ -322,6 +440,7 @@ void main() {
     // ============================================================
     final bannerTitle = 'QA Banner ${DateTime.now().millisecondsSinceEpoch}';
     final bannerId = await admin.createBanner(title: bannerTitle);
+    bannerIdToClean = bannerId;
     await _waitForSync(tester);
     await _shot(binding, '12_banner_created_home');
     // BannerCarousel renders images, not title text necessarily visible —
@@ -329,6 +448,7 @@ void main() {
     await admin.updateBanner(bannerId, {'is_active': false});
     await _waitForSync(tester);
     await admin.deleteBanner(bannerId);
+    bannerIdToClean = null;
     await _waitForSync(tester);
     await _shot(binding, '13_banner_removed');
 
@@ -337,20 +457,54 @@ void main() {
     // ============================================================
     final couponCode = 'QA${DateTime.now().millisecondsSinceEpoch % 100000}';
     final couponId = await admin.createCoupon(code: couponCode, value: 15);
+    couponIdToClean = couponId;
     await _waitForSync(tester);
-    expect(find.textContaining(couponCode), findsWidgets,
-        reason: 'New coupon did not appear in Home offers strip without refresh');
+    final offersStrip = find.byKey(const ValueKey('offers-strip'));
+    await _scrollUntilVisible(
+      tester,
+      offersStrip,
+      find.byType(Scrollable).first,
+      const Offset(0, 300),
+      maxTries: 12,
+    );
+    expect(offersStrip, findsOneWidget);
+    await tester.ensureVisible(offersStrip);
+    await _pumpFor(tester, const Duration(milliseconds: 400));
+    final couponFinder = find.textContaining(couponCode);
+    for (
+      var i = 0;
+      i < 8 && couponFinder.hitTestable().evaluate().isEmpty;
+      i++
+    ) {
+      await tester.drag(
+        offersStrip.hitTestable(),
+        const Offset(-200, 0),
+        warnIfMissed: false,
+      );
+      await _pumpFor(tester, const Duration(milliseconds: 400));
+    }
+    expect(
+      couponFinder,
+      findsWidgets,
+      reason: 'New coupon did not appear in Home offers strip without refresh',
+    );
     await _shot(binding, '14_coupon_in_offers_strip');
 
     await admin.updateCoupon(couponId, {'is_active': false});
     await _waitForSync(tester);
-    expect(find.textContaining(couponCode), findsNothing,
-        reason: 'Disabled coupon still shown in offers strip');
+    expect(
+      find.textContaining(couponCode),
+      findsNothing,
+      reason: 'Disabled coupon still shown in offers strip',
+    );
     await _shot(binding, '15_coupon_disabled_hidden');
 
     await admin.deleteCoupon(couponId);
+    couponIdToClean = null;
     await _waitForSync(tester);
 
-    debugPrint('QA SUITE COMPLETE — see screenshots in build/../integration_test/');
+    debugPrint(
+      'QA SUITE COMPLETE — see screenshots in build/../integration_test/',
+    );
   });
 }

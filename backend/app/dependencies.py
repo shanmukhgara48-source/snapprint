@@ -1,8 +1,8 @@
 from typing import Annotated
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +25,7 @@ async def get_current_user(
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         user_id = payload["user_id"]
-    except (JWTError, KeyError):
+    except (jwt.PyJWTError, KeyError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
@@ -87,7 +87,7 @@ async def require_admin_jwt(
         )
         if payload.get("role") != "admin" or not payload.get("admin_user_id"):
             raise ValueError("Not an admin token")
-    except (JWTError, ValueError):
+    except (jwt.PyJWTError, ValueError):
         raise HTTPException(status_code=401, detail="Invalid or expired admin token")
 
     result = await db.execute(select(AdminUser).where(AdminUser.id == payload["admin_user_id"]))

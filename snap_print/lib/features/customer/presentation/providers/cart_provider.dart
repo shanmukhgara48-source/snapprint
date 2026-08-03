@@ -53,19 +53,21 @@ class CartState {
 
   final List<CartItemEntity> items;
   final DeliveryType deliveryType;
+
   /// The selected delivery type key (e.g. 'free', 'standard', 'express') from API.
   final String deliveryTypeKey;
+
   /// Price from the API response (overrides enum default when set).
   final double? deliveryPrice;
   final String? couponCode;
   final double discount;
 
-  double get subtotal =>
-      items.fold(0, (sum, item) => sum + item.totalPrice);
+  double get subtotal => items.fold(0, (sum, item) => sum + item.totalPrice);
 
   double get deliveryCharge => deliveryPrice ?? deliveryType.price;
 
-  double get total => (subtotal + deliveryCharge - discount).clamp(0, double.infinity);
+  double get total =>
+      (subtotal + deliveryCharge - discount).clamp(0, double.infinity);
 
   int get itemCount => items.fold(0, (sum, item) => sum + item.quantity);
 
@@ -88,18 +90,20 @@ class CartState {
   }
 
   Map<String, dynamic> toJson() => {
-        'items': items.map((e) => e.toJson()).toList(),
-        'deliveryTypeKey': deliveryTypeKey,
-        'deliveryPrice': deliveryPrice,
-        'couponCode': couponCode,
-        'discount': discount,
-      };
+    'items': items.map((e) => e.toJson()).toList(),
+    'deliveryTypeKey': deliveryTypeKey,
+    'deliveryPrice': deliveryPrice,
+    'couponCode': couponCode,
+    'discount': discount,
+  };
 
   factory CartState.fromJson(Map<String, dynamic> json) {
     final typeKey = json['deliveryTypeKey'] as String? ?? 'free';
     return CartState(
       items: (json['items'] as List? ?? [])
-          .map((e) => CartItemEntity.fromJson((e as Map).cast<String, dynamic>()))
+          .map(
+            (e) => CartItemEntity.fromJson((e as Map).cast<String, dynamic>()),
+          )
           .toList(),
       deliveryType: DeliveryType.values.firstWhere(
         (e) => e.name == typeKey,
@@ -115,6 +119,7 @@ class CartState {
 
 class CartNotifier extends Notifier<CartState> {
   static const _prefsKey = 'cart_v1';
+  static const maxQuantityPerItem = 99;
 
   @override
   CartState build() {
@@ -150,7 +155,8 @@ class CartNotifier extends Notifier<CartState> {
   void addItem(CartItemEntity item) {
     // Photo items (with customization image) are always unique line items — never merge
     final hasCustomization =
-        item.customizationImageUrl != null && item.customizationImageUrl!.isNotEmpty;
+        item.customizationImageUrl != null &&
+        item.customizationImageUrl!.isNotEmpty;
     if (hasCustomization) {
       state = state.copyWith(items: [...state.items, item]);
       return;
@@ -165,11 +171,20 @@ class CartNotifier extends Notifier<CartState> {
     );
     if (existing >= 0) {
       final updated = List<CartItemEntity>.from(state.items);
-      updated[existing] =
-          updated[existing].copyWith(quantity: updated[existing].quantity + item.quantity);
+      updated[existing] = updated[existing].copyWith(
+        quantity: (updated[existing].quantity + item.quantity).clamp(
+          1,
+          maxQuantityPerItem,
+        ),
+      );
       state = state.copyWith(items: updated);
     } else {
-      state = state.copyWith(items: [...state.items, item]);
+      state = state.copyWith(
+        items: [
+          ...state.items,
+          item.copyWith(quantity: item.quantity.clamp(1, maxQuantityPerItem)),
+        ],
+      );
     }
   }
 
@@ -184,8 +199,11 @@ class CartNotifier extends Notifier<CartState> {
       removeItem(cartItemId);
       return;
     }
+    final boundedQuantity = quantity.clamp(1, maxQuantityPerItem);
     final updated = state.items.map((e) {
-      return e.cartItemId == cartItemId ? e.copyWith(quantity: quantity) : e;
+      return e.cartItemId == cartItemId
+          ? e.copyWith(quantity: boundedQuantity)
+          : e;
     }).toList();
     state = state.copyWith(items: updated);
   }
@@ -267,4 +285,6 @@ class CartNotifier extends Notifier<CartState> {
   }
 }
 
-final cartProvider = NotifierProvider<CartNotifier, CartState>(CartNotifier.new);
+final cartProvider = NotifierProvider<CartNotifier, CartState>(
+  CartNotifier.new,
+);

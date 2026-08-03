@@ -260,32 +260,35 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: _luxuryCardDecoration(),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          leading: const _GoldIconBubble(
-                            icon: Icons.receipt_long_rounded,
-                          ),
-                          title: Text(
-                            'Order #${order.id.length >= 8 ? order.id.substring(0, 8).toUpperCase() : order.id.toUpperCase()}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
                             ),
-                          ),
-                          subtitle: Text(
-                            '${order.itemCount} item${order.itemCount != 1 ? 's' : ''}  •  ₹${order.totalPrice.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w600,
+                            leading: const _GoldIconBubble(
+                              icon: Icons.receipt_long_rounded,
                             ),
-                          ),
-                          trailing: OrderStatusChip(status: order.status),
-                          onTap: () => context.push(
-                            AppRoutes.orderConfirmationPath(order.id),
+                            title: Text(
+                              'Order #${order.id.length >= 8 ? order.id.substring(0, 8).toUpperCase() : order.id.toUpperCase()}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${order.itemCount} item${order.itemCount != 1 ? 's' : ''}  •  ₹${order.totalPrice.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            trailing: OrderStatusChip(status: order.status),
+                            onTap: () => context.push(
+                              AppRoutes.orderConfirmationPath(order.id),
+                            ),
                           ),
                         ),
                       );
@@ -404,11 +407,8 @@ class _EditorialHero extends StatelessWidget {
                   width: 170,
                   height: 48,
                   child: ElevatedButton.icon(
-                    onPressed: () => Scrollable.ensureVisible(
-                      context,
-                      duration: const Duration(milliseconds: 450),
-                      curve: Curves.easeOutCubic,
-                    ),
+                    onPressed: () =>
+                        context.push(AppRoutes.productListPath('photo_prints')),
                     icon: const Icon(Icons.auto_awesome_rounded, size: 17),
                     label: const Text('Start Printing'),
                     style: ElevatedButton.styleFrom(
@@ -605,6 +605,7 @@ class _ProductCarouselSection extends ConsumerWidget {
               SizedBox(
                 height: 230,
                 child: ListView.separated(
+                  key: ValueKey('product-carousel-$title'),
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 18),
                   itemCount: products.length,
@@ -700,6 +701,7 @@ class _OffersStrip extends ConsumerWidget {
         return SizedBox(
           height: 46,
           child: ListView.separated(
+            key: const ValueKey('offers-strip'),
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 18),
             itemCount: offers.length,

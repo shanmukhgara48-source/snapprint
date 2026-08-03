@@ -1,28 +1,30 @@
+import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request
-from jose import jwt
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
 from ..database import get_db
 from ..dependencies import get_current_user
-from ..models import AdminLoginHistory, AdminUser, Coupon, User
+from ..models import Address, AdminLoginHistory, AdminUser, Coupon, Order, User
 from ..schemas.auth import AuthResponse, FirebaseAuthRequest, UserResponse
 from ..services.firebase_service import verify_firebase_token, get_firebase_app, set_user_role_claim
 from ..services.password import verify_password
+from ..services.r2_storage import delete_prefixes
 
 limiter = Limiter(key_func=get_remote_address)
 
 
 class DevLoginRequest(BaseModel):
-    phone: str
-    secret: str
+    phone: str = Field(pattern=r"^\+[1-9][0-9]{7,14}$")
+    secret: str = Field(min_length=1, max_length=512)
 
 
 class DevLoginResponse(BaseModel):
@@ -34,8 +36,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 class AdminLoginRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=1, max_length=512)
 
 
 class AdminTokenResponse(BaseModel):
@@ -116,6 +118,7 @@ async def _create_referral_coupon(
     code = f"{prefix}{str(uuid.uuid4())[:6].upper()}"
     coupon = Coupon(
         code=code,
+        owner_user_id=for_user_id,
         discount_type="flat",
         value=_REFERRAL_NEW_USER_DISCOUNT,
         min_order=0,
@@ -181,6 +184,13 @@ async def verify_user(
         firebase_uid: str = decoded["uid"]
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired Firebase ID token")
+
+    verified_phone = decoded.get("phone_number")
+    if not isinstance(verified_phone, str) or verified_phone != payload.phone:
+        raise HTTPException(
+            status_code=400,
+            detail="Phone number does not match the verified Firebase identity.",
+        )
 
     result = await db.execute(
         select(User).where(User.firebase_uid == firebase_uid)
@@ -252,15 +262,76 @@ async def delete_account(
     with the same phone number without re-registering.
     Required by Google Play policy for apps with account creation.
     """
-    import firebase_admin.auth as fb_auth
+    active_customer_orders = await db.execute(
+        select(Order.id).where(
+            Order.user_id == current_user.id,
+            Order.status.notin_(["delivered", "cancelled"]),
+        )
+    )
+    active_delivery_orders = await db.execute(
+        select(Order.id).where(
+            Order.delivery_partner_id == current_user.id,
+            Order.status.notin_(["delivered", "cancelled"]),
+        )
+    )
+    if active_customer_orders.first() or active_delivery_orders.first():
+        raise HTTPException(
+            status_code=409,
+            detail="Complete or cancel active orders before deleting this account.",
+        )
 
-    # Delete from Firebase Auth first (so they can't re-auth mid-deletion)
+    is_dev_identity = (
+        bool(settings.dev_bypass_secret)
+        and current_user.firebase_uid.startswith("dev_")
+    )
+    order_result = await db.execute(
+        select(Order.id).where(Order.user_id == current_user.id)
+    )
+    order_ids = list(order_result.scalars().all())
+    prefixes = [
+        f"customizations/{current_user.id}/",
+        f"ai-edits/{current_user.id}/",
+        *(f"delivery-proofs/{order_id}/" for order_id in order_ids),
+    ]
     try:
-        get_firebase_app()
-        fb_auth.delete_user(current_user.firebase_uid)
-    except Exception:
-        pass  # Firebase deletion failure is non-fatal; proceed with DB cleanup
+        await asyncio.to_thread(delete_prefixes, prefixes)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Could not delete stored account media. Please try again.",
+        ) from exc
 
-    # Cascade deletes addresses and orders (via SQLAlchemy relationship)
-    await db.delete(current_user)
+    if not is_dev_identity:
+        import firebase_admin.auth as fb_auth
+        try:
+            get_firebase_app()
+            await asyncio.to_thread(fb_auth.delete_user, current_user.firebase_uid)
+        except fb_auth.UserNotFoundError:
+            pass
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="Could not delete the Firebase account. Please try again.",
+            ) from exc
+
+    # Preserve non-personal financial/order history while removing all account
+    # identifiers and fulfillment data. Hard deletion would cascade paid orders.
+    order_result = await db.execute(
+        select(Order).where(Order.user_id == current_user.id)
+    )
+    for order in order_result.scalars().all():
+        order.address_id = None
+        order.delivery_address_snapshot = None
+        order.delivery_city_snapshot = None
+        order.delivery_pincode_snapshot = None
+    await db.execute(delete(Address).where(Address.user_id == current_user.id))
+    await db.execute(delete(Coupon).where(Coupon.owner_user_id == current_user.id))
+    anonymized = uuid.uuid4().hex
+    current_user.firebase_uid = f"deleted_{anonymized}"
+    current_user.phone = f"deleted_{anonymized}"
+    current_user.role = "deleted"
+    current_user.is_active = False
+    current_user.fcm_token = None
+    current_user.referral_code = None
+    current_user.referred_by_id = None
     await db.commit()

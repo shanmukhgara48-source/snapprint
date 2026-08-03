@@ -1,6 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,7 +24,7 @@ from app.models.admin_user import AdminUser
 from app.models.category import Category
 from app.models.delivery_setting import DeliverySetting
 from app.models.product import Product
-from app.routers import admin, addresses, ai_editor, auth, banners, cart, categories, coupons, delivery, delivery_options, orders, payments, products, realtime, upload
+from app.routers import admin, addresses, ai_editor, auth, banners, cart, categories, coupons, delivery, delivery_options, media, orders, payments, products, realtime, upload
 from app.seed_data import DEFAULT_CATEGORIES, DEFAULT_PRODUCTS
 from app.services.password import hash_password
 
@@ -36,10 +37,13 @@ if _IS_PROD:
         "RAZORPAY_KEY_ID": settings.razorpay_key_id,
         "RAZORPAY_KEY_SECRET": settings.razorpay_key_secret,
         "FIREBASE_STORAGE_BUCKET": settings.firebase_storage_bucket,
+        "FIREBASE_PROJECT_ID": settings.firebase_project_id,
         "R2_ACCESS_KEY_ID": settings.r2_access_key_id,
         "R2_SECRET_ACCESS_KEY": settings.r2_secret_access_key,
         "R2_ACCOUNT_ID": settings.r2_account_id,
-        "R2_PUBLIC_URL": settings.r2_public_url,
+        "PUBLIC_API_URL": settings.public_api_url,
+        "AI_SEGMENTATION_URL": settings.ai_segmentation_url,
+        "AI_SEGMENTATION_TOKEN": settings.ai_segmentation_token,
         "ADMIN_PASSWORD": settings.admin_password,
     }.items() if not v]
     if (
@@ -65,6 +69,14 @@ if _IS_PROD:
         raise RuntimeError("ALLOWED_HOSTS must be restricted when ENV=production")
     if settings.razorpay_key_id.startswith("rzp_test_"):
         raise RuntimeError("RAZORPAY_KEY_ID must use live keys when ENV=production")
+    if len(settings.secret_key) < 32:
+        raise RuntimeError("SECRET_KEY must contain at least 32 characters in production")
+    if urlparse(settings.public_api_url).scheme != "https":
+        raise RuntimeError("PUBLIC_API_URL must use HTTPS in production")
+    if "*" in settings.allowed_origin_list or any(
+        urlparse(origin).scheme != "https" for origin in settings.allowed_origin_list
+    ):
+        raise RuntimeError("ALLOWED_ORIGINS must contain only explicit HTTPS origins")
 
 _DEFAULT_DELIVERY_SETTINGS = [
     DeliverySetting(type="free",     label="Free Delivery",     price=0,  days_label="5-7 business days"),
@@ -194,10 +206,24 @@ async def security_headers(request: Request, call_next):
 
 @app.middleware("http")
 async def limit_request_body(request: Request, call_next):
-    max_bytes = 20 * 1024 * 1024  # 20 MB global cap
+    max_bytes = (
+        settings.ai_max_source_bytes + 1024 * 1024
+        if request.url.path == "/upload/image"
+        else 20 * 1024 * 1024
+    )
     content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > max_bytes:
-        return JSONResponse(status_code=413, content={"detail": "Request body too large"})
+    if content_length:
+        try:
+            if int(content_length) > max_bytes:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request body too large"},
+                )
+        except ValueError:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Invalid Content-Length header"},
+            )
     return await call_next(request)
 
 # Routers
@@ -214,6 +240,7 @@ app.include_router(delivery.router)
 app.include_router(delivery_options.router)
 app.include_router(admin.router)
 app.include_router(upload.router)
+app.include_router(media.router)
 app.include_router(ai_editor.router)
 app.include_router(realtime.router)
 

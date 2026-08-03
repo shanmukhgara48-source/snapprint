@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link } from "../../lib/router";
 import { api } from "../../lib/api";
 import type { OrderListItem } from "../../lib/types";
 import { Badge, Button, Card, Input, PageHeader, Spinner, Table, Td, Th } from "../../components/ui";
@@ -8,8 +8,8 @@ import { Download } from "lucide-react";
 
 const statusTone: Record<string, "neutral" | "success" | "warning" | "danger" | "info"> = {
   confirmed: "info",
-  processing: "warning",
-  shipped: "info",
+  picked_up: "warning",
+  out_for_delivery: "info",
   delivered: "success",
   cancelled: "danger",
 };
@@ -64,8 +64,8 @@ export default function OrdersList() {
         >
           <option value="">All statuses</option>
           <option value="confirmed">Confirmed</option>
-          <option value="processing">Processing</option>
-          <option value="shipped">Shipped</option>
+          <option value="picked_up">Picked up</option>
+          <option value="out_for_delivery">Out for delivery</option>
           <option value="delivered">Delivered</option>
           <option value="cancelled">Cancelled</option>
         </select>
@@ -97,7 +97,7 @@ export default function OrdersList() {
                 <Td>{o.item_count}</Td>
                 <Td>₹{o.total_price}</Td>
                 <Td>
-                  <Badge tone={statusTone[o.status] ?? "neutral"}>{o.status}</Badge>
+                  <Badge tone={statusTone[o.status] ?? "neutral"}>{o.status.replaceAll("_", " ")}</Badge>
                 </Td>
                 <Td>{new Date(o.created_at).toLocaleString()}</Td>
               </tr>

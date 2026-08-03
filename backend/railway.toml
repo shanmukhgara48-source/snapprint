@@ -3,7 +3,7 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2 --proxy-headers --forwarded-allow-ips='*' --access-log"
+startCommand = "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --ws websockets-sansio --proxy-headers --forwarded-allow-ips='*' --access-log"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"

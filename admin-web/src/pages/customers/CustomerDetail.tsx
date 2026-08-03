@@ -1,12 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, Link } from "react-router-dom";
+import { Link } from "../../lib/router";
 import { api } from "../../lib/api";
 import type { UserDetail } from "../../lib/types";
 import { Badge, Button, Card, ErrorState, PageHeader, Spinner } from "../../components/ui";
 import { ArrowLeft } from "lucide-react";
 
-export default function CustomerDetail() {
-  const { id } = useParams<{ id: string }>();
+export default function CustomerDetail({ id }: { id: string }) {
   const qc = useQueryClient();
 
   const { data: user, isLoading, isError, refetch } = useQuery({

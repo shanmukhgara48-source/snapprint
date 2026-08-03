@@ -1,16 +1,16 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CartItemInput(BaseModel):
     product_id: str
-    qty: int
+    qty: int = Field(ge=1, le=99)
     size: str = ""
     image_url: str | None = None
 
 
 class CartCalculateRequest(BaseModel):
-    items: list[CartItemInput]
-    delivery_type: str = "free"  # free | standard | express
+    items: list[CartItemInput] = Field(max_length=100)
+    delivery_type: str = Field(default="free", min_length=1, max_length=50)
     coupon_code: str | None = None
 
 

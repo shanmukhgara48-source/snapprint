@@ -11,11 +11,21 @@ class ApiEndpoints {
   static const String _localDevBaseUrl = 'http://10.0.2.2:8000';
 
   static String get baseUrl {
-    if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
-    if (kReleaseMode) {
-      throw StateError('SNAPPRINT_API_URL must be set for release builds.');
+    final value = _configuredBaseUrl.isEmpty
+        ? (kReleaseMode
+              ? throw StateError(
+                  'SNAPPRINT_API_URL must be set for release builds.',
+                )
+              : _localDevBaseUrl)
+        : _configuredBaseUrl;
+    final uri = Uri.tryParse(value);
+    if (uri == null || !uri.hasAuthority) {
+      throw StateError('SNAPPRINT_API_URL must be an absolute URL.');
     }
-    return _localDevBaseUrl;
+    if (kReleaseMode && uri.scheme != 'https') {
+      throw StateError('SNAPPRINT_API_URL must use HTTPS in release builds.');
+    }
+    return value;
   }
 
   // Auth
@@ -57,14 +67,21 @@ class ApiEndpoints {
   static const String deliveryAssigned = '/delivery/assigned';
   static String deliveryUpdateStatus(String orderId) =>
       '/delivery/$orderId/status';
+  static String deliveryUploadProof(String orderId) =>
+      '/delivery/$orderId/proof';
 
   // Delivery Options (public)
   static const String deliveryOptions = '/delivery-options';
+
+  // Uploads
+  static const String uploadImage = '/upload/image';
 
   // AI Photo Editor
   static const String aiPhotoStatus = '/ai/photo/status';
   static const String aiPhotoEdit = '/ai/photo/edit';
   static const String aiPhotoAnalyze = '/ai/photo/analyze';
+  static const String aiPhotoRemoveBackground = '/ai/photo/remove-background';
+  static const String aiPhotoExport = '/ai/photo/export';
 
   // Admin
   static const String adminProducts = '/admin/products';

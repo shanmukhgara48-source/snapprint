@@ -11,9 +11,11 @@ import '../../../../core/widgets/premium_network_image.dart';
 import '../../../../core/network/api_client.dart';
 import '../../data/datasources/customer_remote_datasource.dart';
 import '../../domain/entities/cart_item_entity.dart';
+import '../../domain/checkout_rules.dart';
 import '../providers/address_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/delivery_options_provider.dart';
+import '../providers/orders_provider.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
@@ -42,6 +44,30 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     try {
       final ds = ref.read(customerDataSourceProvider);
+      if (!requiresOnlinePayment(cart.total)) {
+        final order = await ds.placeOrder({
+          'items': cart.items
+              .map(
+                (item) => {
+                  'product_id': item.productId,
+                  'qty': item.quantity,
+                  'size': item.selectedSize,
+                  'image_url': item.customizationImageUrl,
+                  'price': item.unitPrice,
+                },
+              )
+              .toList(),
+          'address_id': selectedAddress.id,
+          'delivery_type': cart.deliveryTypeKey,
+          if (cart.couponCode != null) 'coupon_code': cart.couponCode,
+        });
+        ref.read(cartProvider.notifier).clearCart();
+        ref.invalidate(myOrdersProvider);
+        if (mounted) {
+          context.go(AppRoutes.orderConfirmationPath(order.id));
+        }
+        return;
+      }
       final razorpayOrder = await ds.createRazorpayOrder(cart.total);
 
       if (mounted) {
@@ -219,13 +245,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     if (addresses.isEmpty) {
                       return Container(
                         decoration: _checkoutCardDecoration(),
-                        child: ListTile(
-                          leading: const Icon(
-                            Icons.add_location_alt_outlined,
-                            color: AppColors.accent,
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: ListTile(
+                            leading: const Icon(
+                              Icons.add_location_alt_outlined,
+                              color: AppColors.accent,
+                            ),
+                            title: const Text('Add delivery address'),
+                            onTap: () => context.push(AppRoutes.address),
                           ),
-                          title: const Text('Add delivery address'),
-                          onTap: () => context.push(AppRoutes.address),
                         ),
                       );
                     }

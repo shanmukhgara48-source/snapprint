@@ -12,6 +12,7 @@ from .admin_user import AdminUser
 from .admin_audit_log import AdminAuditLog
 from .admin_login_history import AdminLoginHistory
 from .payment_attempt import PaymentAttempt
+from .payment_intent import PaymentIntent
 from .app_setting import AppSetting
 
 __all__ = [
@@ -29,5 +30,6 @@ __all__ = [
     "AdminAuditLog",
     "AdminLoginHistory",
     "PaymentAttempt",
+    "PaymentIntent",
     "AppSetting",
 ]

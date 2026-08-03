@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from fastapi import HTTPException
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Coupon, Product
@@ -34,6 +35,8 @@ async def _get_delivery_options(db: AsyncSession) -> list[DeliveryOption]:
 async def calculate_cart(
     db: AsyncSession,
     payload: CartCalculateRequest,
+    *,
+    user_id: str,
 ) -> CartCalculateResponse:
     """
     Server-side cart price calculation.
@@ -44,6 +47,8 @@ async def calculate_cart(
     """
     delivery_options = await _get_delivery_options(db)
     delivery_charges: dict[str, float] = {opt.type: opt.price for opt in delivery_options}
+    if payload.delivery_type not in delivery_charges:
+        raise HTTPException(status_code=400, detail="Invalid delivery type")
 
     if not payload.items:
         return CartCalculateResponse(
@@ -73,11 +78,22 @@ async def calculate_cart(
 
         # Check if a size-specific price exists
         unit_price = product.base_price
-        if item.size and product.sizes:
+        if product.sizes:
+            unit_price = None
             for size_opt in product.sizes:
                 if size_opt.get("label") == item.size:
-                    unit_price = float(size_opt.get("price", unit_price))
+                    unit_price = float(size_opt["price"])
                     break
+            if unit_price is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid size for {product.name}",
+                )
+        if unit_price <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Price is unavailable for {product.name}",
+            )
 
         line_total = unit_price * item.qty
         subtotal += line_total
@@ -104,6 +120,7 @@ async def calculate_cart(
             select(Coupon).where(
                 Coupon.code == payload.coupon_code.upper(),
                 Coupon.is_active.is_(True),
+                or_(Coupon.owner_user_id.is_(None), Coupon.owner_user_id == user_id),
             )
         )
         coupon = coupon_result.scalar_one_or_none()

@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
 class DeliveryOrderOut(BaseModel):
@@ -22,5 +24,5 @@ class DeliveryOrderOut(BaseModel):
 
 
 class DeliveryStatusUpdate(BaseModel):
-    status: str
-    proof_url: str | None = None
+    status: Literal["picked_up", "out_for_delivery", "delivered"]
+    proof_url: str | None = Field(default=None, max_length=2048)

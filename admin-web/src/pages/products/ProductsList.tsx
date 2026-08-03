@@ -13,6 +13,7 @@ type ProductForm = {
   description: string;
   images: string;
   stock_quantity: string;
+  tracks_inventory: boolean;
   is_trending: boolean;
 };
 
@@ -23,6 +24,7 @@ const emptyForm: ProductForm = {
   description: "",
   images: "",
   stock_quantity: "0",
+  tracks_inventory: false,
   is_trending: false,
 };
 
@@ -70,6 +72,7 @@ export default function ProductsList() {
         description: payload.description || null,
         images: parseImages(payload.images),
         stock_quantity: Number(payload.stock_quantity) || 0,
+        tracks_inventory: payload.tracks_inventory,
         is_trending: payload.is_trending,
       }),
     onSuccess: () => {
@@ -142,6 +145,7 @@ export default function ProductsList() {
       description: p.description ?? "",
       images: (p.images ?? []).join(", "),
       stock_quantity: String(p.stock_quantity ?? 0),
+      tracks_inventory: p.tracks_inventory ?? false,
       is_trending: p.is_trending ?? false,
     });
     setModalOpen(true);
@@ -158,6 +162,7 @@ export default function ProductsList() {
           description: form.description || null,
           images: parseImages(form.images),
           stock_quantity: Number(form.stock_quantity) || 0,
+          tracks_inventory: form.tracks_inventory,
           is_trending: form.is_trending,
         },
       });
@@ -229,7 +234,7 @@ export default function ProductsList() {
                 <Td>{p.name}</Td>
                 <Td className="capitalize">{p.category}</Td>
                 <Td>₹{p.base_price}</Td>
-                <Td>{p.stock_quantity}</Td>
+                <Td>{p.tracks_inventory ? p.stock_quantity : "Unlimited"}</Td>
                 <Td>
                   <div className="flex gap-1">
                     <Badge tone={p.is_active ? "success" : "neutral"}>{p.is_active ? "Active" : "Disabled"}</Badge>
@@ -301,8 +306,17 @@ export default function ProductsList() {
             placeholder="Stock quantity"
             type="number"
             value={form.stock_quantity}
+            disabled={!form.tracks_inventory}
             onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })}
           />
+          <label className="flex items-center gap-2 text-sm text-neutral-300">
+            <input
+              type="checkbox"
+              checked={form.tracks_inventory}
+              onChange={(e) => setForm({ ...form, tracks_inventory: e.target.checked })}
+            />
+            Track inventory
+          </label>
           <label className="flex items-center gap-2 text-sm text-neutral-300">
             <input
               type="checkbox"

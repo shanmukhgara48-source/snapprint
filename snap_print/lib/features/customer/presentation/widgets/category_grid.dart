@@ -56,15 +56,17 @@ class CategoryGrid extends ConsumerWidget {
             message: 'New print categories will appear here soon.',
           );
         }
+        final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+        final cardHeight = 180.0 + ((textScale - 1) * 60).clamp(0.0, 60.0);
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             crossAxisSpacing: 14,
             mainAxisSpacing: 14,
-            childAspectRatio: 1.08,
+            mainAxisExtent: cardHeight,
           ),
           itemCount: visibleCategories.length,
           itemBuilder: (context, index) {
@@ -175,6 +177,8 @@ class _CategoryCard extends StatelessWidget {
                   const Spacer(),
                   Text(
                     category.name.replaceAll('_', ' '),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
@@ -186,15 +190,18 @@ class _CategoryCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Text(
-                        'Explore',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.72),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
+                      Expanded(
+                        child: Text(
+                          'Explore',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.72),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
-                      const Spacer(),
                       Icon(
                         Icons.arrow_forward_rounded,
                         color: Colors.white.withValues(alpha: 0.80),

@@ -1,12 +1,12 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class FirebaseAuthRequest(BaseModel):
-    id_token: str          # Firebase ID token — proof the caller owns this UID
-    phone: str
+    id_token: str = Field(min_length=20, max_length=10_000)
+    phone: str = Field(pattern=r"^\+[1-9][0-9]{7,14}$")
     role: str = "customer"
-    fcm_token: str | None = None
-    referred_by_code: str | None = None  # referral code entered by new user at signup
+    fcm_token: str | None = Field(default=None, max_length=4096)
+    referred_by_code: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class UserResponse(BaseModel):

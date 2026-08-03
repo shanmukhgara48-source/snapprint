@@ -21,7 +21,9 @@ final _productsProvider = FutureProvider<List<dynamic>>((ref) async {
 final _categoriesProvider = FutureProvider<List<String>>((ref) async {
   final client = ref.read(adminApiClientProvider);
   final response = await client.dio.get('/admin/categories');
-  return (response.data as List<dynamic>).cast<String>();
+  return (response.data as List<dynamic>)
+      .map((item) => (item as Map<String, dynamic>)['name'] as String)
+      .toList();
 });
 
 // ── Screen ─────────────────────────────────────────────────────────────────
@@ -44,12 +46,16 @@ class ProductsScreen extends ConsumerWidget {
       ),
       body: productsAsync.when(
         loading: () => const Center(
-            child: CircularProgressIndicator(color: AdminTheme.primary)),
+          child: CircularProgressIndicator(color: AdminTheme.primary),
+        ),
         error: (e, s) => Center(child: Text('$e')),
         data: (products) => products.isEmpty
             ? const Center(
-                child: Text('No products yet. Tap + to add one.',
-                    style: TextStyle(color: AdminTheme.textSecondary)))
+                child: Text(
+                  'No products yet. Tap + to add one.',
+                  style: TextStyle(color: AdminTheme.textSecondary),
+                ),
+              )
             : Padding(
                 padding: const EdgeInsets.all(16),
                 child: DataTable2(
@@ -65,57 +71,85 @@ class ProductsScreen extends ConsumerWidget {
                     DataColumn2(label: Text('Actions'), size: ColumnSize.S),
                   ],
                   rows: products.map<DataRow>((p) {
-                    final imageUrl = p['image_url'] as String? ?? '';
+                    final images = p['images'] as List<dynamic>? ?? [];
+                    final imageUrl = images.isNotEmpty
+                        ? images.first as String
+                        : '';
                     final sizes = p['sizes'] as List<dynamic>? ?? [];
-                    return DataRow(cells: [
-                      DataCell(
-                        imageUrl.isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: CachedNetworkImage(
-                                  imageUrl: imageUrl,
-                                  width: 40,
-                                  height: 40,
-                                  fit: BoxFit.cover,
-                                  errorWidget: (c, u, e) => const Icon(
+                    return DataRow(
+                      cells: [
+                        DataCell(
+                          imageUrl.isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: CachedNetworkImage(
+                                    imageUrl: imageUrl,
+                                    width: 40,
+                                    height: 40,
+                                    fit: BoxFit.cover,
+                                    errorWidget: (c, u, e) => const Icon(
                                       Icons.broken_image_outlined,
                                       size: 20,
-                                      color: AdminTheme.textSecondary),
+                                      color: AdminTheme.textSecondary,
+                                    ),
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.image_outlined,
+                                  size: 28,
+                                  color: AdminTheme.textSecondary,
                                 ),
-                              )
-                            : const Icon(Icons.image_outlined,
-                                size: 28, color: AdminTheme.textSecondary),
-                      ),
-                      DataCell(Text(p['name'] as String? ?? '')),
-                      DataCell(Text(p['category'] as String? ?? '')),
-                      DataCell(Text(
-                          '₹${(p['base_price'] as num?)?.toStringAsFixed(0) ?? '0'}')),
-                      DataCell(Text('${sizes.length} size${sizes.length == 1 ? '' : 's'}')),
-                      DataCell(Icon(
-                        (p['is_active'] as bool? ?? false)
-                            ? Icons.check_circle
-                            : Icons.cancel,
-                        color: (p['is_active'] as bool? ?? false)
-                            ? AdminTheme.primary
-                            : AdminTheme.error,
-                        size: 20,
-                      )),
-                      DataCell(Row(children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          tooltip: 'Edit',
-                          onPressed: () =>
-                              _showProductForm(context, ref, product: p),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline,
-                              size: 18, color: AdminTheme.error),
-                          tooltip: 'Delete',
-                          onPressed: () =>
-                              _deleteProduct(context, ref, p['id'] as String),
+                        DataCell(Text(p['name'] as String? ?? '')),
+                        DataCell(Text(p['category'] as String? ?? '')),
+                        DataCell(
+                          Text(
+                            '₹${(p['base_price'] as num?)?.toStringAsFixed(0) ?? '0'}',
+                          ),
                         ),
-                      ])),
-                    ]);
+                        DataCell(
+                          Text(
+                            '${sizes.length} size${sizes.length == 1 ? '' : 's'}',
+                          ),
+                        ),
+                        DataCell(
+                          Icon(
+                            (p['is_active'] as bool? ?? false)
+                                ? Icons.check_circle
+                                : Icons.cancel,
+                            color: (p['is_active'] as bool? ?? false)
+                                ? AdminTheme.primary
+                                : AdminTheme.error,
+                            size: 20,
+                          ),
+                        ),
+                        DataCell(
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined, size: 18),
+                                tooltip: 'Edit',
+                                onPressed: () =>
+                                    _showProductForm(context, ref, product: p),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  size: 18,
+                                  color: AdminTheme.error,
+                                ),
+                                tooltip: 'Delete',
+                                onPressed: () => _deleteProduct(
+                                  context,
+                                  ref,
+                                  p['id'] as String,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
                   }).toList(),
                 ),
               ),
@@ -124,23 +158,27 @@ class ProductsScreen extends ConsumerWidget {
   }
 
   Future<void> _deleteProduct(
-      BuildContext context, WidgetRef ref, String id) async {
+    BuildContext context,
+    WidgetRef ref,
+    String id,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Product'),
         content: const Text(
-            'This product will be permanently deleted. Are you sure?'),
+          'This product will be permanently deleted. Are you sure?',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: AdminTheme.error),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete',
-                  style: TextStyle(color: Colors.white))),
+            style: ElevatedButton.styleFrom(backgroundColor: AdminTheme.error),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
         ],
       ),
     );
@@ -148,15 +186,18 @@ class ProductsScreen extends ConsumerWidget {
       await ref.read(adminApiClientProvider).dio.delete('/admin/products/$id');
       ref.invalidate(_productsProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Product deleted')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Product deleted')));
       }
     }
   }
 
-  void _showProductForm(BuildContext context, WidgetRef ref,
-      {dynamic product}) {
+  void _showProductForm(
+    BuildContext context,
+    WidgetRef ref, {
+    dynamic product,
+  }) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -181,14 +222,15 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
   late final TextEditingController _priceCtrl;
   late final TextEditingController _descCtrl;
   late final TextEditingController _newCategoryCtrl;
+  late final TextEditingController _stockCtrl;
 
   late String _selectedCategory;
   late bool _isActive;
+  late bool _tracksInventory;
   late List<Map<String, dynamic>> _sizes;
 
   String _imageUrl = '';
   Uint8List? _pickedImageBytes;
-  String? _pickedFileName;
   bool _uploadingImage = false;
   bool _isSaving = false;
 
@@ -199,22 +241,32 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
     super.initState();
     final p = widget.product;
     _nameCtrl = TextEditingController(text: p?['name'] ?? '');
-    _priceCtrl =
-        TextEditingController(text: p?['base_price']?.toString() ?? '');
+    _priceCtrl = TextEditingController(
+      text: p?['base_price']?.toString() ?? '',
+    );
     _descCtrl = TextEditingController(text: p?['description'] ?? '');
     _newCategoryCtrl = TextEditingController();
+    _stockCtrl = TextEditingController(
+      text: (p?['stock_quantity'] ?? 0).toString(),
+    );
     _selectedCategory = p?['category'] ?? '';
     _isActive = p?['is_active'] ?? true;
-    _imageUrl = p?['image_url'] ?? '';
+    _tracksInventory = p?['tracks_inventory'] ?? false;
+    final images = p?['images'] as List<dynamic>? ?? [];
+    _imageUrl = images.isNotEmpty ? images.first as String : '';
     _sizes = (p?['sizes'] as List<dynamic>? ?? [])
-        .map((s) => {
-              'label': (s as Map)['label']?.toString() ?? '',
-              'price': (s['price'] as num?)?.toDouble() ?? 0.0,
-              'labelCtrl': TextEditingController(
-                  text: s['label']?.toString() ?? ''),
-              'priceCtrl': TextEditingController(
-                  text: (s['price'] as num?)?.toString() ?? ''),
-            })
+        .map(
+          (s) => {
+            'label': (s as Map)['label']?.toString() ?? '',
+            'price': (s['price'] as num?)?.toDouble() ?? 0.0,
+            'labelCtrl': TextEditingController(
+              text: s['label']?.toString() ?? '',
+            ),
+            'priceCtrl': TextEditingController(
+              text: (s['price'] as num?)?.toString() ?? '',
+            ),
+          },
+        )
         .toList();
 
     _loadCategories();
@@ -241,6 +293,7 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
     _priceCtrl.dispose();
     _descCtrl.dispose();
     _newCategoryCtrl.dispose();
+    _stockCtrl.dispose();
     for (final s in _sizes) {
       (s['labelCtrl'] as TextEditingController).dispose();
       (s['priceCtrl'] as TextEditingController).dispose();
@@ -260,7 +313,6 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
 
     setState(() {
       _pickedImageBytes = file.bytes;
-      _pickedFileName = file.name;
       _uploadingImage = true;
     });
 
@@ -273,8 +325,7 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
           contentType: DioMediaType.parse(_mimeFromName(file.name)),
         ),
       });
-      final response =
-          await client.dio.post('/admin/upload', data: formData);
+      final response = await client.dio.post('/admin/upload', data: formData);
       final url = (response.data as Map)['url'] as String;
       setState(() {
         _imageUrl = url;
@@ -285,8 +336,9 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Upload failed: $e'),
-              backgroundColor: Colors.red),
+            content: Text('Upload failed: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -334,45 +386,74 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
 
   Future<void> _save() async {
     if (_nameCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Product name is required')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Product name is required')));
       return;
     }
     if (_selectedCategory.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Category is required')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Category is required')));
       return;
     }
     final price = double.tryParse(_priceCtrl.text.trim());
     if (price == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enter a valid base price')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter a valid base price')));
       return;
     }
 
     setState(() => _isSaving = true);
 
     final sizesPayload = _sizes
-        .where((s) =>
-            (s['labelCtrl'] as TextEditingController).text.trim().isNotEmpty)
-        .map((s) => {
-              'label':
-                  (s['labelCtrl'] as TextEditingController).text.trim(),
-              'price': double.tryParse(
-                      (s['priceCtrl'] as TextEditingController).text.trim()) ??
-                  0.0,
-            })
+        .where(
+          (s) =>
+              (s['labelCtrl'] as TextEditingController).text.trim().isNotEmpty,
+        )
+        .map(
+          (s) => {
+            'label': (s['labelCtrl'] as TextEditingController).text.trim(),
+            'price':
+                double.tryParse(
+                  (s['priceCtrl'] as TextEditingController).text.trim(),
+                ) ??
+                0.0,
+          },
+        )
         .toList();
+    if (price <= 0 && sizesPayload.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a positive base or size price')),
+      );
+      return;
+    }
+    if (sizesPayload.any((size) => (size['price'] as double) <= 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Every size needs a positive price')),
+      );
+      return;
+    }
+    final stock = int.tryParse(_stockCtrl.text.trim());
+    if (_tracksInventory && (stock == null || stock < 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid stock quantity')),
+      );
+      return;
+    }
 
     final data = {
       'name': _nameCtrl.text.trim(),
       'category': _selectedCategory.trim(),
       'base_price': price,
-      'image_url': _imageUrl,
+      'images': _imageUrl.isEmpty ? <String>[] : [_imageUrl],
       'description': _descCtrl.text.trim().isEmpty
           ? null
           : _descCtrl.text.trim(),
       'sizes': sizesPayload,
+      'stock_quantity': stock ?? 0,
+      'tracks_inventory': _tracksInventory,
       'is_active': _isActive,
     };
 
@@ -381,8 +462,10 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
       if (widget.product == null) {
         await client.dio.post('/admin/products', data: data);
       } else {
-        await client.dio
-            .put('/admin/products/${widget.product!['id']}', data: data);
+        await client.dio.put(
+          '/admin/products/${widget.product!['id']}',
+          data: data,
+        );
       }
       widget.ref.invalidate(_productsProvider);
       widget.ref.invalidate(_categoriesProvider);
@@ -391,8 +474,9 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Save failed: $e'),
-              backgroundColor: Colors.red),
+            content: Text('Save failed: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -427,9 +511,10 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ── Image ──────────────────────────────────────────────
-                const Text('Product Image',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 13)),
+                const Text(
+                  'Product Image',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -443,39 +528,45 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
                               color: Colors.grey.shade100,
                               child: const Center(
                                 child: CircularProgressIndicator(
-                                    color: AdminTheme.primary, strokeWidth: 2),
+                                  color: AdminTheme.primary,
+                                  strokeWidth: 2,
+                                ),
                               ),
                             )
                           : _pickedImageBytes != null
-                              ? Image.memory(
-                                  _pickedImageBytes!,
-                                  width: 90,
-                                  height: 90,
-                                  fit: BoxFit.cover,
-                                )
-                              : _imageUrl.isNotEmpty
-                                  ? CachedNetworkImage(
-                                      imageUrl: _imageUrl,
-                                      width: 90,
-                                      height: 90,
-                                      fit: BoxFit.cover,
-                                      errorWidget: (c, u, e) => _imagePlaceholder(),
-                                    )
-                                  : _imagePlaceholder(),
+                          ? Image.memory(
+                              _pickedImageBytes!,
+                              width: 90,
+                              height: 90,
+                              fit: BoxFit.cover,
+                            )
+                          : _imageUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: _imageUrl,
+                              width: 90,
+                              height: 90,
+                              fit: BoxFit.cover,
+                              errorWidget: (c, u, e) => _imagePlaceholder(),
+                            )
+                          : _imagePlaceholder(),
                     ),
                     const SizedBox(width: 16),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         ElevatedButton.icon(
-                          onPressed:
-                              _uploadingImage ? null : _pickAndUploadImage,
+                          onPressed: _uploadingImage
+                              ? null
+                              : _pickAndUploadImage,
                           icon: const Icon(Icons.upload_rounded, size: 16),
-                          label: Text(_imageUrl.isNotEmpty
-                              ? 'Change Image'
-                              : 'Upload Image'),
+                          label: Text(
+                            _imageUrl.isNotEmpty
+                                ? 'Change Image'
+                                : 'Upload Image',
+                          ),
                           style: ElevatedButton.styleFrom(
-                              backgroundColor: AdminTheme.primary),
+                            backgroundColor: AdminTheme.primary,
+                          ),
                         ),
                         if (_imageUrl.isNotEmpty) ...[
                           const SizedBox(height: 6),
@@ -484,18 +575,28 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
                               _imageUrl = '';
                               _pickedImageBytes = null;
                             }),
-                            icon: const Icon(Icons.delete_outline,
-                                size: 14, color: AdminTheme.error),
-                            label: const Text('Remove',
-                                style: TextStyle(
-                                    color: AdminTheme.error, fontSize: 12)),
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              size: 14,
+                              color: AdminTheme.error,
+                            ),
+                            label: const Text(
+                              'Remove',
+                              style: TextStyle(
+                                color: AdminTheme.error,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
                         ],
                         const SizedBox(height: 4),
-                        const Text('JPEG / PNG / WebP, max 5 MB',
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: AdminTheme.textSecondary)),
+                        const Text(
+                          'JPEG / PNG / WebP, max 5 MB',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AdminTheme.textSecondary,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -506,32 +607,37 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
                 // ── Name ───────────────────────────────────────────────
                 TextField(
                   controller: _nameCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Product Name *'),
+                  decoration: const InputDecoration(
+                    labelText: 'Product Name *',
+                  ),
                 ),
                 const SizedBox(height: 16),
 
                 // ── Category ───────────────────────────────────────────
-                const Text('Category *',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 13)),
+                const Text(
+                  'Category *',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
                 const SizedBox(height: 6),
                 if (_availableCategories.isNotEmpty)
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      ..._availableCategories.map((cat) => ChoiceChip(
-                            label: Text(cat),
-                            selected: _selectedCategory == cat,
-                            onSelected: (_) =>
-                                setState(() => _selectedCategory = cat),
-                            selectedColor: AdminTheme.primary,
-                            labelStyle: TextStyle(
-                                color: _selectedCategory == cat
-                                    ? Colors.white
-                                    : null),
-                          )),
+                      ..._availableCategories.map(
+                        (cat) => ChoiceChip(
+                          label: Text(cat),
+                          selected: _selectedCategory == cat,
+                          onSelected: (_) =>
+                              setState(() => _selectedCategory = cat),
+                          selectedColor: AdminTheme.primary,
+                          labelStyle: TextStyle(
+                            color: _selectedCategory == cat
+                                ? Colors.white
+                                : null,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 const SizedBox(height: 8),
@@ -561,11 +667,13 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
                 // ── Base Price ─────────────────────────────────────────
                 TextField(
                   controller: _priceCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(
-                      labelText: 'Base Price (₹) *',
-                      prefixText: '₹ '),
+                    labelText: 'Base Price (₹) *',
+                    prefixText: '₹ ',
+                  ),
                 ),
                 const SizedBox(height: 16),
 
@@ -574,8 +682,9 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
                   controller: _descCtrl,
                   maxLines: 3,
                   decoration: const InputDecoration(
-                      labelText: 'Description (optional)',
-                      alignLabelWithHint: true),
+                    labelText: 'Description (optional)',
+                    alignLabelWithHint: true,
+                  ),
                 ),
                 const SizedBox(height: 20),
 
@@ -583,9 +692,13 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Size Variants',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 13)),
+                    const Text(
+                      'Size Variants',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
                     TextButton.icon(
                       onPressed: _addSize,
                       icon: const Icon(Icons.add, size: 16),
@@ -599,7 +712,9 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
                     child: Text(
                       'No size variants — customers will order at base price.',
                       style: TextStyle(
-                          color: AdminTheme.textSecondary, fontSize: 12),
+                        color: AdminTheme.textSecondary,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ..._sizes.asMap().entries.map((e) {
@@ -612,8 +727,7 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
                         Expanded(
                           flex: 3,
                           child: TextField(
-                            controller:
-                                s['labelCtrl'] as TextEditingController,
+                            controller: s['labelCtrl'] as TextEditingController,
                             decoration: InputDecoration(
                               labelText: 'Size label (e.g. 4×6)',
                               isDense: true,
@@ -626,11 +740,10 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
                         Expanded(
                           flex: 2,
                           child: TextField(
-                            controller:
-                                s['priceCtrl'] as TextEditingController,
-                            keyboardType:
-                                const TextInputType.numberWithOptions(
-                                    decimal: true),
+                            controller: s['priceCtrl'] as TextEditingController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                             decoration: InputDecoration(
                               labelText: 'Price (₹)',
                               isDense: true,
@@ -640,8 +753,11 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.remove_circle_outline,
-                              color: AdminTheme.error, size: 20),
+                          icon: const Icon(
+                            Icons.remove_circle_outline,
+                            color: AdminTheme.error,
+                            size: 20,
+                          ),
                           onPressed: () => _removeSize(i),
                           tooltip: 'Remove',
                         ),
@@ -652,12 +768,30 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
 
                 const SizedBox(height: 12),
 
+                SwitchListTile(
+                  value: _tracksInventory,
+                  onChanged: (value) =>
+                      setState(() => _tracksInventory = value),
+                  title: const Text('Track inventory'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                if (_tracksInventory) ...[
+                  TextField(
+                    controller: _stockCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Units in stock',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
                 // ── is_active ──────────────────────────────────────────
                 SwitchListTile(
                   value: _isActive,
                   onChanged: (v) => setState(() => _isActive = v),
                   title: const Text('Active (visible to customers)'),
-                  activeColor: AdminTheme.primary,
+                  activeThumbColor: AdminTheme.primary,
                   contentPadding: EdgeInsets.zero,
                 ),
               ],
@@ -680,7 +814,9 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : Text(isEdit ? 'Save Changes' : 'Create Product'),
                 ),
@@ -701,8 +837,11 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey.shade300),
       ),
-      child: const Icon(Icons.add_photo_alternate_outlined,
-          size: 32, color: AdminTheme.textSecondary),
+      child: const Icon(
+        Icons.add_photo_alternate_outlined,
+        size: 32,
+        color: AdminTheme.textSecondary,
+      ),
     );
   }
 }

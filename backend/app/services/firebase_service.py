@@ -15,7 +15,12 @@ def get_firebase_app() -> firebase_admin.App:
             cred = credentials.Certificate(json.loads(settings.firebase_credentials_json))
         else:
             cred = credentials.Certificate(settings.firebase_credentials_path)
-        _app = firebase_admin.initialize_app(cred)
+        options = {}
+        if settings.firebase_project_id:
+            options["projectId"] = settings.firebase_project_id
+        if settings.firebase_storage_bucket:
+            options["storageBucket"] = settings.firebase_storage_bucket
+        _app = firebase_admin.initialize_app(cred, options=options or None)
     return _app
 
 

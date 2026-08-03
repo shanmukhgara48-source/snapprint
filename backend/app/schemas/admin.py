@@ -4,10 +4,10 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class CouponCreate(BaseModel):
-    code: str
+    code: str = Field(min_length=1, max_length=64)
     discount_type: str  # "percent" | "flat"
-    value: float = Field(ge=0)
-    min_order: float = Field(default=0, ge=0)
+    value: float = Field(ge=0, le=10_000_000)
+    min_order: float = Field(default=0, ge=0, le=10_000_000)
     max_uses: int | None = Field(default=None, ge=1)
     expires_at: datetime | None = None
 
@@ -32,8 +32,8 @@ class CouponCreate(BaseModel):
 
 class CouponUpdate(BaseModel):
     discount_type: str | None = None
-    value: float | None = Field(default=None, ge=0)
-    min_order: float | None = Field(default=None, ge=0)
+    value: float | None = Field(default=None, ge=0, le=10_000_000)
+    min_order: float | None = Field(default=None, ge=0, le=10_000_000)
     max_uses: int | None = Field(default=None, ge=1)
     is_active: bool | None = None
     expires_at: datetime | None = None

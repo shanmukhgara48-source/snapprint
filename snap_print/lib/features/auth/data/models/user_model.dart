@@ -22,12 +22,25 @@ class UserModel extends UserEntity {
         fcmToken: data['fcmToken'] as String?,
       );
 
+  factory UserModel.fromBackend(
+    Map<String, dynamic> data, {
+    String? displayName,
+  }) => UserModel(
+    id: data['id'] as String,
+    firebaseUid: data['firebase_uid'] as String,
+    phone: data['phone'] as String? ?? '',
+    role: data['role'] as String? ?? 'customer',
+    isActive: data['is_active'] as bool? ?? true,
+    displayName: displayName,
+    fcmToken: data['fcm_token'] as String?,
+  );
+
   Map<String, dynamic> toFirestore() => {
-        'phone': phone,
-        'role': role,
-        'isActive': isActive,
-        'displayName': displayName,
-        'fcmToken': fcmToken,
-        'updatedAt': DateTime.now().toIso8601String(),
-      };
+    'phone': phone,
+    'role': role,
+    'isActive': isActive,
+    'displayName': displayName,
+    'fcmToken': fcmToken,
+    'updatedAt': DateTime.now().toIso8601String(),
+  };
 }
