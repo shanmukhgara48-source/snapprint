@@ -163,6 +163,34 @@ def test_admin_auth_rbac_crud_and_public_catalog_synchronization():
             assert public_product.json()["base_price"] == 25
             assert public_product.json()["tracks_inventory"] is True
 
+            catalog_response = client.post(
+                "/admin/products",
+                headers=super_headers,
+                json={
+                    "name": f"{prefix}_catalog_only",
+                    "category": category["name"],
+                    "category_id": category["id"],
+                    "base_price": 0,
+                    "is_orderable": False,
+                    "source_rating": 4.5,
+                    "source_review_count": 16,
+                    "dimensions": "8x8 to 12x18 inches",
+                    "source_url": "https://www.vistaprint.in/photo-gifts",
+                    "source_checked_on": "2026-08-03",
+                },
+            )
+            assert catalog_response.status_code == 201
+            catalog_product = catalog_response.json()
+            assert catalog_product["is_orderable"] is False
+            assert client.get(f"/products/{catalog_product['id']}").status_code == 200
+
+            enable_without_price = client.put(
+                f"/admin/products/{catalog_product['id']}",
+                headers=super_headers,
+                json={"is_orderable": True},
+            )
+            assert enable_without_price.status_code == 422
+
             mismatched_category = client.put(
                 f"/admin/products/{product['id']}",
                 headers=super_headers,

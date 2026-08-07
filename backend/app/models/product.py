@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
@@ -24,11 +24,21 @@ class Product(Base):
     # JSON: ["https://...", ...] — first entry is the primary/cover image
     images: Mapped[list] = mapped_column(JSON, default=list)
     description: Mapped[str | None] = mapped_column(String, nullable=True)
+    material: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dimensions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    options_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    delivery_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+    price_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    source_checked_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    source_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source_review_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     stock_quantity: Mapped[int] = mapped_column(Integer, default=0)
     tracks_inventory: Mapped[bool] = mapped_column(Boolean, default=False)
     is_featured: Mapped[bool] = mapped_column(Boolean, default=False)
     is_trending: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_orderable: Mapped[bool] = mapped_column(Boolean, default=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

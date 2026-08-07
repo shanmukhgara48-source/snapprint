@@ -13,6 +13,7 @@ abstract class CustomerRepository {
     int page,
     int limit,
   });
+  Future<List<ProductEntity>> getAllProducts({String? category});
   Future<ProductEntity> getProductById(String id);
 
   Future<List<CategoryEntity>> getCategories();

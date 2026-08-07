@@ -43,6 +43,27 @@ void main() {
     expect(unavailable.priceLabel, 'Price unavailable');
   });
 
+  test('catalog-only products are visible but cannot be ordered', () {
+    final product = ProductModel.fromJson({
+      'id': 'catalog-only',
+      'name': 'Layflat Photo Albums',
+      'category': 'Photo Books',
+      'base_price': 0,
+      'sizes': <Map<String, dynamic>>[],
+      'images': <String>[],
+      'is_orderable': false,
+      'material': 'Premium photo paper',
+      'dimensions': '8x8 to 12x18 inches',
+      'options_summary': '24-50 pages',
+      'delivery_info': 'Cash on delivery available',
+    });
+
+    expect(product.priceLabel, 'Pricing coming soon');
+    expect(product.canOrder, isFalse);
+    expect(product.material, 'Premium photo paper');
+    expect(product.dimensions, '8x8 to 12x18 inches');
+  });
+
   test(
     'tracked zero inventory is sold out while untracked products are unlimited',
     () {

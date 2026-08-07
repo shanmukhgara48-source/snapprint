@@ -121,7 +121,8 @@ async def lifespan(app: FastAPI):
                     setattr(existing_category, field, value)
                 category_ids[existing_category.name] = existing_category.id
 
-        # Seed and refresh products from the bundled catalog.
+        # Seed missing products from the bundled catalog. Admin pricing and
+        # availability changes remain authoritative after initial creation.
         for product_data in DEFAULT_PRODUCTS:
             data = dict(product_data)
             data["category_id"] = category_ids.get(data["category"])
@@ -135,7 +136,9 @@ async def lifespan(app: FastAPI):
             if existing_product is None:
                 product = Product(**data)
                 db.add(product)
-            else:
+            elif data.get("source_url") and not existing_product.source_url:
+                # Recover source imports created before metadata columns were
+                # available without overwriting later admin pricing changes.
                 for field, value in data.items():
                     setattr(existing_product, field, value)
 

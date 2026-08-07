@@ -139,6 +139,16 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                           color: AppColors.accent,
                         ),
                       ),
+                      if (!product.isOrderable) ...[
+                        const SizedBox(height: 10),
+                        const Text(
+                          'This product is available to explore while pricing is finalized.',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                       if (!product.isInStock) ...[
                         const SizedBox(height: 8),
                         const Text(
@@ -230,6 +240,26 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                         ),
                       ],
 
+                      if (product.dimensions != null &&
+                          product.dimensions!.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _InfoRow(
+                          icon: Icons.straighten_rounded,
+                          label: 'Dimensions',
+                          value: product.dimensions!,
+                        ),
+                      ],
+
+                      if (product.optionsSummary != null &&
+                          product.optionsSummary!.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _InfoRow(
+                          icon: Icons.tune_rounded,
+                          label: 'Options',
+                          value: product.optionsSummary!,
+                        ),
+                      ],
+
                       // Delivery
                       if (product.deliveryInfo != null &&
                           product.deliveryInfo!.isNotEmpty) ...[
@@ -238,6 +268,16 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                           icon: Icons.local_shipping_outlined,
                           label: 'Delivery',
                           value: product.deliveryInfo!,
+                        ),
+                      ],
+
+                      if (product.priceNote != null &&
+                          product.priceNote!.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _InfoRow(
+                          icon: Icons.info_outline_rounded,
+                          label: 'Pricing',
+                          value: product.priceNote!,
                         ),
                       ],
 
@@ -286,7 +326,9 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                           ),
                         ),
                         Text(
-                          '₹${_selectedPrice.toStringAsFixed(0)}',
+                          product.hasKnownPrice
+                              ? '₹${_selectedPrice.toStringAsFixed(0)}'
+                              : 'Not priced',
                           style: const TextStyle(
                             fontSize: 21,
                             fontWeight: FontWeight.w900,
@@ -299,11 +341,13 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                   Expanded(
                     flex: 2,
                     child: CustomButton(
-                      label: product.isInStock
+                      label: !product.isOrderable || !product.hasKnownPrice
+                          ? 'Pricing coming soon'
+                          : product.isInStock
                           ? AppStrings.customize
                           : 'Out of stock',
                       icon: Icons.edit_rounded,
-                      onPressed: product.isInStock
+                      onPressed: product.canOrder
                           ? () => context.push(
                               AppRoutes.customize,
                               extra: {

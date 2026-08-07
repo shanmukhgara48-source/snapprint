@@ -75,6 +75,11 @@ async def calculate_cart(
         product = products_by_id.get(item.product_id)
         if product is None:
             continue  # skip unavailable products
+        if not product.is_orderable:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{product.name} is not available to order yet",
+            )
 
         # Check if a size-specific price exists
         unit_price = product.base_price

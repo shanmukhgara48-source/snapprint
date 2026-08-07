@@ -17,6 +17,7 @@ export interface Product {
   tracks_inventory: boolean;
   is_featured: boolean;
   is_trending: boolean;
+  is_orderable: boolean;
   is_active: boolean;
 }
 

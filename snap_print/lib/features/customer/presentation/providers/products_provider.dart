@@ -7,7 +7,7 @@ final productsProvider = FutureProvider.family<List<ProductEntity>, String?>((
   categoryId,
 ) async {
   final repo = ref.read(customerRepositoryProvider);
-  return repo.getProducts(category: categoryId, limit: 100);
+  return repo.getAllProducts(category: categoryId);
 });
 
 final featuredProductsProvider = FutureProvider<List<ProductEntity>>((

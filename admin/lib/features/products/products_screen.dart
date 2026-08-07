@@ -104,7 +104,9 @@ class ProductsScreen extends ConsumerWidget {
                         DataCell(Text(p['category'] as String? ?? '')),
                         DataCell(
                           Text(
-                            '₹${(p['base_price'] as num?)?.toStringAsFixed(0) ?? '0'}',
+                            (p['is_orderable'] as bool? ?? true)
+                                ? '₹${(p['base_price'] as num?)?.toStringAsFixed(0) ?? '0'}'
+                                : 'Pricing pending',
                           ),
                         ),
                         DataCell(
@@ -226,6 +228,7 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
 
   late String _selectedCategory;
   late bool _isActive;
+  late bool _isOrderable;
   late bool _tracksInventory;
   late List<Map<String, dynamic>> _sizes;
 
@@ -251,6 +254,7 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
     );
     _selectedCategory = p?['category'] ?? '';
     _isActive = p?['is_active'] ?? true;
+    _isOrderable = p?['is_orderable'] ?? true;
     _tracksInventory = p?['tracks_inventory'] ?? false;
     final images = p?['images'] as List<dynamic>? ?? [];
     _imageUrl = images.isNotEmpty ? images.first as String : '';
@@ -397,15 +401,13 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
       ).showSnackBar(const SnackBar(content: Text('Category is required')));
       return;
     }
-    final price = double.tryParse(_priceCtrl.text.trim());
-    if (price == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Enter a valid base price')));
+    final price = double.tryParse(_priceCtrl.text.trim()) ?? 0;
+    if (_isOrderable && price <= 0 && _sizes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a positive base or size price')),
+      );
       return;
     }
-
-    setState(() => _isSaving = true);
 
     final sizesPayload = _sizes
         .where(
@@ -423,7 +425,7 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
           },
         )
         .toList();
-    if (price <= 0 && sizesPayload.isEmpty) {
+    if (_isOrderable && price <= 0 && sizesPayload.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter a positive base or size price')),
       );
@@ -443,6 +445,8 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
       return;
     }
 
+    setState(() => _isSaving = true);
+
     final data = {
       'name': _nameCtrl.text.trim(),
       'category': _selectedCategory.trim(),
@@ -454,6 +458,7 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
       'sizes': sizesPayload,
       'stock_quantity': stock ?? 0,
       'tracks_inventory': _tracksInventory,
+      'is_orderable': _isOrderable,
       'is_active': _isActive,
     };
 
@@ -785,6 +790,17 @@ class _ProductFormDialogState extends State<_ProductFormDialog> {
                   ),
                   const SizedBox(height: 12),
                 ],
+
+                SwitchListTile(
+                  value: _isOrderable,
+                  onChanged: (value) => setState(() => _isOrderable = value),
+                  title: const Text('Available to order'),
+                  subtitle: const Text(
+                    'Turn off while pricing is still being configured',
+                  ),
+                  activeThumbColor: AdminTheme.primary,
+                  contentPadding: EdgeInsets.zero,
+                ),
 
                 // ── is_active ──────────────────────────────────────────
                 SwitchListTile(

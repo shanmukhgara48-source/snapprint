@@ -310,6 +310,13 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
   Future<void> _addToCart(ProductEntity product) async {
     final sizes = product.sizes;
     if (!_requireAuth()) return;
+    if (!product.isOrderable || !product.hasKnownPrice) {
+      showErrorSnackbar(
+        context,
+        'Pricing is not available for this product yet',
+      );
+      return;
+    }
     if (!product.isInStock) {
       showErrorSnackbar(context, 'This product is currently out of stock');
       return;
@@ -473,10 +480,12 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
                     vertical: 12,
                   ),
                   child: CustomButton(
-                    label: _cartLabel(isPhotoCategory),
+                    label: !product.isOrderable || !product.hasKnownPrice
+                        ? 'Pricing coming soon'
+                        : _cartLabel(isPhotoCategory),
                     icon: Icons.shopping_cart_outlined,
                     isLoading: _isAdding || _isUploading,
-                    onPressed: product.isInStock
+                    onPressed: product.canOrder
                         ? () => _addToCart(product)
                         : null,
                   ),

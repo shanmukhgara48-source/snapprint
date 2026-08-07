@@ -23,12 +23,16 @@ class ProductModel extends ProductEntity {
     required super.images,
     super.description,
     super.material,
+    super.dimensions,
+    super.optionsSummary,
     super.deliveryInfo,
+    super.priceNote,
     super.sortOrder,
     super.stockQuantity,
     super.tracksInventory,
     super.isFeatured,
     super.isTrending,
+    super.isOrderable,
   });
 
   // REST API factory — matches the Postgres-backed /products response shape.
@@ -48,12 +52,16 @@ class ProductModel extends ProductEntity {
         .map((e) => e as String)
         .toList(),
     description: json['description'] as String?,
-    material: null,
-    deliveryInfo: null,
+    material: json['material'] as String?,
+    dimensions: json['dimensions'] as String?,
+    optionsSummary: json['options_summary'] as String?,
+    deliveryInfo: json['delivery_info'] as String?,
+    priceNote: json['price_note'] as String?,
     sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
     stockQuantity: (json['stock_quantity'] as num?)?.toInt() ?? 0,
     tracksInventory: json['tracks_inventory'] as bool? ?? false,
     isFeatured: json['is_featured'] as bool? ?? false,
     isTrending: json['is_trending'] as bool? ?? false,
+    isOrderable: json['is_orderable'] as bool? ?? true,
   );
 }

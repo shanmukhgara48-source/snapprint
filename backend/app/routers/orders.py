@@ -113,6 +113,11 @@ async def place_order(
         product = products_by_id.get(item.product_id)
         if product is None:
             raise HTTPException(status_code=400, detail=f"Product {item.product_id} not found or inactive")
+        if not product.is_orderable:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{product.name} is not available to order yet",
+            )
         # Find the authoritative price for the requested size
         server_price: float | None = product.base_price
         if product.sizes:

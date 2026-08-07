@@ -12,9 +12,9 @@ from app.database import engine
 
 
 CHECKS = {
-    "active products without a sellable price": """
+    "orderable active products without a sellable price": """
         SELECT count(*) FROM products
-        WHERE is_active = true AND base_price <= 0
+        WHERE is_active = true AND is_orderable = true AND base_price <= 0
           AND (sizes IS NULL OR jsonb_array_length(sizes::jsonb) = 0)
     """,
     "products with missing or mismatched categories": """

@@ -15,6 +15,7 @@ type ProductForm = {
   stock_quantity: string;
   tracks_inventory: boolean;
   is_trending: boolean;
+  is_orderable: boolean;
 };
 
 const emptyForm: ProductForm = {
@@ -26,6 +27,7 @@ const emptyForm: ProductForm = {
   stock_quantity: "0",
   tracks_inventory: false,
   is_trending: false,
+  is_orderable: true,
 };
 
 function parseImages(raw: string): string[] {
@@ -74,6 +76,7 @@ export default function ProductsList() {
         stock_quantity: Number(payload.stock_quantity) || 0,
         tracks_inventory: payload.tracks_inventory,
         is_trending: payload.is_trending,
+        is_orderable: payload.is_orderable,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
@@ -147,6 +150,7 @@ export default function ProductsList() {
       stock_quantity: String(p.stock_quantity ?? 0),
       tracks_inventory: p.tracks_inventory ?? false,
       is_trending: p.is_trending ?? false,
+      is_orderable: p.is_orderable ?? true,
     });
     setModalOpen(true);
   }
@@ -164,6 +168,7 @@ export default function ProductsList() {
           stock_quantity: Number(form.stock_quantity) || 0,
           tracks_inventory: form.tracks_inventory,
           is_trending: form.is_trending,
+          is_orderable: form.is_orderable,
         },
       });
     } else {
@@ -233,13 +238,14 @@ export default function ProductsList() {
                 </Td>
                 <Td>{p.name}</Td>
                 <Td className="capitalize">{p.category}</Td>
-                <Td>₹{p.base_price}</Td>
+                <Td>{p.is_orderable ? `₹${p.base_price}` : "Pricing pending"}</Td>
                 <Td>{p.tracks_inventory ? p.stock_quantity : "Unlimited"}</Td>
                 <Td>
                   <div className="flex gap-1">
                     <Badge tone={p.is_active ? "success" : "neutral"}>{p.is_active ? "Active" : "Disabled"}</Badge>
                     {p.is_featured && <Badge tone="success">Featured</Badge>}
                     {p.is_trending && <Badge tone="success">Trending</Badge>}
+                    {!p.is_orderable && <Badge tone="neutral">Catalog only</Badge>}
                   </div>
                 </Td>
                 <Td>
@@ -324,6 +330,14 @@ export default function ProductsList() {
               onChange={(e) => setForm({ ...form, is_trending: e.target.checked })}
             />
             Trending
+          </label>
+          <label className="flex items-center gap-2 text-sm text-neutral-300">
+            <input
+              type="checkbox"
+              checked={form.is_orderable}
+              onChange={(e) => setForm({ ...form, is_orderable: e.target.checked })}
+            />
+            Available to order
           </label>
           <Button onClick={handleSave} className="w-full justify-center" disabled={createMut.isPending || updateMut.isPending}>
             Save

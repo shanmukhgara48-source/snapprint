@@ -20,14 +20,31 @@ class CustomerRepositoryImpl implements CustomerRepository {
     bool? trending,
     int page = 1,
     int limit = 20,
-  }) =>
-      _dataSource.getProducts(
+  }) => _dataSource.getProducts(
+    category: category,
+    featured: featured,
+    trending: trending,
+    page: page,
+    limit: limit,
+  );
+
+  @override
+  Future<List<ProductEntity>> getAllProducts({String? category}) async {
+    const pageSize = 100;
+    final products = <ProductEntity>[];
+    var page = 1;
+
+    while (true) {
+      final batch = await _dataSource.getProducts(
         category: category,
-        featured: featured,
-        trending: trending,
         page: page,
-        limit: limit,
+        limit: pageSize,
       );
+      products.addAll(batch);
+      if (batch.length < pageSize) return products;
+      page += 1;
+    }
+  }
 
   @override
   Future<ProductEntity> getProductById(String id) =>
@@ -80,8 +97,7 @@ class CustomerRepositoryImpl implements CustomerRepository {
   Future<List<OrderEntity>> getMyOrders() => _dataSource.getMyOrders();
 
   @override
-  Future<OrderEntity> getOrderById(String id) =>
-      _dataSource.getOrderById(id);
+  Future<OrderEntity> getOrderById(String id) => _dataSource.getOrderById(id);
 }
 
 final customerRepositoryProvider = Provider<CustomerRepository>((ref) {

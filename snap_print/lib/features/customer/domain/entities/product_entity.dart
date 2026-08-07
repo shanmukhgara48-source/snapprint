@@ -15,12 +15,16 @@ class ProductEntity {
     required this.images,
     this.description,
     this.material,
+    this.dimensions,
+    this.optionsSummary,
     this.deliveryInfo,
+    this.priceNote,
     this.sortOrder = 0,
     this.stockQuantity = 0,
     this.tracksInventory = false,
     this.isFeatured = false,
     this.isTrending = false,
+    this.isOrderable = true,
   });
 
   final String id;
@@ -32,12 +36,16 @@ class ProductEntity {
   final List<String> images;
   final String? description;
   final String? material;
+  final String? dimensions;
+  final String? optionsSummary;
   final String? deliveryInfo;
+  final String? priceNote;
   final int sortOrder;
   final int stockQuantity;
   final bool tracksInventory;
   final bool isFeatured;
   final bool isTrending;
+  final bool isOrderable;
 
   // Legacy getter so existing code using .category still compiles
   String get category => categoryId;
@@ -56,9 +64,14 @@ class ProductEntity {
 
   bool get hasKnownPrice => effectivePrice > 0;
 
-  String get priceLabel => hasKnownPrice
-      ? 'From ₹${effectivePrice.toStringAsFixed(0)}'
-      : 'Price unavailable';
+  String get priceLabel {
+    if (!isOrderable) return 'Pricing coming soon';
+    return hasKnownPrice
+        ? 'From ₹${effectivePrice.toStringAsFixed(0)}'
+        : 'Price unavailable';
+  }
 
   bool get isInStock => !tracksInventory || stockQuantity > 0;
+
+  bool get canOrder => isOrderable && hasKnownPrice && isInStock;
 }

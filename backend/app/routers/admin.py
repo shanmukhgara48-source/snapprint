@@ -359,7 +359,7 @@ async def admin_update_product(
         )
     for field, value in changes.items():
         setattr(product, field, value)
-    if product.base_price <= 0 and not product.sizes:
+    if product.is_orderable and product.base_price <= 0 and not product.sizes:
         raise HTTPException(
             status_code=422,
             detail="A product must have a positive base or size price",
@@ -437,7 +437,7 @@ async def admin_bulk_update_products(
     for product in products:
         for field, value in changes.items():
             setattr(product, field, value)
-        if product.base_price <= 0 and not product.sizes:
+        if product.is_orderable and product.base_price <= 0 and not product.sizes:
             raise HTTPException(
                 status_code=422,
                 detail=f"{product.name} must have a positive base or size price",

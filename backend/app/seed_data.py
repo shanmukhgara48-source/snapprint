@@ -1,6 +1,8 @@
 # Generated from Printo_Photo_Products_Catalog_FULL.xlsx.
 # Keep this module dependency-free so backend startup can import it quickly.
 
+from .vistaprint_seed_data import VISTAPRINT_PHOTO_PRODUCTS
+
 DEFAULT_CATEGORIES = [{'name': 'Photo Prints', 'icon': 'image', 'sort_order': 1, 'is_active': True},
  {'name': 'Photo Books', 'icon': 'book', 'sort_order': 2, 'is_active': True},
  {'name': 'Frames & Wall Decor', 'icon': 'frame', 'sort_order': 3, 'is_active': True},
@@ -1565,3 +1567,5 @@ DEFAULT_PRODUCTS = [{'name': 'Classic Photo Prints',
   'is_featured': False,
   'is_trending': True,
   'is_active': True}]
+
+DEFAULT_PRODUCTS.extend(VISTAPRINT_PHOTO_PRODUCTS)
