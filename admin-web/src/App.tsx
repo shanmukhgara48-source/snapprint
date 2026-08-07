@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider, useAuth } from "./lib/auth";
+import { useAuth } from "./lib/auth";
+import { AuthProvider } from "./lib/AuthProvider";
 import { navigate, routeId, usePathname } from "./lib/router";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";

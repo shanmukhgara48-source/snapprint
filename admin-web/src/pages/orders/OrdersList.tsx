@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "../../lib/router";
+import { Link } from "../../components/Link";
 import { api } from "../../lib/api";
 import type { OrderListItem } from "../../lib/types";
 import { Badge, Button, Card, Input, PageHeader, Spinner, Table, Td, Th } from "../../components/ui";

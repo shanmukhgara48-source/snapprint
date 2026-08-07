@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "../../lib/router";
+import { Link } from "../../components/Link";
 import { api } from "../../lib/api";
 import type { UserDetail } from "../../lib/types";
 import { Badge, Button, Card, ErrorState, PageHeader, Spinner } from "../../components/ui";

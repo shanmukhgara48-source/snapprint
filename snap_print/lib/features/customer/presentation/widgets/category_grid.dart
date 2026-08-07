@@ -42,10 +42,6 @@ class CategoryGrid extends ConsumerWidget {
         onAction: () => ref.invalidate(categoriesProvider),
       ),
       data: (categories) {
-        assert(() {
-          debugPrint('CategoryGrid received ${categories.length} categories');
-          return true;
-        }());
         final visibleCategories = categories
             .where((category) => category.isActive)
             .toList();

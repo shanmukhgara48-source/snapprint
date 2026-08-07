@@ -227,4 +227,4 @@ All response times are acceptable for a demo scenario.
 
 **PASS** — The full purchase flow from login to order confirmation works end-to-end with zero blocking issues after applying 5 fixes. The app is demo-ready.
 
-Screenshots: `/Users/shanmukhsai/Documents/snapprint/test-results/screenshots/`
+Screenshots were generated as transient QA artifacts under `test-results/screenshots/` and are intentionally not retained in the repository.

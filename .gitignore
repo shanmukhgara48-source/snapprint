@@ -31,6 +31,9 @@ build/
 .flutter-plugins
 .flutter-plugins-dependencies
 *.snap
+*.apk
+*.aab
+*.ipa
 snap_print/.dart_tool/
 snap_print/build/
 
@@ -42,15 +45,21 @@ package-lock.json
 # ── macOS ──────────────────────────────────────────────────────────────────────
 .DS_Store
 **/.DS_Store
+Thumbs.db
 
 # ── IDE ────────────────────────────────────────────────────────────────────────
 .idea/
 .vscode/
+.claude/
 *.iml
 
 # ── Logs ───────────────────────────────────────────────────────────────────────
 *.log
+*.tmp
+*.temp
 nohup.out
 
 # ── Misc ───────────────────────────────────────────────────────────────────────
 "New Text Document.txt"
+test-results/
+outputs/

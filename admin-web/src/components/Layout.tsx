@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useAdminRealtime } from "../lib/realtime";
-import { Link, useNavigate, usePathname } from "../lib/router";
+import { useNavigate, usePathname } from "../lib/router";
+import { Link } from "./Link";
 
 const sections: { label: string; items: { to: string; label: string; icon: typeof Package }[] }[] = [
   {
