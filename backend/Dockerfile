@@ -19,14 +19,19 @@ USER appuser
 
 EXPOSE 8000
 
-# Health check
+# Health check. $PORT is injected by Railway at runtime and defaults to 8000
+# for local `docker run`, matching the CMD below.
+ENV PORT=8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f "http://localhost:${PORT}/health" || exit 1
 
 # The event bus is process-local, so keep one worker until Redis fan-out is added.
+# Railway (and most PaaS hosts) inject $PORT at runtime; railway.toml's
+# deploy.startCommand overrides this CMD in production, but this stays
+# correct on its own for `docker run` / other hosts.
 CMD alembic upgrade head && uvicorn main:app \
     --host 0.0.0.0 \
-    --port 8000 \
+    --port ${PORT:-8000} \
     --workers 1 \
     --ws websockets-sansio \
     --proxy-headers \
