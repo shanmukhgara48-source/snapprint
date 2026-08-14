@@ -18,14 +18,14 @@ function ProductCard({ product }: { product: CatalogProduct }) {
   const remainingSizes = product.sizes.length - visibleSizes.length
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] transition-all duration-300 hover:-translate-y-1 hover:border-[var(--color-accent)]/60 hover:shadow-[0_24px_64px_-38px_rgba(212,175,55,0.75)]">
+    <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1.5 hover:border-[var(--color-accent)]/60 hover:shadow-[0_28px_74px_-38px_rgba(212,175,55,0.8)]">
       <div className="image-vignette aspect-[4/3] bg-black">
         <img
           src={product.imageUrl}
           alt={product.name}
           loading="lazy"
           decoding="async"
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-110"
         />
       </div>
       <div className="flex flex-1 flex-col p-5">
@@ -34,10 +34,12 @@ function ProductCard({ product }: { product: CatalogProduct }) {
             <p className="text-xs font-semibold tracking-wide text-[var(--color-muted-2)] uppercase">
               {product.categoryName}
             </p>
-            <h3 className="mt-1.5 font-bold leading-snug text-[var(--color-ink)]">{product.name}</h3>
+            <h3 className="mt-1.5 font-bold leading-snug text-[var(--color-ink)] transition-colors duration-300 group-hover:text-[var(--color-accent)]">
+              {product.name}
+            </h3>
           </div>
           {product.isTrending && (
-            <span className="shrink-0 rounded-full border border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] px-2 py-1 text-[0.68rem] font-extrabold tracking-wide text-[var(--color-accent)] uppercase">
+            <span className="animate-pulse-soft shrink-0 rounded-full border border-[var(--color-accent)]/40 bg-[var(--color-accent-soft)] px-2 py-1 text-[0.68rem] font-extrabold tracking-wide text-[var(--color-accent)] uppercase">
               Trending
             </span>
           )}
@@ -83,14 +85,14 @@ export function Products() {
 
   return (
     <div>
-      <section className="ambient-glow border-b border-[var(--color-border)] px-6 py-14 sm:py-20">
+      <section className="ambient-glow border-b border-[var(--color-border)] px-6 py-16 sm:py-24">
         <div className="mx-auto max-w-6xl">
           <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
             Products and services
           </span>
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
             <div>
-              <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
+              <h1 className="text-4xl font-extrabold tracking-tight text-balance sm:text-6xl">
                 The SnapPrint catalog
               </h1>
               <p className="mt-4 max-w-2xl leading-7 text-[var(--color-muted)]">
@@ -99,7 +101,7 @@ export function Products() {
                 delivery, and total in the SnapPrint app at checkout.
               </p>
             </div>
-            <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <p className="text-3xl font-extrabold text-[var(--color-accent)]">{productCount}</p>
               <p className="mt-1 text-sm font-semibold text-[var(--color-ink)]">catalog products</p>
               <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">
@@ -136,10 +138,10 @@ export function Products() {
         </div>
       </div>
 
-      <section className="mx-auto max-w-6xl px-6 py-14 sm:py-18">
+      <section className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
         <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
           <aside className="lg:sticky lg:top-36 lg:self-start">
-            <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
+            <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
               <div className="image-vignette aspect-[5/3]">
                 <img
                   src={activeCategory.imageUrl}
@@ -150,7 +152,7 @@ export function Products() {
                 />
               </div>
               <div className="p-6">
-                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
                   <CategoryIcon icon={activeCategory.icon} />
                 </span>
                 <h2 className="mt-5 text-2xl font-extrabold tracking-tight">{activeCategory.name}</h2>
@@ -188,7 +190,7 @@ export function Products() {
               </Button>
             </div>
 
-            <div className="mt-7 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {activeCategory.products.map((product, index) => (
                 <Reveal key={product.id} delay={index < 9 ? index * 35 : 0}>
                   <ProductCard product={product} />
@@ -200,7 +202,7 @@ export function Products() {
       </section>
 
       <section className="border-t border-[var(--color-border)] bg-[var(--color-bg-soft)]">
-        <div className="mx-auto max-w-6xl px-6 py-14 sm:py-18">
+        <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
           <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
             <Reveal>
               <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
@@ -213,16 +215,20 @@ export function Products() {
             <div className="grid gap-4 sm:grid-cols-2">
               {trendingProducts.slice(0, 6).map((product, index) => (
                 <Reveal key={product.id} delay={index * 60}>
-                  <div className="flex gap-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-18 w-18 rounded-lg object-cover"
-                    />
+                  <div className="group flex gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:border-[var(--color-accent)]/50 hover:shadow-[0_16px_44px_-26px_rgba(212,175,55,0.7)]">
+                    <div className="h-18 w-18 shrink-0 overflow-hidden rounded-xl">
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                    </div>
                     <div>
-                      <p className="font-bold leading-snug">{product.name}</p>
+                      <p className="font-bold leading-snug transition-colors duration-300 group-hover:text-[var(--color-accent)]">
+                        {product.name}
+                      </p>
                       <p className="mt-1 text-sm text-[var(--color-accent)]">{formatPrice(product.basePrice)}</p>
                       <p className="mt-1 text-xs text-[var(--color-muted-2)]">{product.categoryName}</p>
                     </div>

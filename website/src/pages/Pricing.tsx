@@ -33,14 +33,14 @@ const paymentTrust = [
 export function Pricing() {
   return (
     <div>
-      <section className="ambient-glow border-b border-[var(--color-border)] px-6 py-14 sm:py-20">
+      <section className="ambient-glow border-b border-[var(--color-border)] px-6 py-16 sm:py-24">
         <div className="mx-auto max-w-6xl">
           <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
             Pricing
           </span>
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
             <div>
-              <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
+              <h1 className="text-4xl font-extrabold tracking-tight text-balance sm:text-6xl">
                 Transparent product pricing
               </h1>
               <p className="mt-4 max-w-2xl leading-7 text-[var(--color-muted)]">
@@ -50,7 +50,7 @@ export function Pricing() {
                 calculated separately at checkout.
               </p>
             </div>
-            <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-accent)]">
                 <ReceiptIcon className="h-4 w-4" />
                 Review-ready price list
@@ -65,11 +65,11 @@ export function Pricing() {
         </div>
       </section>
 
-      <div className="mx-auto max-w-6xl px-6 py-14 sm:py-18">
+      <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {categories.map((category, index) => (
             <Reveal key={category.id} delay={index * 70}>
-              <div className="h-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+              <div className="h-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:border-[var(--color-accent)]/50">
                 <p className="text-xs font-semibold tracking-wide text-[var(--color-muted-2)] uppercase">
                   {category.products.length} products
                 </p>
@@ -108,10 +108,10 @@ export function Pricing() {
               size, finish, quantity, discounts, and delivery.
             </p>
           </div>
-          <div className="mt-6 overflow-x-auto rounded-lg border border-[var(--color-border)]">
+          <div className="mt-6 overflow-x-auto rounded-xl border border-[var(--color-border)]">
             <table className="w-full min-w-[760px] border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-ink)]">
+                <tr className="sticky top-[64px] border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 text-[var(--color-ink)] backdrop-blur">
                   <th className="py-4 pr-4 pl-5 font-semibold">Product</th>
                   <th className="py-4 pr-4 font-semibold">Category</th>
                   <th className="py-4 pr-4 font-semibold">Representative sizes</th>
@@ -122,7 +122,7 @@ export function Pricing() {
                 {catalogProducts.map((product) => (
                   <tr
                     key={product.id}
-                    className="border-b border-[var(--color-border)] bg-[var(--color-bg)]/28 last:border-0"
+                    className="border-b border-[var(--color-border)] bg-[var(--color-bg)]/28 transition-colors last:border-0 hover:bg-[var(--color-accent-soft)]"
                   >
                     <td className="py-4 pr-4 pl-5 font-semibold text-[var(--color-ink)]">{product.name}</td>
                     <td className="py-4 pr-4 text-[var(--color-muted)]">{product.categoryName}</td>
@@ -143,8 +143,8 @@ export function Pricing() {
         <Reveal className="mt-12">
           <div className="grid gap-5 md:grid-cols-3">
             {paymentTrust.map((item) => (
-              <div key={item.title} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
+              <div key={item.title} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:border-[var(--color-accent)]/50">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
                   <item.icon className="h-5 w-5" />
                 </span>
                 <p className="mt-4 font-bold">{item.title}</p>

@@ -17,7 +17,7 @@ export function Shipping() {
                 {deliveryOptions.map((option) => (
                   <div
                     key={option.type}
-                    className="grid gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)]/35 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-center"
+                    className="grid gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)]/35 p-4 transition-colors duration-300 hover:border-[var(--color-accent)]/40 sm:grid-cols-[1fr_1fr_auto] sm:items-center"
                   >
                     <div>
                       <p className="text-xs font-semibold tracking-wide text-[var(--color-muted-2)] uppercase">

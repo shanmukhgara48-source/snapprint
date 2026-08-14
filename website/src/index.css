@@ -97,6 +97,35 @@ body::before {
   color: transparent;
 }
 
+/* Fluid, cinematic hero display type — scales smoothly instead of jumping at breakpoints. */
+.hero-title {
+  font-size: clamp(2.75rem, 5.4vw + 1.1rem, 6.75rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+
+/* Full-bleed cinematic hero background: dark scrim keeps centered type readable over any photo. */
+.cinematic-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 8, 10, 0.8) 0%,
+    rgba(8, 8, 10, 0.52) 28%,
+    rgba(8, 8, 10, 0.62) 55%,
+    rgba(8, 8, 10, 0.94) 85%,
+    #08080a 100%
+  );
+}
+
+/* Oversized faint numerals for step/story indices — Apple-style ghost numbering. */
+.numeral-ghost {
+  font-weight: 800;
+  line-height: 1;
+  -webkit-text-stroke: 1px rgba(212, 175, 55, 0.28);
+  color: transparent;
+}
+
 /* Scroll-reveal: fades/slides content in once, respects reduced-motion. */
 .reveal {
   opacity: 0;
@@ -112,6 +141,73 @@ body::before {
   transform: translateY(0);
 }
 
+/* Hero entrance: plays once on load, staggered via animation-delay. */
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-enter {
+  animation: hero-rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Slow ambient float for hero accents — subtle, GPU-cheap (transform/opacity only). */
+@keyframes soft-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-float {
+  animation: soft-float 5.5s ease-in-out infinite;
+}
+
+/* Gentle breathing pulse for trending/highlight badges. */
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.72;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-soft {
+  animation: soft-pulse 2.4s ease-in-out infinite;
+}
+
+/* Diagonal shine sweep for premium CTA hover — pair with position:relative + overflow:hidden. */
+.shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.shine::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.4) 50%, transparent 60%);
+  transform: translateX(-120%);
+  transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.shine:hover::after {
+  transform: translateX(120%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -121,6 +217,15 @@ body::before {
     transition: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

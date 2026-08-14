@@ -35,20 +35,20 @@ const businessDetails = [
 export function Contact() {
   return (
     <div>
-      <section className="ambient-glow border-b border-[var(--color-border)] px-6 py-14 sm:py-20">
+      <section className="ambient-glow border-b border-[var(--color-border)] px-6 py-16 sm:py-24">
         <div className="mx-auto max-w-6xl">
           <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
             Contact
           </span>
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
             <div>
-              <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">Contact Us</h1>
+              <h1 className="text-4xl font-extrabold tracking-tight text-balance sm:text-6xl">Contact Us</h1>
               <p className="mt-4 max-w-2xl leading-7 text-[var(--color-muted)]">
                 For product questions, order support, privacy requests, or payment queries, use
                 the details below.
               </p>
             </div>
-            <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-accent)]">
                 <ShieldCheckIcon className="h-4 w-4" />
                 Payments secured by Razorpay
@@ -61,12 +61,12 @@ export function Contact() {
         </div>
       </section>
 
-      <div className="mx-auto max-w-6xl px-6 py-14 sm:py-18">
+      <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {contactCards.map((card, index) => (
             <Reveal key={card.title} delay={index * 70}>
-              <div className="flex h-full gap-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
+              <div className="flex h-full gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:border-[var(--color-accent)]/50">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
                   <card.icon className="h-5 w-5" />
                 </span>
                 <div>
@@ -81,7 +81,7 @@ export function Contact() {
         </div>
 
         <Reveal className="mt-10">
-          <div className="grid gap-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6 sm:p-8 lg:grid-cols-[0.8fr_1.2fr]">
+          <div className="grid gap-8 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-colors duration-300 hover:border-[var(--color-border-strong)] sm:p-8 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
               <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-accent)]">
                 <ReceiptIcon className="h-4 w-4" />
@@ -106,8 +106,8 @@ export function Contact() {
         </Reveal>
 
         <Reveal className="mt-10">
-          <div className="flex gap-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-soft)] p-6">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
+          <div className="flex gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-soft)] p-6 transition-colors duration-300 hover:border-[var(--color-accent)]/40">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
               <MapPinIcon className="h-5 w-5" />
             </span>
             <p className="text-sm leading-6 text-[var(--color-muted)]">

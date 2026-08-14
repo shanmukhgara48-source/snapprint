@@ -19,7 +19,7 @@ const policyLinks = [
 export function Footer() {
   return (
     <footer className="border-t border-[var(--color-border)] bg-[var(--color-bg-soft)]">
-      <div className="mx-auto max-w-6xl px-6 py-14 sm:py-16">
+      <div className="mx-auto max-w-6xl px-6 py-16 sm:py-20">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.3fr_0.8fr_1fr_1.1fr]">
           <div>
             <div className="flex items-center gap-2.5">

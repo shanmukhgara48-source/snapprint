@@ -29,29 +29,38 @@ export function Nav() {
     <header
       className={`sticky top-0 z-50 border-b transition-colors duration-300 ${
         scrolled
-          ? 'border-[var(--color-border)] bg-[var(--color-bg)]/85 backdrop-blur-lg'
+          ? 'border-[var(--color-border)] bg-[var(--color-bg)]/75 backdrop-blur-xl'
           : 'border-transparent bg-transparent'
       }`}
     >
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <NavLink to="/" className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-[var(--color-ink)]">
-          <LogoMark className="h-8 w-8" />
+      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
+        <NavLink to="/" className="flex items-center gap-2.5 text-base font-extrabold tracking-tight text-[var(--color-ink)]">
+          <LogoMark className="h-7.5 w-7.5" />
           Snap<span className="text-[var(--color-accent)]">Print</span>
         </NavLink>
 
-        <ul className="hidden items-center gap-8 text-sm font-medium md:flex">
+        <ul className="hidden items-center gap-9 text-[13px] font-medium tracking-wide md:flex">
           {links.map((link) => (
             <li key={link.to}>
               <NavLink
                 to={link.to}
                 end={link.end}
                 className={({ isActive }) =>
-                  `relative py-1 transition-colors ${
-                    isActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-ink)]/85 hover:text-[var(--color-accent)]'
+                  `group relative py-1 transition-colors ${
+                    isActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-ink)]/80 hover:text-[var(--color-accent)]'
                   }`
                 }
               >
-                {link.label}
+                {({ isActive }) => (
+                  <>
+                    {link.label}
+                    <span
+                      className={`absolute inset-x-0 -bottom-1 h-px origin-left bg-[var(--color-accent)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                        isActive ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'
+                      }`}
+                    />
+                  </>
+                )}
               </NavLink>
             </li>
           ))}
@@ -64,7 +73,7 @@ export function Nav() {
         </div>
 
         <button
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border-strong)] text-[var(--color-ink)] md:hidden"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-border-strong)] text-[var(--color-ink)] md:hidden"
           onClick={() => setOpen((o) => !o)}
           aria-label="Toggle menu"
           aria-expanded={open}
