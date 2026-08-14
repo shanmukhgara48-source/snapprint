@@ -10,6 +10,7 @@ import {
 } from '../data/products'
 import { deliveryOptions, formatDeliveryPrice } from '../data/delivery'
 import { Reveal } from '../components/Reveal'
+import { handleSpotlight } from '../lib/spotlight'
 import { ClockIcon, ReceiptIcon, ShieldCheckIcon, TruckIcon } from '../components/Icons'
 
 const paymentTrust = [
@@ -40,7 +41,7 @@ export function Pricing() {
           </span>
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
             <div>
-              <h1 className="text-4xl font-extrabold tracking-tight text-balance sm:text-6xl">
+              <h1 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
                 Transparent product pricing
               </h1>
               <p className="mt-4 max-w-2xl leading-7 text-[var(--color-muted)]">
@@ -69,11 +70,14 @@ export function Pricing() {
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {categories.map((category, index) => (
             <Reveal key={category.id} delay={index * 70}>
-              <div className="h-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:border-[var(--color-accent)]/50">
+              <div
+                onMouseMove={handleSpotlight}
+                className="spotlight h-full overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:border-[var(--color-accent)]/50"
+              >
                 <p className="text-xs font-semibold tracking-wide text-[var(--color-muted-2)] uppercase">
                   {category.products.length} products
                 </p>
-                <h2 className="mt-2 text-lg font-bold">{category.name}</h2>
+                <h2 className="font-display mt-2 text-lg font-semibold">{category.name}</h2>
                 <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">{category.description}</p>
                 <div className="mt-5 border-t border-[var(--color-border)] pt-5">
                   <p className="text-xs font-semibold tracking-wide text-[var(--color-muted-2)] uppercase">
@@ -99,7 +103,7 @@ export function Pricing() {
               <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
                 Full price list
               </span>
-              <h2 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+              <h2 className="font-display mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
                 Product base prices
               </h2>
             </div>
@@ -143,7 +147,11 @@ export function Pricing() {
         <Reveal className="mt-12">
           <div className="grid gap-5 md:grid-cols-3">
             {paymentTrust.map((item) => (
-              <div key={item.title} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:border-[var(--color-accent)]/50">
+              <div
+                key={item.title}
+                onMouseMove={handleSpotlight}
+                className="spotlight overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:border-[var(--color-accent)]/50"
+              >
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
                   <item.icon className="h-5 w-5" />
                 </span>

@@ -15,6 +15,7 @@
   --color-accent-deep: #a97f1f;
   --color-accent-soft: rgba(212, 175, 55, 0.12);
   --color-danger: #ef4444;
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
 }
 
 html,
@@ -118,12 +119,122 @@ body::before {
   );
 }
 
-/* Oversized faint numerals for step/story indices — Apple-style ghost numbering. */
+/* Oversized faint numerals for step/story indices, set in the display serif. */
 .numeral-ghost {
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-weight: 600;
   line-height: 1;
   -webkit-text-stroke: 1px rgba(212, 175, 55, 0.28);
   color: transparent;
+}
+
+/* SnapPrint's own editorial display type — a warm variable serif paired against the
+   neutral sans body, used only for headline moments so it reads as a considered
+   typographic choice rather than a second UI font. */
+.font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+}
+
+/* Film-sprocket divider: a thin gold hairline with perforation dots, marking a
+   scene change between major sections — SnapPrint's own transition motif in place
+   of a plain border. */
+.film-divider {
+  position: relative;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.4), transparent);
+}
+
+.film-divider::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -5px;
+  height: 3px;
+  background-image: radial-gradient(circle, rgba(212, 175, 55, 0.55) 1.1px, transparent 1.2px);
+  background-size: 16px 3px;
+  background-repeat: repeat-x;
+  background-position: center;
+  opacity: 0.65;
+}
+
+/* Photo-corner mounts: viewfinder-style corner brackets on framed imagery, a nod to
+   physical prints mounted in an album rather than an edge-to-edge product render. */
+.photo-corner::before,
+.photo-corner::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.photo-corner::before {
+  top: 14px;
+  left: 14px;
+  border-top: 2px solid var(--color-accent);
+  border-left: 2px solid var(--color-accent);
+  border-radius: 3px 0 0 0;
+}
+
+.photo-corner::after {
+  bottom: 14px;
+  right: 14px;
+  border-bottom: 2px solid var(--color-accent);
+  border-right: 2px solid var(--color-accent);
+  border-radius: 0 0 3px 0;
+}
+
+/* Hero image "develops" into view on load, like a print emerging in a tray —
+   desaturated and soft-focus to full colour and sharp. */
+@keyframes photo-develop {
+  from {
+    opacity: 0.35;
+    filter: grayscale(0.85) blur(7px) brightness(0.75) contrast(0.92);
+  }
+  to {
+    opacity: 1;
+    filter: grayscale(0) blur(0) brightness(1) contrast(1);
+  }
+}
+
+.hero-photo-develop {
+  animation: photo-develop 2.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 120ms;
+}
+
+/* Cursor-tracked gold spotlight for card surfaces — set --spot-x/--spot-y on
+   pointermove. No-op (stays centred, low-opacity) when there's no pointer input. */
+.spotlight {
+  position: relative;
+}
+
+.spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    240px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+    rgba(212, 175, 55, 0.14),
+    transparent 72%
+  );
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.spotlight:hover::before {
+  opacity: 1;
+}
+
+.spotlight > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Scroll-reveal: fades/slides content in once, respects reduced-motion. */

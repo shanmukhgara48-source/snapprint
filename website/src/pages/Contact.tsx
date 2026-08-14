@@ -1,5 +1,6 @@
 import { Placeholder } from '../components/Placeholder'
 import { Reveal } from '../components/Reveal'
+import { handleSpotlight } from '../lib/spotlight'
 import { ClockIcon, MailIcon, MapPinIcon, PhoneIcon, ReceiptIcon, ShieldCheckIcon } from '../components/Icons'
 
 const contactCards = [
@@ -42,7 +43,7 @@ export function Contact() {
           </span>
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
             <div>
-              <h1 className="text-4xl font-extrabold tracking-tight text-balance sm:text-6xl">Contact Us</h1>
+              <h1 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-6xl">Contact Us</h1>
               <p className="mt-4 max-w-2xl leading-7 text-[var(--color-muted)]">
                 For product questions, order support, privacy requests, or payment queries, use
                 the details below.
@@ -65,7 +66,10 @@ export function Contact() {
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {contactCards.map((card, index) => (
             <Reveal key={card.title} delay={index * 70}>
-              <div className="flex h-full gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:border-[var(--color-accent)]/50">
+              <div
+                onMouseMove={handleSpotlight}
+                className="spotlight flex h-full gap-4 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:border-[var(--color-accent)]/50"
+              >
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
                   <card.icon className="h-5 w-5" />
                 </span>
@@ -87,7 +91,7 @@ export function Contact() {
                 <ReceiptIcon className="h-4 w-4" />
                 Business details
               </p>
-              <h2 className="mt-3 text-2xl font-extrabold tracking-tight">Registered business information</h2>
+              <h2 className="font-display mt-3 text-2xl font-semibold tracking-tight">Registered business information</h2>
               <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">
                 Official registration details for SnapPrint, published here for transparency.
               </p>

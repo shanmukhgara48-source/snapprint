@@ -4,6 +4,7 @@ import type { CatalogProduct } from '../data/products'
 import { sameDayDeliveryNote } from '../data/delivery'
 import { Reveal } from '../components/Reveal'
 import { Button } from '../components/Button'
+import { handleSpotlight } from '../lib/spotlight'
 import { ArrowRightIcon, BookOpenIcon, CameraIcon, FrameIcon, GiftIcon } from '../components/Icons'
 
 function CategoryIcon({ icon, className = 'h-5 w-5' }: { icon: string; className?: string }) {
@@ -18,8 +19,11 @@ function ProductCard({ product }: { product: CatalogProduct }) {
   const remainingSizes = product.sizes.length - visibleSizes.length
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1.5 hover:border-[var(--color-accent)]/60 hover:shadow-[0_28px_74px_-38px_rgba(212,175,55,0.8)]">
-      <div className="image-vignette aspect-[4/3] bg-black">
+    <article
+      onMouseMove={handleSpotlight}
+      className="spotlight group flex h-full flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1.5 hover:border-[var(--color-accent)]/60 hover:shadow-[0_28px_74px_-38px_rgba(212,175,55,0.8)]"
+    >
+      <div className="image-vignette photo-corner relative aspect-[4/3] bg-black">
         <img
           src={product.imageUrl}
           alt={product.name}
@@ -34,7 +38,7 @@ function ProductCard({ product }: { product: CatalogProduct }) {
             <p className="text-xs font-semibold tracking-wide text-[var(--color-muted-2)] uppercase">
               {product.categoryName}
             </p>
-            <h3 className="mt-1.5 font-bold leading-snug text-[var(--color-ink)] transition-colors duration-300 group-hover:text-[var(--color-accent)]">
+            <h3 className="font-display mt-1.5 font-semibold leading-snug text-[var(--color-ink)] transition-colors duration-300 group-hover:text-[var(--color-accent)]">
               {product.name}
             </h3>
           </div>
@@ -92,7 +96,7 @@ export function Products() {
           </span>
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
             <div>
-              <h1 className="text-4xl font-extrabold tracking-tight text-balance sm:text-6xl">
+              <h1 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
                 The SnapPrint catalog
               </h1>
               <p className="mt-4 max-w-2xl leading-7 text-[var(--color-muted)]">
@@ -155,7 +159,7 @@ export function Products() {
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
                   <CategoryIcon icon={activeCategory.icon} />
                 </span>
-                <h2 className="mt-5 text-2xl font-extrabold tracking-tight">{activeCategory.name}</h2>
+                <h2 className="font-display mt-5 text-2xl font-semibold tracking-tight">{activeCategory.name}</h2>
                 <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">{activeCategory.description}</p>
                 <div className="mt-5 border-t border-[var(--color-border)] pt-5">
                   <p className="text-xs font-semibold tracking-wide text-[var(--color-muted-2)] uppercase">
@@ -180,7 +184,7 @@ export function Products() {
                 <p className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
                   {activeCategory.products.length} products
                 </p>
-                <h2 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+                <h2 className="font-display mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
                   {activeCategory.name}
                 </h2>
               </div>
@@ -208,7 +212,7 @@ export function Products() {
               <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
                 Trending now
               </span>
-              <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">
+              <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
                 Popular picks from our catalog
               </h2>
             </Reveal>

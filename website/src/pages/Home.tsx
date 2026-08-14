@@ -12,6 +12,7 @@ import { deliveryOptions, formatDeliveryPrice } from '../data/delivery'
 import { Button } from '../components/Button'
 import { Reveal } from '../components/Reveal'
 import { useParallax } from '../hooks/useParallax'
+import { handleSpotlight } from '../lib/spotlight'
 import {
   ArrowRightIcon,
   BookOpenIcon,
@@ -74,7 +75,7 @@ function Hero() {
   const { ref: parallaxRef, offset } = useParallax<HTMLDivElement>(0.08)
 
   return (
-    <section className="relative isolate overflow-hidden border-b border-[var(--color-border)]">
+    <section className="relative isolate overflow-hidden">
       <div
         ref={parallaxRef}
         className="absolute inset-0 -z-20"
@@ -86,7 +87,7 @@ function Hero() {
           aria-hidden="true"
           loading="eager"
           decoding="async"
-          className="h-full w-full object-cover object-[100%_45%] opacity-35"
+          className="hero-photo-develop h-full w-full object-cover object-[100%_45%] opacity-35"
         />
       </div>
       <div className="cinematic-scrim -z-10" />
@@ -100,7 +101,7 @@ function Hero() {
           Premium Indian photo printing
         </span>
         <h1
-          className="hero-enter hero-title mt-7 font-extrabold text-balance"
+          className="hero-enter hero-title font-display mt-7 font-extrabold text-balance"
           style={{ animationDelay: '110ms' }}
         >
           Print Your
@@ -164,7 +165,7 @@ function CategoryStory({ category, index }: { category: CatalogCategory; index: 
     <Reveal>
       <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <div
-          className={`image-vignette group aspect-[4/3] overflow-hidden rounded-2xl border border-[var(--color-border)] shadow-[0_40px_100px_-50px_rgba(0,0,0,0.9)] ${
+          className={`image-vignette photo-corner group aspect-[4/3] overflow-hidden rounded-2xl border border-[var(--color-border)] shadow-[0_40px_100px_-50px_rgba(0,0,0,0.9)] ${
             reversed ? 'lg:order-2' : ''
           }`}
         >
@@ -183,7 +184,7 @@ function CategoryStory({ category, index }: { category: CatalogCategory; index: 
               <CategoryIcon icon={category.icon} />
             </span>
           </div>
-          <h3 className="mt-5 text-3xl font-extrabold tracking-tight sm:text-4xl">{category.name}</h3>
+          <h3 className="font-display mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">{category.name}</h3>
           <p className="mt-4 max-w-md leading-7 text-[var(--color-muted)]">{category.description}</p>
           <p className="mt-6 text-2xl font-extrabold text-[var(--color-accent)]">
             {formatPriceRange(category.priceRange)}
@@ -205,13 +206,14 @@ export function Home() {
   return (
     <div>
       <Hero />
+      <div className="film-divider" />
 
       <section className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
         <Reveal className="max-w-2xl">
           <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
             Products and services
           </span>
-          <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">
+          <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
             Every product, made to feel personal
           </h2>
           <p className="mt-4 leading-7 text-[var(--color-muted)]">
@@ -234,7 +236,7 @@ export function Home() {
             <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
               How it works
             </span>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">
+            <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
               Simple enough for everyday prints, careful enough for heirlooms
             </h2>
           </Reveal>
@@ -260,7 +262,7 @@ export function Home() {
           <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
             Why customers trust SnapPrint
           </span>
-          <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">
+          <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
             Everything you need before you order
           </h2>
           <p className="mt-4 leading-7 text-[var(--color-muted)]">
@@ -274,7 +276,8 @@ export function Home() {
             <Reveal key={item.to} delay={index * 70}>
               <Link
                 to={item.to}
-                className="group flex h-full flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1.5 hover:border-[var(--color-accent)]/60 hover:shadow-[0_22px_60px_-34px_rgba(212,175,55,0.6)]"
+                onMouseMove={handleSpotlight}
+                className="spotlight group flex h-full flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1.5 hover:border-[var(--color-accent)]/60 hover:shadow-[0_22px_60px_-34px_rgba(212,175,55,0.6)]"
               >
                 <h3 className="font-bold transition-colors duration-300 group-hover:text-[var(--color-accent)]">
                   {item.title}
