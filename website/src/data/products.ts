@@ -1,0 +1,1991 @@
+// Generated from backend/app/seed_data.py on 2026-08-11.
+// Keep this static so the public website is lightweight and deployment-safe.
+// Products with basePrice 0 are shown as "Price on request" instead of free.
+
+export interface CatalogProduct {
+  id: string
+  name: string
+  categoryId: string
+  categoryName: string
+  basePrice: number
+  sizes: string[]
+  summary: string
+  minimum: string
+  quantity: string
+  finish: string
+  delivery: string
+  isFeatured: boolean
+  isTrending: boolean
+  imageUrl: string
+}
+
+export interface CatalogCategory {
+  id: string
+  name: string
+  icon: string
+  description: string
+  imageUrl: string
+  sortOrder: number
+  priceRange: [number, number]
+  hasPriceOnRequest: boolean
+  productIds: string[]
+  products: CatalogProduct[]
+}
+
+const catalogCategoriesSeed = [
+  {
+    "id": "photo-prints",
+    "name": "Photo Prints",
+    "icon": "image",
+    "description": "Classic, square, retro, instant, passport, stamp, and bulk photo prints for everyday memories, documents, events, and gifting.",
+    "imageUrl": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1400&h=920&q=74",
+    "sortOrder": 1,
+    "priceRange": [
+      213,
+      1003
+    ],
+    "hasPriceOnRequest": false,
+    "productIds": [
+      "classic-photo-prints",
+      "square-photo-prints",
+      "retro-polaroid-prints",
+      "passport-stamp-prints",
+      "instant-photo-prints",
+      "bulk-photo-prints"
+    ]
+  },
+  {
+    "id": "photo-books",
+    "name": "Photo Books",
+    "icon": "book",
+    "description": "Hardcover photo albums and premium memory books for weddings, birthdays, baby milestones, travel, graduation, and anniversaries.",
+    "imageUrl": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=1400&h=920&q=74",
+    "sortOrder": 2,
+    "priceRange": [
+      1475,
+      2360
+    ],
+    "hasPriceOnRequest": false,
+    "productIds": [
+      "classic-photo-albums",
+      "pre-wedding-photo-albums",
+      "baby-shower-photo-albums",
+      "baby-album-photo-albums",
+      "anniversary-photo-albums",
+      "travel-photo-albums",
+      "milestone-birthday-photo-albums",
+      "graduation-year-photo-albums"
+    ]
+  },
+  {
+    "id": "frames-wall-decor",
+    "name": "Frames & Wall Decor",
+    "icon": "frame",
+    "description": "Photo frames, acrylic displays, canvas wraps, wall decals, wooden stands, plaques, and multi-panel wall art.",
+    "imageUrl": "https://images.unsplash.com/photo-1594026112284-02bb6f3352fe?auto=format&fit=crop&w=1400&h=920&q=74",
+    "sortOrder": 3,
+    "priceRange": [
+      161,
+      5299
+    ],
+    "hasPriceOnRequest": true,
+    "productIds": [
+      "classic-photo-frames",
+      "wall-photo-frames-large-photo-frames",
+      "canvas-photo-frames-framed-canvas",
+      "desktop-collage-foldable-frames",
+      "frameless-photo-frame",
+      "personalized-selfie-frames",
+      "led-photo-frames",
+      "personalised-acrylic-photo-frames",
+      "standard-acrylic-photo-frames",
+      "premium-acrylic-photo-frames",
+      "ready-to-buy-premium-frame",
+      "custom-premium-frame",
+      "leatherette-acrylic-frame",
+      "acrylic-photo-cut-outs",
+      "canvas-gallery-wraps",
+      "eco-friendly-canvas-posters",
+      "2-split-vertical-canvas-wrap",
+      "3-split-rectangle-canvas-wrap",
+      "3-split-vertical-canvas-wrap",
+      "4-split-square-canvas-wrap",
+      "5-split-rectangle-canvas-wrap",
+      "mdf-canvas-gallery-wrap",
+      "personalised-mdf-canvas-prints",
+      "premium-mdf-prints",
+      "rolled-canvas-posters",
+      "photo-with-wooden-stand",
+      "photo-pendant-wooden-stand",
+      "wooden-engraved-plaque-with-photo",
+      "rectangle-wall-decals"
+    ]
+  },
+  {
+    "id": "personalized-gifts",
+    "name": "Personalized Gifts",
+    "icon": "gift",
+    "description": "Photo mugs, bottles, posters, magnets, calendars, keychains, games, bags, apparel, sleeves, and custom keepsakes.",
+    "imageUrl": "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=1400&h=920&q=74",
+    "sortOrder": 4,
+    "priceRange": [
+      47,
+      1300
+    ],
+    "hasPriceOnRequest": true,
+    "productIds": [
+      "personalised-white-photo-mug",
+      "photo-mini-mug",
+      "bulk-mugs",
+      "photo-magic-mug",
+      "personalised-beer-mug",
+      "personalized-sipper-bottle-600-ml",
+      "personalized-spout-sipper-bottle-750-ml",
+      "multicolour-printed-steel-bottle-1000-ml",
+      "personalized-mason-jar",
+      "personalized-cola-bottle-340-ml",
+      "premium-photo-matte-posters",
+      "premium-photo-glossy-posters",
+      "large-format-posters",
+      "standard-paper-posters",
+      "special-paper-posters",
+      "premium-print-posters",
+      "raised-foil-posters-premium-finish",
+      "non-tearable-posters",
+      "sun-board-posters",
+      "photo-fridge-magnet-combo-set-of-4",
+      "acrylic-photo-fridge-magnets",
+      "premium-canvas-fridge-magnets",
+      "rectangle-square-fridge-magnets-set-of-4",
+      "a5-desktop-calendar-landscape",
+      "long-desktop-calendar",
+      "personalized-wall-calendar",
+      "small-square-wooden-base-calendar",
+      "alphabet-with-photo-keychain",
+      "square-acrylic-photo-keychain",
+      "circle-acrylic-photo-keychain",
+      "heart-acrylic-photo-keychain",
+      "oval-acrylic-photo-keychain",
+      "rectangle-acrylic-photo-keychain",
+      "star-acrylic-photo-keychain",
+      "octagon-acrylic-photo-keychain",
+      "personalized-mobile-pop-socket",
+      "personalized-tote-bags",
+      "acrylic-photo-coasters",
+      "personalized-mousepads",
+      "personalised-photo-playing-cards",
+      "personalised-ludo",
+      "personalised-memory-game",
+      "personalized-gift-wrapping-paper",
+      "desktop-frames-with-messages-3d-printed",
+      "personalised-t-shirt-round-neck",
+      "personalized-laptop-sleeve-13-in",
+      "personalized-laptop-sleeve-13-5-in",
+      "personalized-laptop-sleeve-15-6-in",
+      "personalized-selfie-photo-booth"
+    ]
+  }
+] as const
+
+export const catalogProducts: CatalogProduct[] = [
+  {
+    "id": "classic-photo-prints",
+    "name": "Classic Photo Prints",
+    "categoryId": "photo-prints",
+    "categoryName": "Photo Prints",
+    "basePrice": 337,
+    "sizes": [
+      "6x4",
+      "7x5",
+      "8x6",
+      "10x8",
+      "A4 (8.3x11.7)",
+      "12x9 in"
+    ],
+    "summary": "Classic everyday photo prints in 6 standard sizes for albums, framing, or gifting.",
+    "minimum": "15 prints",
+    "quantity": "Min 15 prints",
+    "finish": "Photo paper (glossy/matte)",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": true,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "square-photo-prints",
+    "name": "Square Photo Prints",
+    "categoryId": "photo-prints",
+    "categoryName": "Photo Prints",
+    "basePrice": 284,
+    "sizes": [
+      "4x4",
+      "5x5",
+      "8x8 in"
+    ],
+    "summary": "Square-format photo prints popular for Instagram-style collections and scrapbooking.",
+    "minimum": "15 prints",
+    "quantity": "Min 15 prints",
+    "finish": "Photo paper (glossy/matte)",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": true,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1495567720989-cebdbdd97913?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "retro-polaroid-prints",
+    "name": "Retro Polaroid Prints",
+    "categoryId": "photo-prints",
+    "categoryName": "Photo Prints",
+    "basePrice": 478,
+    "sizes": [
+      "3.5x4.25 in"
+    ],
+    "summary": "Vintage polaroid-style photo prints with classic white borders.",
+    "minimum": "15 prints",
+    "quantity": "Min 15 prints",
+    "finish": "Photo paper with white polaroid-style border",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": true,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "passport-stamp-prints",
+    "name": "Passport & Stamp Prints",
+    "categoryId": "photo-prints",
+    "categoryName": "Photo Prints",
+    "basePrice": 213,
+    "sizes": [
+      "35x45 mm",
+      "20x25 mm"
+    ],
+    "summary": "Standard passport and stamp-size photo prints for official documents.",
+    "minimum": "20 prints (minimum order)",
+    "quantity": "Min 20 prints",
+    "finish": "Photo paper",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": true,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "instant-photo-prints",
+    "name": "Instant Photo Prints",
+    "categoryId": "photo-prints",
+    "categoryName": "Photo Prints",
+    "basePrice": 443,
+    "sizes": [
+      "4x6",
+      "6x8 in"
+    ],
+    "summary": "Quick-turnaround photo prints in popular standard sizes.",
+    "minimum": "15 prints",
+    "quantity": "Min 15 prints",
+    "finish": "Photo paper",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": true,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "bulk-photo-prints",
+    "name": "Bulk Photo Prints",
+    "categoryId": "photo-prints",
+    "categoryName": "Photo Prints",
+    "basePrice": 1003,
+    "sizes": [
+      "6x4",
+      "7x5",
+      "8x6 in"
+    ],
+    "summary": "Bulk photo printing at discounted per-print rates for events and studios.",
+    "minimum": "50 prints (minimum order)",
+    "quantity": "Min 50 prints",
+    "finish": "Photo paper",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": true,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "classic-photo-albums",
+    "name": "Classic Photo Albums",
+    "categoryId": "photo-books",
+    "categoryName": "Photo Books",
+    "basePrice": 1475,
+    "sizes": [
+      "A4 Landscape & 12x12 in Square"
+    ],
+    "summary": "Hardcover photo album with window-cut cover. A4: Black/RedWine/Camel Tan; Square: Black/Camel Tan. Spine 5/7/9mm = 20/25/30 sheets.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Premium matte hardcover, window-cut design; 300gsm glossy paper",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru only; standard nationwide delivery otherwise",
+    "isFeatured": true,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "pre-wedding-photo-albums",
+    "name": "Pre Wedding Photo Albums",
+    "categoryId": "photo-books",
+    "categoryName": "Photo Books",
+    "basePrice": 2360,
+    "sizes": [
+      "10x10 in and A4",
+      "Pro tiers: 12x18 in and 12x12 in"
+    ],
+    "summary": "Premium hardcover pre-wedding album. Also lists 3 unpriced 'Pro' tiers (Acroluxe leather, Custom Cover, Encanto jute/wood) in 12x18 and 12x12 sizes.",
+    "minimum": "1 piece (base tier)",
+    "quantity": "20-60 pages (Premium)",
+    "finish": "Hardcover, Matte/Glossy/Velvet; Pro: leather / jute+wood / full-custom covers",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": true,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "baby-shower-photo-albums",
+    "name": "Baby Shower Photo Albums",
+    "categoryId": "photo-books",
+    "categoryName": "Photo Books",
+    "basePrice": 2360,
+    "sizes": [
+      "10x10 in and A4",
+      "Pro tiers: 12x18 in and 12x12 in"
+    ],
+    "summary": "Premium hardcover baby shower album with 3 unpriced Pro upgrade tiers.",
+    "minimum": "1 piece (base tier)",
+    "quantity": "20-60 pages (Premium)",
+    "finish": "Hardcover, Matte/Glossy/Velvet; Pro: leather / jute+wood / full-custom covers",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1519689680058-324335c77eba?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "baby-album-photo-albums",
+    "name": "Baby Album Photo Albums",
+    "categoryId": "photo-books",
+    "categoryName": "Photo Books",
+    "basePrice": 2360,
+    "sizes": [
+      "10x10 in and A4",
+      "Pro tiers: 12x18 in and 12x12 in"
+    ],
+    "summary": "Premium hardcover baby memories album with 3 unpriced Pro upgrade tiers.",
+    "minimum": "1 piece (base tier)",
+    "quantity": "20-60 pages (Premium)",
+    "finish": "Hardcover, Matte/Glossy/Velvet; Pro: leather / jute+wood / full-custom covers",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1519689680058-324335c77eba?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "anniversary-photo-albums",
+    "name": "Anniversary Photo Albums",
+    "categoryId": "photo-books",
+    "categoryName": "Photo Books",
+    "basePrice": 2360,
+    "sizes": [
+      "10x10 in and A4",
+      "Pro tiers: 12x18 in and 12x12 in"
+    ],
+    "summary": "Premium hardcover anniversary album with 3 unpriced Pro upgrade tiers.",
+    "minimum": "1 piece (base tier)",
+    "quantity": "20-60 pages (Premium)",
+    "finish": "Hardcover, Matte/Glossy/Velvet; Pro: leather / jute+wood / full-custom covers",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "travel-photo-albums",
+    "name": "Travel Photo Albums",
+    "categoryId": "photo-books",
+    "categoryName": "Photo Books",
+    "basePrice": 2360,
+    "sizes": [
+      "10x10 in and A4",
+      "Pro tiers: 12x18 in and 12x12 in"
+    ],
+    "summary": "Premium hardcover travel album. Also lists Acroluxe (leather), Custom Cover, and Encanto (jute/wood) Pro tiers at 12x18 and 12x12 with no separate listed price.",
+    "minimum": "1 piece (base tier)",
+    "quantity": "20-60 pages (Premium)",
+    "finish": "Hardcover, Matte/Glossy/Velvet; Pro: leather / jute+wood / full-custom covers",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "milestone-birthday-photo-albums",
+    "name": "Milestone Birthday Photo Albums",
+    "categoryId": "photo-books",
+    "categoryName": "Photo Books",
+    "basePrice": 2360,
+    "sizes": [
+      "10x10 in and A4",
+      "Pro tiers: 12x18 in and 12x12 in"
+    ],
+    "summary": "Premium hardcover milestone birthday album with 3 unpriced Pro upgrade tiers.",
+    "minimum": "1 piece (base tier)",
+    "quantity": "20-60 pages (Premium)",
+    "finish": "Hardcover, Matte/Glossy/Velvet; Pro: leather / jute+wood / full-custom covers",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "graduation-year-photo-albums",
+    "name": "Graduation Year Photo Albums",
+    "categoryId": "photo-books",
+    "categoryName": "Photo Books",
+    "basePrice": 2360,
+    "sizes": [
+      "10x10 in and A4",
+      "Pro tiers: 12x18 in and 12x12 in"
+    ],
+    "summary": "Premium hardcover graduation album with 3 unpriced Pro upgrade tiers.",
+    "minimum": "1 piece (base tier)",
+    "quantity": "20-60 pages (Premium)",
+    "finish": "Hardcover, Matte/Glossy/Velvet; Pro: leather / jute+wood / full-custom covers",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1627556704302-624286467c65?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "classic-photo-frames",
+    "name": "Classic Photo Frames",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 413,
+    "sizes": [
+      "4x6",
+      "6x8",
+      "A4 (8.3x11.7)",
+      "12x18 in"
+    ],
+    "summary": "Classic MDF-framed photo display in 9 styles (Plain Black/Brown, Stripes, Maze, Gold, etc.).",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "MDF base + clear acrylic; textured canvas or matte-coated paper; 9 frame styles",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1517705008128-361805f42e86?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "wall-photo-frames-large-photo-frames",
+    "name": "Wall Photo Frames (Large Photo Frames)",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 1116,
+    "sizes": [
+      "9x12",
+      "12x12",
+      "12x18",
+      "14x18",
+      "18x24",
+      "27x36 in"
+    ],
+    "summary": "Large wall-mounted frames without acrylic in 9 styles, delivered with wall-hanging hook.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Synthetic frame (0.68in thick) + MDF base; Premium Vinyl or 300gsm Canvas; no acrylic",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "canvas-photo-frames-framed-canvas",
+    "name": "Canvas Photo Frames (Framed Canvas)",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 1208,
+    "sizes": [
+      "9x12",
+      "12x12",
+      "12x18",
+      "14x18",
+      "18x24",
+      "27x36 in"
+    ],
+    "summary": "Wall-mounted frame printed exclusively on premium textured canvas in 9 frame styles.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Synthetic frame + MDF base; 300gsm Premium Textured Canvas only (no acrylic/glass)",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "desktop-collage-foldable-frames",
+    "name": "Desktop Collage Foldable Frames",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 0,
+    "sizes": [
+      "1-Fold: 2x 4x6 in",
+      "2-Fold: 2x 4x6 in + 1x 6x10 in"
+    ],
+    "summary": "Foldable desktop collage frame showing 2 or 3 photos simultaneously. Includes complimentary photo prints. Price not listed on category page.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Synthetic frame in Black or Brown; desktop stand; includes complimentary photo prints",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru only; standard nationwide delivery otherwise",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "frameless-photo-frame",
+    "name": "Frameless Photo Frame",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 609,
+    "sizes": [
+      "A3",
+      "A4",
+      "A5"
+    ],
+    "summary": "Sleek frameless display board with matte-laminated print and gold corner clips; wall or tabletop.",
+    "minimum": "1 piece",
+    "quantity": "MOQ 1 unit",
+    "finish": "3mm and 5mm black/white boards, matte lamination, 4 gold corner clips",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1594026112284-02bb6f3352fe?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-selfie-frames",
+    "name": "Personalized Selfie Frames",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 763,
+    "sizes": [
+      "7 sizes (specific dimensions not listed)"
+    ],
+    "summary": "Large event-prop selfie photo frame for weddings/parties/graduation, personalised with customer designs.",
+    "minimum": "1 piece",
+    "quantity": "Not specified",
+    "finish": "5mm white sun board, single-sided print",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1627556704302-624286467c65?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "led-photo-frames",
+    "name": "LED Photo Frames",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 3157,
+    "sizes": [
+      "10x10",
+      "12x12",
+      "12x18 in"
+    ],
+    "summary": "Illuminated LED photo frame in 3 sizes and 3 shapes, with LED lighting included.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Rexin material frame (Brown/Grey); Square/Rectangle/Octagon shapes; LED strip + adaptor included",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalised-acrylic-photo-frames",
+    "name": "Personalised Acrylic Photo Frames",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 638,
+    "sizes": [
+      "Desktop stands: 4x6",
+      "6x8 in",
+      "Wall hangings: 12x12",
+      "A4",
+      "12x18 in"
+    ],
+    "summary": "General acrylic photo frame line; desktop stand or wall hanging; 3mm or 5mm acrylic.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Crystal-clear acrylic; 3mm Standard (Indigo print, white back) or 5mm Premium (UV print, black back)",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "standard-acrylic-photo-frames",
+    "name": "Standard Acrylic Photo Frames",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 638,
+    "sizes": [
+      "4x6",
+      "6x8 in"
+    ],
+    "summary": "Entry-level 3mm acrylic photo frame in 4x6 and 6x8 sizes.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "3mm acrylic, white back, Indigo/UV print; desktop stand or wall hanging",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "premium-acrylic-photo-frames",
+    "name": "Premium Acrylic Photo Frames",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 829,
+    "sizes": [
+      "4x6",
+      "6x8",
+      "12x12",
+      "A4 (8.3x11.7)",
+      "12x18 in"
+    ],
+    "summary": "Premium 5mm-thick acrylic photo frame with UV printing across 5 sizes.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "5mm acrylic, black back, UV print; desktop stand or wall hanging",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "ready-to-buy-premium-frame",
+    "name": "Ready to Buy Premium Frame",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 943,
+    "sizes": [
+      "Small 7x9 in (fits 4x6 photo)",
+      "Big 9x11 in (fits 6x8 photo)"
+    ],
+    "summary": "Ready-made premium acrylic desktop frame with a pre-inserted free photo print.",
+    "minimum": "1 piece",
+    "quantity": "MOQ 1 unit",
+    "finish": "9mm glossy acrylic, buffed edge; includes 1 free photo print pre-inserted (270gsm glossy)",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "custom-premium-frame",
+    "name": "Custom Premium Frame",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 943,
+    "sizes": [
+      "Small 7x9 in (fits 4x6 photo)",
+      "Big 9x11 in (fits 6x8 photo)"
+    ],
+    "summary": "Corporate-gifting variant with full custom frame branding. Same acrylic build as Ready to Buy, MOQ 10.",
+    "minimum": "10 pieces (MOQ 10)",
+    "quantity": "MOQ 10 units",
+    "finish": "9mm glossy acrylic; full brand-design customization; photo on 270gsm glossy",
+    "delivery": "3-7 working days based on order quantity",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "leatherette-acrylic-frame",
+    "name": "Leatherette Acrylic Frame",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 1020,
+    "sizes": [
+      "6x8",
+      "A4 (8.3x11.7)",
+      "A3 (11.7x16.5) in"
+    ],
+    "summary": "Acrylic frame with leatherette border in Black or Camel Tan.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "3mm clear acrylic + leatherette border (Black or Camel Tan); single-sided Indigo print",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "acrylic-photo-cut-outs",
+    "name": "Acrylic Photo Cut Outs",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 2359,
+    "sizes": [
+      "Big: A4 (8.3x11.7 in)",
+      "Small: 5x7 in (custom-shape cut)"
+    ],
+    "summary": "Free-standing acrylic cut-out shaped to the outline of the uploaded photo, creating a 3D display effect.",
+    "minimum": "1 piece",
+    "quantity": "Not specified",
+    "finish": "Imported transparent acrylic, black backing; black acrylic base (big) or magnets (small)",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "canvas-gallery-wraps",
+    "name": "Canvas Gallery Wraps",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 879,
+    "sizes": [
+      "Rectangle: 9x12",
+      "12x18",
+      "14x18",
+      "18x24",
+      "27x36 in",
+      "Square: 12x12 in"
+    ],
+    "summary": "Canvas print stretched on a 1-inch wooden frame for gallery-wrap wall display.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "300gsm Premium Textured Canvas, glossy coating; 1-inch wooden frame",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "eco-friendly-canvas-posters",
+    "name": "Eco-Friendly Canvas Posters",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 334,
+    "sizes": [
+      "9x12",
+      "14x18",
+      "18x24",
+      "25x18",
+      "27x36",
+      "32x12 in"
+    ],
+    "summary": "Unframed canvas poster in 6 sizes on premium textured canvas.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 poster",
+    "finish": "300gsm Premium Textured Canvas, glossy coating, unframed flat",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "2-split-vertical-canvas-wrap",
+    "name": "2 Split Vertical Canvas Wrap",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 1958,
+    "sizes": [
+      "10x18 in x 2 pieces"
+    ],
+    "summary": "Two-panel vertical split canvas wrap set.",
+    "minimum": "1 unit (set)",
+    "quantity": "Order from 1 unit",
+    "finish": "300gsm Premium Textured Canvas, glossy coating, 1-inch wooden frame",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "3-split-rectangle-canvas-wrap",
+    "name": "3 Split Rectangle Canvas Wrap",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 3544,
+    "sizes": [
+      "18x25 in x1 + 12x12 in x2"
+    ],
+    "summary": "Three-panel canvas combo: one rectangle plus two squares.",
+    "minimum": "1 unit (set)",
+    "quantity": "Order from 1 unit",
+    "finish": "300gsm Premium Textured Canvas, glossy coating, 1-inch wooden frame",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "3-split-vertical-canvas-wrap",
+    "name": "3 Split Vertical Canvas Wrap",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 5299,
+    "sizes": [
+      "12x32 in x 3 pieces"
+    ],
+    "summary": "Three tall vertical canvas panels for a dramatic split wall display.",
+    "minimum": "1 unit (set)",
+    "quantity": "Order from 1 unit",
+    "finish": "300gsm Premium Textured Canvas, glossy coating, 1.5-inch wooden frame",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "4-split-square-canvas-wrap",
+    "name": "4 Split Square Canvas Wrap",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 3544,
+    "sizes": [
+      "12x12 in x 4 pieces"
+    ],
+    "summary": "Four 12x12in square canvas panels for a unified split-canvas wall display.",
+    "minimum": "1 set",
+    "quantity": "Order from 1 set",
+    "finish": "300gsm Premium Textured Canvas, glossy coating, 1-inch wooden frame",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "5-split-rectangle-canvas-wrap",
+    "name": "5 Split Rectangle Canvas Wrap",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 5299,
+    "sizes": [
+      "18x25 in x1 + 12x12 in x4"
+    ],
+    "summary": "Five-panel canvas combo: one rectangle plus four squares.",
+    "minimum": "1 unit (set)",
+    "quantity": "Order from 1 unit",
+    "finish": "300gsm Premium Textured Canvas, glossy coating, 1-inch wooden frame",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "mdf-canvas-gallery-wrap",
+    "name": "MDF Canvas Gallery Wrap",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 656,
+    "sizes": [
+      "5 shapes: Rectangle",
+      "Square",
+      "Hexagon",
+      "Octagon",
+      "Triangle"
+    ],
+    "summary": "Canvas print on 5mm MDF in 5 distinct shapes.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "300gsm Premium Textured Canvas on 5mm MDF board",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalised-mdf-canvas-prints",
+    "name": "Personalised MDF Canvas Prints",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 418,
+    "sizes": [
+      "4 shapes: Rectangle",
+      "Square",
+      "Circle",
+      "Oval"
+    ],
+    "summary": "Canvas-on-MDF in 4 shapes (Rectangle, Square, Circle, Oval).",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "300gsm Premium Textured Canvas on 5mm MDF board",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "premium-mdf-prints",
+    "name": "Premium MDF Prints",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 373,
+    "sizes": [
+      "12x18 in",
+      "A4 (8.3x11.7 in)",
+      "12x12 in Square"
+    ],
+    "summary": "Photo on non-tearable media mounted on 5mm MDF board; rectangle and square shapes.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 poster",
+    "finish": "Non-tearable print media on 5mm MDF board, glossy coating",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru only; standard nationwide delivery otherwise",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1517705008128-361805f42e86?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "rolled-canvas-posters",
+    "name": "Rolled Canvas Posters",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 361,
+    "sizes": [
+      "9x12",
+      "14x18",
+      "18x24",
+      "25x18",
+      "27x36",
+      "32x12 in"
+    ],
+    "summary": "Unmounted canvas poster shipped rolled, same sizes as Eco-Friendly Canvas Posters.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 poster",
+    "finish": "300gsm Premium Textured Canvas, glossy coating, shipped rolled",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "photo-with-wooden-stand",
+    "name": "Photo with Wooden Stand",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 607,
+    "sizes": [
+      "6x4 and 8x6 in"
+    ],
+    "summary": "Double-sided acrylic photo display on a natural wood stand, showing two images from either side.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Transparent acrylic with natural wood base; double-sided viewing",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "photo-pendant-wooden-stand",
+    "name": "Photo Pendant Wooden Stand",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 848,
+    "sizes": [
+      "2 pendant shapes (Rectangle and Heart)",
+      "exact dimensions not on page"
+    ],
+    "summary": "Dual-sided photo pendant suspended from hooks on a natural wood stand — photo elegantly floats within the frame.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Photo printed on both sides; natural wood base with hooks for suspended display",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1517705008128-361805f42e86?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "wooden-engraved-plaque-with-photo",
+    "name": "Wooden Engraved Plaque with Photo",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 1102,
+    "sizes": [
+      "8x10 in frame",
+      "4x6 in photo insert"
+    ],
+    "summary": "Engraved wooden plaque combining laser engraving with an acrylic photo insert.",
+    "minimum": "1 piece",
+    "quantity": "Not specified",
+    "finish": "1-inch thick beach wood, rounded corners; custom engraving + acrylic photo insert",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "rectangle-wall-decals",
+    "name": "Rectangle Wall Decals",
+    "categoryId": "frames-wall-decor",
+    "categoryName": "Frames & Wall Decor",
+    "basePrice": 161,
+    "sizes": [
+      "Rectangle",
+      "multiple sizes (see configurator)"
+    ],
+    "summary": "Custom-printed rectangle wall/window decals with customer's photo/design. Related shapes: Square ₹294, Circle ₹143, Custom Shape ₹156.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "White vinyl / clear vinyl / window decal / frosted vinyl; eco-solvent print",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalised-white-photo-mug",
+    "name": "Personalised White Photo Mug",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 326,
+    "sizes": [
+      "325 ml",
+      "print area 20x8 cm"
+    ],
+    "summary": "Classic white ceramic photo mug (325ml) with full-colour sublimation print.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "White ceramic, sublimation; microwave/dishwasher safe",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "photo-mini-mug",
+    "name": "Photo Mini Mug",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 334,
+    "sizes": [
+      "175 ml",
+      "mug 7.2x7.2 cm",
+      "print area 16x6 cm"
+    ],
+    "summary": "Compact 175ml ceramic mug for espresso/tea; full-colour sublimation.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "White ceramic, sublimation; microwave/dishwasher safe",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "bulk-mugs",
+    "name": "Bulk Mugs",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 225,
+    "sizes": [
+      "325 ml"
+    ],
+    "summary": "Bulk ceramic photo mugs (325ml) at discounted per-unit pricing.",
+    "minimum": "50 pieces (price per piece at 50pcs)",
+    "quantity": "Bulk order",
+    "finish": "Ceramic, sublimation print",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "photo-magic-mug",
+    "name": "Photo Magic Mug",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 0,
+    "sizes": [
+      "325 ml",
+      "mug 8x9.5 cm",
+      "print area 20x8 cm"
+    ],
+    "summary": "Heat-sensitive mug: black at rest, reveals photo when filled with hot liquid. Price not shown on Mugs category listing.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Black ceramic, colour-changes with heat, sublimation; dishwasher/microwave safe",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalised-beer-mug",
+    "name": "Personalised Beer Mug",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 590,
+    "sizes": [
+      "500 ml (16 oz)"
+    ],
+    "summary": "500ml glass beer mug in gloss or frosted finish; customised with photo/text/logo.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Clear or frosted glass; sublimation print",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-sipper-bottle-600-ml",
+    "name": "Personalized Sipper Bottle (600 ml)",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 407,
+    "sizes": [
+      "600 ml"
+    ],
+    "summary": "600ml personalised sipper bottle with custom photo/design/logo print.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Aluminium/stainless steel",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-spout-sipper-bottle-750-ml",
+    "name": "Personalized Spout Sipper Bottle (750 ml)",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 864,
+    "sizes": [
+      "750 ml"
+    ],
+    "summary": "750ml spout sipper bottle with custom photo/design/logo.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Premium stainless steel with spout cap",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "multicolour-printed-steel-bottle-1000-ml",
+    "name": "Multicolour Printed Steel Bottle (1000 ml)",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 735,
+    "sizes": [
+      "1000 ml"
+    ],
+    "summary": "1-litre stainless steel bottle with full multicolour custom photo/design print.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Stainless steel, multicolour full-colour print",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-mason-jar",
+    "name": "Personalized Mason Jar",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 494,
+    "sizes": [
+      "Not specified"
+    ],
+    "summary": "Glass mason jar personalised with custom photo/design/logo.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Glass mason jar with custom print",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-cola-bottle-340-ml",
+    "name": "Personalized Cola Bottle (340 ml)",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 473,
+    "sizes": [
+      "340 ml"
+    ],
+    "summary": "340ml glass cola-style bottle personalised with custom photo/design/logo.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Glass cola-style bottle with custom print",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "premium-photo-matte-posters",
+    "name": "Premium Photo Matte Posters",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 176,
+    "sizes": [
+      "A4",
+      "A3",
+      "A3+",
+      "A2",
+      "A1",
+      "A0"
+    ],
+    "summary": "Matte-finish photo poster in 6 sizes from A4 to A0; fingerprint-resistant.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "180gsm Photo Matte paper, inkjet print",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "premium-photo-glossy-posters",
+    "name": "Premium Photo Glossy Posters",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 192,
+    "sizes": [
+      "A4",
+      "A3",
+      "A3+",
+      "A2",
+      "A1",
+      "A0"
+    ],
+    "summary": "Glossy-finish photo poster in 6 sizes for vibrant home/office decor.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "210gsm Photo Glossy paper, eco-solvent inkjet",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "large-format-posters",
+    "name": "Large Format Posters",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 432,
+    "sizes": [
+      "A3",
+      "A2",
+      "A1",
+      "A0"
+    ],
+    "summary": "Large-format poster in 4 sizes and 3 material types.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Non-tearable paper, Self-Adhesive Vinyl, or 3M White-Back Vinyl; single-sided",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "standard-paper-posters",
+    "name": "Standard Paper Posters",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 47,
+    "sizes": [
+      "A4",
+      "A3",
+      "A3+"
+    ],
+    "summary": "Everyday digital print poster in 3 sizes and 2 finishes.",
+    "minimum": "2 pieces (minimum order)",
+    "quantity": "Order from 2 units",
+    "finish": "Glossy or Matte coated paper, 170-220gsm",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "special-paper-posters",
+    "name": "Special Paper Posters",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 162,
+    "sizes": [
+      "3 sizes (specific dimensions not listed)"
+    ],
+    "summary": "Specialty-paper posters in 10 distinct finishes for premium display.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Metallic, Premium Textured, or Recycled paper; 10 options",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "premium-print-posters",
+    "name": "Premium Print Posters",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 57,
+    "sizes": [
+      "A3",
+      "A4"
+    ],
+    "summary": "Bulk-oriented premium posters in A3/A4 with matte or linen finish.",
+    "minimum": "5 pieces (MOQ 5)",
+    "quantity": "MOQ 5 units",
+    "finish": "300gsm paper board, Matte Lamination or Linen Textured",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "raised-foil-posters-premium-finish",
+    "name": "Raised Foil Posters (Premium Finish)",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 194,
+    "sizes": [
+      "A4",
+      "A3",
+      "A3+"
+    ],
+    "summary": "Embellished poster with raised gold/silver foil and Spot UV highlights.",
+    "minimum": "1 piece",
+    "quantity": "MOQ 1 piece",
+    "finish": "300/350gsm coated paper, Matte or Velvet lamination + Gold/Silver foil & Spot UV",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "non-tearable-posters",
+    "name": "Non-Tearable Posters",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 432,
+    "sizes": [
+      "A3",
+      "A2",
+      "A1",
+      "A0"
+    ],
+    "summary": "Durable synthetic-paper posters for high-traffic indoor/outdoor use.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Non-tearable synthetic paper, eco-solvent inkjet",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "sun-board-posters",
+    "name": "Sun Board Posters",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 717,
+    "sizes": [
+      "A3",
+      "A2",
+      "A1",
+      "A0"
+    ],
+    "summary": "Rigid lightweight foam-board posters for outdoor advertising and event signage.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "5mm PVC foam (sun) board, eco-solvent vinyl print",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "photo-fridge-magnet-combo-set-of-4",
+    "name": "Photo Fridge Magnet Combo Set-of-4",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 700,
+    "sizes": [
+      "2.5x2.5 in x 4 pieces"
+    ],
+    "summary": "Set of 4 square photo fridge magnets on flexible 2mm magnet material.",
+    "minimum": "1 set (4 magnets)",
+    "quantity": "1 set = 4 magnets",
+    "finish": "2mm thick flexible magnet, full-colour print",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "acrylic-photo-fridge-magnets",
+    "name": "Acrylic Photo Fridge Magnets",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 955,
+    "sizes": [
+      "5 shapes (dimensions not listed)"
+    ],
+    "summary": "Premium 4mm acrylic-bodied fridge magnet in 5 shapes.",
+    "minimum": "1 piece",
+    "quantity": "Not specified",
+    "finish": "4mm acrylic + magnet, glossy full-colour print",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "premium-canvas-fridge-magnets",
+    "name": "Premium Canvas Fridge Magnets",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 489,
+    "sizes": [
+      "3x3 in and 4x4 in (set of 2)"
+    ],
+    "summary": "Set of 2 canvas-textured photo fridge magnets.",
+    "minimum": "1 set (2 magnets)",
+    "quantity": "Set of 2",
+    "finish": "Canvas print magnet",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "rectangle-square-fridge-magnets-set-of-4",
+    "name": "Rectangle & Square Fridge Magnets Set-of-4",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 924,
+    "sizes": [
+      "4x3 in x2 + 5x5 in x2"
+    ],
+    "summary": "Mixed set of 4 magnets (two 4x3in rectangles + two 5x5in squares).",
+    "minimum": "1 set (4 magnets)",
+    "quantity": "1 set = 4 magnets",
+    "finish": "2mm thick flexible magnet",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "a5-desktop-calendar-landscape",
+    "name": "A5 Desktop Calendar (Landscape)",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 306,
+    "sizes": [
+      "A5",
+      "8.3x5.8 in landscape"
+    ],
+    "summary": "Compact landscape desktop calendar with black wiro binding and stand.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "7 sheets, 300gsm glossy or 250gsm shimmer; black wiro binding with stand",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "long-desktop-calendar",
+    "name": "Long Desktop Calendar",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 354,
+    "sizes": [
+      "10x3.5 in"
+    ],
+    "summary": "Elongated panoramic desktop calendar on a black hard fusion board stand.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "7 sheets, 300gsm glossy or 250gsm shimmer; black hard fusion board stand",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-wall-calendar",
+    "name": "Personalized Wall Calendar",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 472,
+    "sizes": [
+      "A3"
+    ],
+    "summary": "A3 wall calendar with spiral binding, full-colour double-sided print, 12 monthly photo slots.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "7 sheets, 300gsm glossy or 250gsm shimmer; spiral/wiro binding",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "small-square-wooden-base-calendar",
+    "name": "Small Square Wooden Base Calendar",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 295,
+    "sizes": [
+      "5x5 in"
+    ],
+    "summary": "Compact 5x5in desk calendar on a natural wooden stand. The wooden stand itself cannot be personalised.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "6 sheets, 300gsm glossy or 250gsm shimmer; natural wooden stand",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "alphabet-with-photo-keychain",
+    "name": "Alphabet with Photo Keychain",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 378,
+    "sizes": [
+      "Not listed (size chart visible on page)"
+    ],
+    "summary": "Acrylic keychain combining an alphabet letter cut-out with a personal photo.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Black/white acrylic, 3mm thick",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "square-acrylic-photo-keychain",
+    "name": "Square Acrylic Photo Keychain",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 189,
+    "sizes": [
+      "Square shape"
+    ],
+    "summary": "Square acrylic photo keychain with full-colour single-sided print.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Acrylic, full-colour single-sided print, black back",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "circle-acrylic-photo-keychain",
+    "name": "Circle Acrylic Photo Keychain",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 189,
+    "sizes": [
+      "Circle shape"
+    ],
+    "summary": "Circle acrylic photo keychain with full-colour single-sided print.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Acrylic, full-colour single-sided print, black back",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "heart-acrylic-photo-keychain",
+    "name": "Heart Acrylic Photo Keychain",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 189,
+    "sizes": [
+      "Heart shape"
+    ],
+    "summary": "Heart-shaped acrylic photo keychain with full-colour single-sided print.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Acrylic, full-colour single-sided print, black back",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "oval-acrylic-photo-keychain",
+    "name": "Oval Acrylic Photo Keychain",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 189,
+    "sizes": [
+      "Oval shape"
+    ],
+    "summary": "Oval acrylic photo keychain with full-colour single-sided print.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Acrylic, full-colour single-sided print, black back",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "rectangle-acrylic-photo-keychain",
+    "name": "Rectangle Acrylic Photo Keychain",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 189,
+    "sizes": [
+      "Rectangle shape"
+    ],
+    "summary": "Rectangle acrylic photo keychain with full-colour single-sided print.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Acrylic, full-colour single-sided print, black back",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "star-acrylic-photo-keychain",
+    "name": "Star Acrylic Photo Keychain",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 189,
+    "sizes": [
+      "Star shape"
+    ],
+    "summary": "Star-shaped acrylic photo keychain with full-colour single-sided print.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Acrylic, full-colour single-sided print, black back",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "octagon-acrylic-photo-keychain",
+    "name": "Octagon Acrylic Photo Keychain",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 189,
+    "sizes": [
+      "Octagon shape"
+    ],
+    "summary": "Octagon-shaped acrylic photo keychain with full-colour single-sided print.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Acrylic, full-colour single-sided print, black back",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-mobile-pop-socket",
+    "name": "Personalized Mobile Pop Socket",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 143,
+    "sizes": [
+      "40 mm diameter"
+    ],
+    "summary": "Collapsible phone grip/stand (PopSocket-style) personalised with custom photo/design.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Repositionable adhesive base",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru only; standard nationwide delivery otherwise",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-tote-bags",
+    "name": "Personalized Tote Bags",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 327,
+    "sizes": [
+      "15x16 in and 11x12 in"
+    ],
+    "summary": "Eco-friendly cotton/canvas tote bag personalised with photos/logos. Price ₹327 confirmed from Cotton Carry Bags category page.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "140gsm natural cotton or 320gsm canvas cotton; Natural or Black; Digital or screen print",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "acrylic-photo-coasters",
+    "name": "Acrylic Photo Coasters",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 612,
+    "sizes": [
+      "4 shapes: Square",
+      "Circle",
+      "Heart",
+      "and other"
+    ],
+    "summary": "Personalised acrylic table coasters in 4 shapes, sold in sets of 4 or 6.",
+    "minimum": "Set of 4 or Set of 6",
+    "quantity": "Sets of 4 or 6",
+    "finish": "2mm thick White & Black acrylic",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-mousepads",
+    "name": "Personalized Mousepads",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 267,
+    "sizes": [
+      "9.25x7.5 in",
+      "3mm thick"
+    ],
+    "summary": "Custom mousepad with photo/logo sublimation print, smooth fabric surface, anti-skid rubber base.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Rubber base, fabric surface, sublimation print; rounded corners",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalised-photo-playing-cards",
+    "name": "Personalised Photo Playing Cards",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 253,
+    "sizes": [
+      "2.5x3.5 in per card"
+    ],
+    "summary": "Fully personalised playing card deck with customer photos on card backs. Standard 52+3 joker set.",
+    "minimum": "1 set (52+3 cards)",
+    "quantity": "1 set = 52 + 3 joker cards",
+    "finish": "300gsm thick card; Matte or Glossy finish; rounded corners",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1511193311914-0346f16efe90?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalised-ludo",
+    "name": "Personalised Ludo",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 310,
+    "sizes": [
+      "12x12 in board"
+    ],
+    "summary": "Classic Ludo board game personalised with customer photos on the playing board.",
+    "minimum": "1 set",
+    "quantity": "MOQ 1 set",
+    "finish": "3mm thick cardboard, digital printing; includes 1 die + 16 coloured coins (4 colours)",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1511193311914-0346f16efe90?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalised-memory-game",
+    "name": "Personalised Memory Game",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 310,
+    "sizes": [
+      "3x3 in per card"
+    ],
+    "summary": "Concentration/flip card memory game personalised with customer photos on card backs.",
+    "minimum": "1 game (24 cards)",
+    "quantity": "1 game set = 24 cards",
+    "finish": "675gsm thick paper board; 24-piece set (12 matching pairs)",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1511193311914-0346f16efe90?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-gift-wrapping-paper",
+    "name": "Personalized Gift Wrapping Paper",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 0,
+    "sizes": [
+      "5 sizes available"
+    ],
+    "summary": "Custom gift wrapping paper sheets with photos/logo/text in 5 sizes and 4 paper types. Starting price not visible on product page.",
+    "minimum": "25 sheets (MOQ 25)",
+    "quantity": "MOQ 25 sheets",
+    "finish": "4 paper types (including Kraft medium); single-colour or full-colour print",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1513201099705-a9746e1e201f?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "desktop-frames-with-messages-3d-printed",
+    "name": "Desktop Frames with Messages (3D Printed)",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 0,
+    "sizes": [
+      "8cm W x 14cm H x 2cm D"
+    ],
+    "summary": "3D-printed desktop photo frame personalised with a text message (up to 12 chars/line, 2 lines, English only). Starting price not visible on photo gifts category page.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Sturdy 3D-printed frame; 4 colours (Red, Blue, Yellow, Black)",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1594026112284-02bb6f3352fe?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalised-t-shirt-round-neck",
+    "name": "Personalised T-Shirt (Round Neck)",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 499,
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "summary": "Custom round-neck t-shirt printable with photos/logos/artwork. White, Black, Grey Melange, Navy Blue, Royal Blue, Red, Yellow available.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "180gsm, 100% cotton, bio-washed; digital print (DTG) or screen print; 7 colour options",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-laptop-sleeve-13-in",
+    "name": "Personalized Laptop Sleeve (13 in)",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 1072,
+    "sizes": [
+      "13x9.5 in"
+    ],
+    "summary": "Personalised 13-inch laptop sleeve with custom photo/design/logo printing.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Custom-printed sleeve material",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3b?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-laptop-sleeve-13-5-in",
+    "name": "Personalized Laptop Sleeve (13.5 in)",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 1208,
+    "sizes": [
+      "13.5x10 in"
+    ],
+    "summary": "Personalised 13.5-inch laptop sleeve with custom photo/design/logo printing.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Custom-printed sleeve material",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3b?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-laptop-sleeve-15-6-in",
+    "name": "Personalized Laptop Sleeve (15.6 in)",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 1300,
+    "sizes": [
+      "15.6x11 in"
+    ],
+    "summary": "Personalised 15.6-inch laptop sleeve with custom photo/design/logo printing.",
+    "minimum": "1 piece",
+    "quantity": "Order from 1 unit",
+    "finish": "Custom-printed sleeve material",
+    "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
+    "isFeatured": false,
+    "isTrending": false,
+    "imageUrl": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3b?auto=format&fit=crop&w=1200&h=900&q=74"
+  },
+  {
+    "id": "personalized-selfie-photo-booth",
+    "name": "Personalized Selfie Photo Booth",
+    "categoryId": "personalized-gifts",
+    "categoryName": "Personalized Gifts",
+    "basePrice": 763,
+    "sizes": [
+      "Large event-prop format (exact dimensions not listed)"
+    ],
+    "summary": "Large free-standing event photo-booth prop personalised with event branding/designs. Borderline product — primarily an event prop.",
+    "minimum": "1 piece",
+    "quantity": "Not specified",
+    "finish": "5mm white sun board",
+    "delivery": "Not specified on page",
+    "isFeatured": false,
+    "isTrending": true,
+    "imageUrl": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&h=900&q=74"
+  }
+]
+
+export const categories: CatalogCategory[] = catalogCategoriesSeed.map((category) => ({
+  ...category,
+  priceRange: [...category.priceRange] as [number, number],
+  productIds: [...category.productIds],
+  products: catalogProducts.filter((product) => product.categoryId === category.id),
+}))
+
+export const productCount = catalogProducts.length
+export const pricedProductCount = catalogProducts.filter((product) => product.basePrice > 0).length
+export const priceOnRequestCount = catalogProducts.length - pricedProductCount
+
+const pricedProducts = catalogProducts.filter((product) => product.basePrice > 0)
+
+export const overallPriceRange: [number, number] = [
+  Math.min(...pricedProducts.map((product) => product.basePrice)),
+  Math.max(...pricedProducts.map((product) => product.basePrice)),
+]
+
+export const featuredProducts = catalogProducts.filter((product) => product.isFeatured)
+export const trendingProducts = catalogProducts.filter((product) => product.isTrending)
+
+export function formatPrice(price: number) {
+  return price > 0 ? `₹${price.toLocaleString('en-IN')}` : 'Price on request'
+}
+
+export function formatPriceRange([min, max]: [number, number]) {
+  return `${formatPrice(min)} – ${formatPrice(max)}`
+}

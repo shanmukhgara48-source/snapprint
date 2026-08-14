@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:3000"
     allowed_hosts: str = "*"
 
-    firebase_credentials_path: str = "./snap-print-7146d-firebase-adminsdk-fbsvc-fa3893d412.json"
+    firebase_credentials_path: str = ""
     firebase_credentials_json: str = ""
     firebase_storage_bucket: str = ""
     firebase_project_id: str = ""

@@ -1,5 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/api_client.dart';
 import '../domain/ai_editor_models.dart';
 import '../domain/local_image_metrics.dart';
 import '../domain/editor_document.dart';
@@ -94,10 +96,21 @@ class AiEditorRepository {
         error is ImageTooLargeException) {
       return text;
     }
-    if (text.contains('NetworkException') || text.contains('SocketException')) {
+    // Dio wraps the underlying cause in DioException.error rather than
+    // throwing it directly, and DioException/AppException.toString() never
+    // include the class name — so unwrap and type-check instead of
+    // substring-matching, which never matched anything here.
+    final cause = error is DioException ? (error.error ?? error) : error;
+    if (cause is UnauthorizedException) {
+      return 'Your session has expired. Please sign in again.';
+    }
+    if (cause is NetworkException) {
       return 'No internet connection. Please check your network and try again.';
     }
-    if (text.contains('receiveTimeout') || text.contains('TimeoutException')) {
+    if (error is DioException &&
+        (error.type == DioExceptionType.receiveTimeout ||
+            error.type == DioExceptionType.sendTimeout ||
+            error.type == DioExceptionType.connectionTimeout)) {
       return 'This is taking longer than expected. Please try again.';
     }
     return 'AI edit failed. Please try another edit or use the original photo.';

@@ -53,10 +53,7 @@ class OrderHistoryScreen extends ConsumerWidget {
             child: CircularProgressIndicator(color: AppColors.accent),
           ),
           error: (e, s) {
-            final isAuthError =
-                e is AppException &&
-                (e.message.toLowerCase().contains('authenticat') ||
-                    e.message.toLowerCase().contains('unauthorized'));
+            final isAuthError = e is AppException && e.statusCode == 401;
             return SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               child: SizedBox(
@@ -80,8 +77,10 @@ class OrderHistoryScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       TextButton(
-                        onPressed: () => ref.invalidate(myOrdersProvider),
-                        child: const Text(AppStrings.retry),
+                        onPressed: isAuthError
+                            ? () => context.go(AppRoutes.login)
+                            : () => ref.invalidate(myOrdersProvider),
+                        child: Text(isAuthError ? 'Sign In' : AppStrings.retry),
                       ),
                     ],
                   ),

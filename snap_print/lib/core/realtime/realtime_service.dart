@@ -82,11 +82,19 @@ class RealtimeService {
       return;
     }
     _reconnectTimer?.cancel();
+    // Flip the state before the first `await` (not after) so concurrent
+    // _connect() calls made in the same tick — start() fires it directly,
+    // then the Firebase auth-state listener replays the cached auth state
+    // into another call almost immediately — see the guard above and bail
+    // out instead of each opening its own real WebSocket connection.
+    connectionState.value = RealtimeConnectionState.connecting;
 
     final token = await _resolveToken();
-    if (token == null) return; // not logged in — auth listener will retry
+    if (token == null) {
+      connectionState.value = RealtimeConnectionState.disconnected;
+      return; // not logged in — auth listener will retry
+    }
 
-    connectionState.value = RealtimeConnectionState.connecting;
     try {
       final uri = Uri.parse(
         '${ApiEndpoints.baseUrl.replaceFirst('http', 'ws')}/ws/app',

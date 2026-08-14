@@ -105,6 +105,11 @@ async def _get_model():
             if DEVICE == "cuda":
                 model.half()
                 torch.set_float32_matmul_precision("high")
+            else:
+                # Some checkpoints ship a fp16 torch_dtype in config.json, which
+                # from_pretrained honors by default — CPU has no fp16 kernels for
+                # conv2d, so force fp32 weights when not running on CUDA.
+                model.float()
             _model = model
     return _model
 
