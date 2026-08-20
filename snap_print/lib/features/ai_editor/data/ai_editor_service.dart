@@ -8,9 +8,12 @@ import '../domain/editor_document.dart';
 
 /// Gemini image generation can take well beyond the app's default 15s
 /// timeout — give edit/analyze calls more room before failing.
+///
+/// Production workers should respond in seconds; one minute leaves enough
+/// room for cold starts without hanging checkout/editor flows indefinitely.
 final _aiCallOptions = Options(
-  sendTimeout: const Duration(minutes: 3),
-  receiveTimeout: const Duration(minutes: 3),
+  sendTimeout: const Duration(minutes: 1),
+  receiveTimeout: const Duration(minutes: 1),
 );
 
 class AiEditorService {

@@ -281,7 +281,7 @@ async def delete_account(
         )
 
     is_dev_identity = (
-        bool(settings.dev_bypass_secret)
+        not settings.is_production
         and current_user.firebase_uid.startswith("dev_")
     )
     order_result = await db.execute(
@@ -293,13 +293,26 @@ async def delete_account(
         f"ai-edits/{current_user.id}/",
         *(f"delivery-proofs/{order_id}/" for order_id in order_ids),
     ]
-    try:
-        await asyncio.to_thread(delete_prefixes, prefixes)
-    except Exception as exc:
+    r2_configured = all(
+        (
+            settings.r2_account_id,
+            settings.r2_access_key_id,
+            settings.r2_secret_access_key,
+        )
+    )
+    if r2_configured:
+        try:
+            await asyncio.to_thread(delete_prefixes, prefixes)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="Could not delete stored account media. Please try again.",
+            ) from exc
+    elif settings.is_production:
         raise HTTPException(
-            status_code=502,
-            detail="Could not delete stored account media. Please try again.",
-        ) from exc
+            status_code=500,
+            detail="Account media cleanup is not configured.",
+        )
 
     if not is_dev_identity:
         import firebase_admin.auth as fb_auth

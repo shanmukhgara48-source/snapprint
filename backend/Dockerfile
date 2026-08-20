@@ -24,7 +24,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # The event bus is process-local, so keep one worker until Redis fan-out is added.
-CMD alembic upgrade head && uvicorn main:app \
+# Run `alembic upgrade head` as a separate release/pre-deploy step.
+CMD uvicorn main:app \
     --host 0.0.0.0 \
     --port 8000 \
     --workers 1 \

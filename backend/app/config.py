@@ -15,9 +15,9 @@ class Settings(BaseSettings):
 
     firebase_credentials_path: str = ""
     firebase_credentials_json: str = ""
-    firebase_storage_bucket: str = ""
-    firebase_project_id: str = ""
-    firebase_api_key: str = ""
+    firebase_storage_bucket: str = "snapprint-5076c.firebasestorage.app"
+    firebase_project_id: str = "snapprint-5076c"
+    firebase_api_key: str = "AIzaSyBmhzn9u3G2ZyZFoarAUtsx51-S1yVjsKk"
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
 
