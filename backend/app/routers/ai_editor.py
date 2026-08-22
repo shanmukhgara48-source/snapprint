@@ -26,13 +26,13 @@ limiter = Limiter(key_func=get_remote_address)
 
 @router.get("/status", response_model=AiEditorCapabilities)
 async def ai_editor_status() -> AiEditorCapabilities:
-    generative = bool(settings.gemini_api_key or settings.google_api_key)
+    generative = bool(settings.hf_api_token or settings.gemini_api_key or settings.google_api_key)
     segmentation = ProfessionalImagePipeline().background_removal_configured
     return AiEditorCapabilities(
         enabled=True,
         background_removal=segmentation,
         generative_editing=generative,
-        model=settings.ai_segmentation_model,
+        model=settings.hf_edit_model if settings.hf_api_token else settings.gemini_image_model,
         max_source_bytes=settings.ai_max_source_bytes,
         max_source_pixels=settings.ai_max_source_pixels,
         supported_input_formats=["image/jpeg", "image/png", "image/webp"],

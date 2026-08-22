@@ -14,6 +14,9 @@
   --color-accent-2: #f3cf6b;
   --color-accent-deep: #a97f1f;
   --color-accent-soft: rgba(212, 175, 55, 0.12);
+  --color-coral: #ff8f70;
+  --color-mint: #72e2c0;
+  --color-sky: #8bd3ff;
   --color-danger: #ef4444;
   --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
 }
@@ -98,11 +101,29 @@ body::before {
   color: transparent;
 }
 
-/* Fluid, cinematic hero display type — scales smoothly instead of jumping at breakpoints. */
 .hero-title {
-  font-size: clamp(2.75rem, 5.4vw + 1.1rem, 6.75rem);
+  font-size: 3rem;
   line-height: 1.02;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
+}
+
+@media (min-width: 640px) {
+  .hero-title {
+    font-size: 4.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-title {
+    font-size: 5.75rem;
+  }
+}
+
+.text-gradient-craft {
+  background: linear-gradient(95deg, var(--color-accent-2), var(--color-coral) 55%, var(--color-sky));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 /* Full-bleed cinematic hero background: dark scrim keeps centered type readable over any photo. */

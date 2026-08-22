@@ -33,7 +33,7 @@ VALUES
 ```dart
 // Before
 final options = {
-  'key': 'rzp_test_T7lL1ZSiEFthEp',
+  'key': '<redacted-razorpay-test-key>',
   'amount': (widget.amount * 100).toInt(),
   'order_id': widget.razorpayOrderId,
   ...
@@ -43,7 +43,7 @@ final options = {
 final user = ref.read(authProvider).valueOrNull;
 final phone = user?.phone.replaceFirst('+91', '') ?? '9876543210';
 final options = {
-  'key': 'rzp_test_T7lL1ZSiEFthEp',
+  'key': '<redacted-razorpay-test-key>',
   'amount': (widget.amount * 100).toInt(),
   'order_id': widget.razorpayOrderId,
   'prefill': {

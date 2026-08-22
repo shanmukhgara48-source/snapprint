@@ -2,6 +2,25 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def looks_like_placeholder(value: str) -> bool:
+    normalized = value.strip().lower()
+    if not normalized:
+        return False
+    placeholder_tokens = (
+        "<",
+        ">",
+        "replace",
+        "placeholder",
+        "changeme",
+        "xxxxx",
+        "your-",
+        "your_",
+        "example.com",
+        "example.",
+    )
+    return any(token in normalized for token in placeholder_tokens)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -28,11 +47,16 @@ class Settings(BaseSettings):
     r2_bucket_name: str = "snap-photo"
     r2_public_url: str = ""
 
-    # Google Gemini / GenAI. Keep keys server-side only; never ship them to Flutter.
+    # Google Gemini / GenAI (legacy — kept for backwards compat, not used if HF is set)
     gemini_api_key: str = ""
     google_api_key: str = ""
     gemini_image_model: str = "gemini-3.1-flash-image"
     gemini_text_model: str = "gemini-3.5-flash"
+
+    # Hugging Face Inference API (open-source AI editing)
+    hf_api_token: str = ""
+    hf_edit_model: str = "black-forest-labs/FLUX.1-schnell"
+    hf_vision_model: str = "google/gemma-3-4b-it"
 
     # Dedicated segmentation worker. Background removal is intentionally
     # separate from generative image editing so the original pixels, alpha,

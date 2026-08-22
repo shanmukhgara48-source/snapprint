@@ -26,7 +26,7 @@ export function PolicyLayout({ title, lastUpdated, intro, sections }: PolicyLayo
         <div className="mx-auto max-w-6xl">
           <div className="max-w-2xl">
             <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">Policy</span>
-            <h1 className="font-display mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-6xl">{title}</h1>
+            <h1 className="font-display mt-3 text-3xl font-semibold tracking-normal text-balance sm:text-6xl">{title}</h1>
             <p className="mt-5 inline-flex items-center rounded-full border border-[var(--color-border-strong)] px-3 py-1 text-xs text-[var(--color-muted)]">
               Last updated: {lastUpdated}
             </p>

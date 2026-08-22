@@ -24,16 +24,37 @@ class PromptEditIntent {
 }
 
 const promptEditSuggestions = <String>[
-  'Make this black and white',
-  'Colorize this old photo',
-  'Turn this into anime',
-  'Make it cinematic',
-  'Remove the background',
-  'Replace background with beach',
-  'Upscale to 4K',
+  // Style Transfer
+  'Make it anime style',
+  'Oil painting effect',
+  'Pencil sketch look',
+  'Turn into 3D render',
+  // Enhancement
+  'Enhance photo quality',
+  'Sharpen details',
+  'Make it HDR',
+  // Background
+  'Remove background',
+  'Studio background',
+  'Beach background',
+  // Portrait
+  'Improve portrait',
+  'Smooth skin naturally',
+  // Scene
+  'Golden hour lighting',
+  'Make it sunset',
+  'Add rain effect',
+  // Object
+  'Remove people in back',
+  // Color & Lighting
+  'Warm vintage tones',
+  'Dramatic lighting',
+  'Cinematic color grade',
+  // Restore
   'Restore old photo',
-  'Blur background',
-  'Make it look professional',
+  'Colorize this photo',
+  // Fashion
+  'Change to formal outfit',
 ];
 
 PromptEditIntent classifyPromptEdit(String rawPrompt) {
@@ -129,7 +150,7 @@ PromptEditIntent classifyPromptEdit(String rawPrompt) {
       ),
     );
   }
-  if (_containsAny(prompt, ['warm', 'golden hour', 'sunset'])) {
+  if (_containsAny(prompt, ['warm', 'warm tone', 'warmer'])) {
     return const PromptEditIntent(
       operation: 'filter',
       label: 'Warm tone',
@@ -141,7 +162,7 @@ PromptEditIntent classifyPromptEdit(String rawPrompt) {
       ),
     );
   }
-  if (_containsAny(prompt, ['cool', 'winter'])) {
+  if (_containsAny(prompt, ['cool', 'cool tone', 'cooler'])) {
     return const PromptEditIntent(
       operation: 'filter',
       label: 'Cool tone',
@@ -221,6 +242,195 @@ PromptEditIntent classifyPromptEdit(String rawPrompt) {
       execution: PromptEditExecution.localTransform,
     );
   }
+  // --- Style transfer (artistic) ---
+  if (_containsAny(prompt, [
+    'anime',
+    'pixar',
+    'disney',
+    'ghibli',
+    'cartoon',
+    'pencil sketch',
+    'watercolor',
+    'oil painting',
+    'pop art',
+    'comic book',
+    'comic',
+    'clay',
+    'plasticine',
+    'lego',
+    'minecraft',
+    'cyberpunk',
+    'vaporwave',
+    'steampunk',
+    'art deco',
+    'impressionist',
+    'baroque',
+    'surreal',
+    '3d render',
+    'low poly',
+    'pixel art',
+    'ukiyo-e',
+    'art nouveau',
+    'turn into',
+    'in the style of',
+    'style of',
+  ])) {
+    return const PromptEditIntent(
+      operation: 'style_transfer',
+      label: 'Style transfer',
+      execution: PromptEditExecution.server,
+    );
+  }
+
+  // --- Scene transformation ---
+  if (_containsAny(prompt, [
+    'day to night',
+    'night to day',
+    'make it night',
+    'make it day',
+    'change season',
+    'change time',
+    'sunset',
+    'sunrise',
+    'golden hour',
+    'rainy',
+    'rain effect',
+    'snowy',
+    'snow effect',
+    'foggy',
+    'fog',
+    'underwater',
+    'apocalyptic',
+    'starry sky',
+    'northern lights',
+    'aurora',
+    'christmas',
+    'fireworks',
+  ])) {
+    return const PromptEditIntent(
+      operation: 'scene_transform',
+      label: 'Scene transform',
+      execution: PromptEditExecution.server,
+    );
+  }
+
+  // --- Fashion editing ---
+  if (_containsAny(prompt, [
+    'change outfit',
+    'change clothes',
+    'change clothing',
+    'wearing',
+    'formal outfit',
+    'casual outfit',
+    'suit',
+    'dress',
+    'hoodie',
+    'jacket',
+    'uniform',
+    'costume',
+    'swap outfit',
+    'wedding dress',
+    'traditional',
+    'saree',
+    'kurta',
+  ])) {
+    return const PromptEditIntent(
+      operation: 'fashion_edit',
+      label: 'Fashion edit',
+      execution: PromptEditExecution.server,
+    );
+  }
+
+  // --- Interior design ---
+  if (_containsAny(prompt, [
+    'redesign room',
+    'redecorate',
+    'change furniture',
+    'living room',
+    'bedroom',
+    'kitchen',
+    'bathroom',
+    'minimalist room',
+    'change wallpaper',
+    'room makeover',
+    'home design',
+    'interior',
+    'scandinavian',
+    'industrial style',
+    'bohemian',
+  ])) {
+    return const PromptEditIntent(
+      operation: 'interior_design',
+      label: 'Interior design',
+      execution: PromptEditExecution.server,
+    );
+  }
+
+  // --- Text & graphic overlay ---
+  if (_containsAny(prompt, [
+    'add text',
+    'write text',
+    'put text',
+    'overlay text',
+    'add logo',
+    'caption',
+    'title',
+    'label',
+    'add watermark',
+    'add stamp',
+    'typography',
+    'lettering',
+  ])) {
+    return const PromptEditIntent(
+      operation: 'text_graphic',
+      label: 'Text overlay',
+      execution: PromptEditExecution.server,
+    );
+  }
+
+  // --- Color & lighting (server-side advanced) ---
+  if (_containsAny(prompt, [
+    'color grade',
+    'color grading',
+    'warm tone',
+    'cool tone',
+    'dramatic lighting',
+    'neon',
+    'moody',
+    'film grain',
+    'desaturate',
+    'cross process',
+    'split toning',
+    'teal and orange',
+    'cinematic color',
+    'noir',
+    'bleach bypass',
+  ])) {
+    return const PromptEditIntent(
+      operation: 'color_lighting',
+      label: 'Color & lighting',
+      execution: PromptEditExecution.server,
+    );
+  }
+
+  // --- Multi-image ---
+  if (_containsAny(prompt, [
+    'combine',
+    'merge',
+    'collage',
+    'side by side',
+    'blend images',
+    'composite',
+    'double exposure',
+  ])) {
+    return const PromptEditIntent(
+      operation: 'multi_image',
+      label: 'Multi-image',
+      execution: PromptEditExecution.server,
+    );
+  }
+
+  // --- Photo enhancement (server) ---
   if (_containsAny(prompt, [
     'upscale',
     '4k',
@@ -230,13 +440,18 @@ PromptEditIntent classifyPromptEdit(String rawPrompt) {
     'deblur',
     'denoise',
     'noise removal',
+    'noise reduction',
+    'clarity',
+    'detail enhancement',
   ])) {
     return const PromptEditIntent(
-      operation: 'upscale',
-      label: 'Print upscale',
+      operation: 'photo_enhance',
+      label: 'Photo enhancement',
       execution: PromptEditExecution.server,
     );
   }
+
+  // --- Colorize ---
   if (_containsAny(prompt, ['colorize', 'colourize'])) {
     return const PromptEditIntent(
       operation: 'colorize',
@@ -244,6 +459,8 @@ PromptEditIntent classifyPromptEdit(String rawPrompt) {
       execution: PromptEditExecution.server,
     );
   }
+
+  // --- Restore ---
   if (_containsAny(prompt, [
     'restore',
     'scratch',
@@ -252,6 +469,8 @@ PromptEditIntent classifyPromptEdit(String rawPrompt) {
     'torn',
     'old photo',
     'repair',
+    'damaged',
+    'cracked',
   ])) {
     return const PromptEditIntent(
       operation: 'restore',
@@ -259,6 +478,8 @@ PromptEditIntent classifyPromptEdit(String rawPrompt) {
       execution: PromptEditExecution.server,
     );
   }
+
+  // --- Portrait editing ---
   if (_containsAny(prompt, [
     'face',
     'smile',
@@ -269,6 +490,14 @@ PromptEditIntent classifyPromptEdit(String rawPrompt) {
     'hair',
     'professional portrait',
     'portrait mode',
+    'skin',
+    'complexion',
+    'makeup',
+    'younger',
+    'older',
+    'beard',
+    'glasses',
+    'freckles',
   ])) {
     return const PromptEditIntent(
       operation: 'portrait',
@@ -276,32 +505,12 @@ PromptEditIntent classifyPromptEdit(String rawPrompt) {
       execution: PromptEditExecution.server,
     );
   }
-  if (_containsAny(prompt, [
-    'anime',
-    'pixar',
-    'disney',
-    'ghibli',
-    'cartoon',
-    'pencil',
-    'sketch',
-    'watercolor',
-    'oil painting',
-    'pop art',
-    'comic',
-    'clay',
-    'lego',
-    'minecraft',
-    'cyberpunk',
-    'vaporwave',
-    'christmas',
-    'rain',
-    'snow',
-    'summer',
-    'fireworks',
-  ])) {
+
+  // --- Legacy local filter catch ---
+  if (_containsAny(prompt, ['summer', 'rain', 'snow'])) {
     return const PromptEditIntent(
-      operation: 'filter',
-      label: 'AI style',
+      operation: 'scene_transform',
+      label: 'Scene transform',
       execution: PromptEditExecution.server,
     );
   }

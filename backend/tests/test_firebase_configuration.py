@@ -1,8 +1,17 @@
 import json
 from pathlib import Path
 
-from app.config import settings
+from app.config import looks_like_placeholder, settings
 from app.services import firebase_service
+
+
+def test_placeholder_detection_catches_release_blockers():
+    assert looks_like_placeholder("<firebase-web-api-key>")
+    assert looks_like_placeholder("replace-this-value")
+    assert looks_like_placeholder("rzp_live_xxxxx")
+    assert looks_like_placeholder("https://worker.example.com/v1/segment")
+    assert not looks_like_placeholder("snapprint-5076c")
+    assert not looks_like_placeholder("https://api.snapprint.in")
 
 
 def test_backend_token_audience_matches_android_firebase_project():

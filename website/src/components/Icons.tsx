@@ -131,6 +131,15 @@ export function ClockIcon({ className = 'h-5 w-5' }: IconProps) {
   )
 }
 
+export function SearchIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <circle cx="10.8" cy="10.8" r="6.8" />
+      <path d="M16 16l4 4" />
+    </svg>
+  )
+}
+
 export function CheckIcon({ className = 'h-5 w-5' }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">

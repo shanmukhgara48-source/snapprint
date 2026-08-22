@@ -28,7 +28,7 @@ abstract class CustomerRepository {
   Future<void> deleteAddress(String id);
   Future<void> setDefaultAddress(String id);
 
-  Future<Map<String, dynamic>> createRazorpayOrder(double amount);
+  Future<Map<String, dynamic>> createRazorpayOrder(Map<String, dynamic> data);
   Future<Map<String, dynamic>> verifyPayment(Map<String, dynamic> data);
 
   Future<OrderEntity> placeOrder(Map<String, dynamic> data);

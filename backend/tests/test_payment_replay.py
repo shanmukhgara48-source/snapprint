@@ -104,10 +104,27 @@ def test_payment_is_bound_to_user_amount_and_consumed_exactly_once(monkeypatch):
         )
         assert address.status_code == 201
 
-        created = client.post(
+        tampered_create = client.post(
             "/payments/razorpay/order",
             headers=headers,
             json={"amount": amount},
+        )
+        assert tampered_create.status_code == 422
+
+        created = client.post(
+            "/payments/razorpay/order",
+            headers=headers,
+            json={
+                "items": [
+                    {
+                        "product_id": product["id"],
+                        "qty": 1,
+                        "size": size["label"],
+                    }
+                ],
+                "address_id": address.json()["id"],
+                "delivery_type": "free",
+            },
         )
         assert created.status_code == 200
 

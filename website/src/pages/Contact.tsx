@@ -43,7 +43,7 @@ export function Contact() {
           </span>
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
             <div>
-              <h1 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-6xl">Contact Us</h1>
+              <h1 className="font-display text-4xl font-semibold tracking-normal text-balance sm:text-6xl">Contact Us</h1>
               <p className="mt-4 max-w-2xl leading-7 text-[var(--color-muted)]">
                 For product questions, order support, privacy requests, or payment queries, use
                 the details below.
@@ -91,7 +91,7 @@ export function Contact() {
                 <ReceiptIcon className="h-4 w-4" />
                 Business details
               </p>
-              <h2 className="font-display mt-3 text-2xl font-semibold tracking-tight">Registered business information</h2>
+              <h2 className="font-display mt-3 text-2xl font-semibold tracking-normal">Registered business information</h2>
               <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">
                 Official registration details for SnapPrint, published here for transparency.
               </p>

@@ -63,14 +63,19 @@ class CustomerRemoteDataSource {
   }
 
   Future<Map<String, dynamic>> calculateCart(
-      List<Map<String, dynamic>> items) async {
-    final response =
-        await _client.post(ApiEndpoints.cartCalculate, data: {'items': items});
+    List<Map<String, dynamic>> items,
+  ) async {
+    final response = await _client.post(
+      ApiEndpoints.cartCalculate,
+      data: {'items': items},
+    );
     return response.data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> validateCoupon(
-      String code, double subtotal) async {
+    String code,
+    double subtotal,
+  ) async {
     final response = await _client.post(
       ApiEndpoints.couponValidate,
       data: {'code': code, 'subtotal': subtotal},
@@ -92,9 +97,13 @@ class CustomerRemoteDataSource {
   }
 
   Future<AddressModel> updateAddress(
-      String id, Map<String, dynamic> data) async {
-    final response =
-        await _client.put(ApiEndpoints.addressDetail(id), data: data);
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _client.put(
+      ApiEndpoints.addressDetail(id),
+      data: data,
+    );
     return AddressModel.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -104,18 +113,21 @@ class CustomerRemoteDataSource {
   Future<void> setDefaultAddress(String id) =>
       _client.put(ApiEndpoints.addressSetDefault(id));
 
-  Future<Map<String, dynamic>> createRazorpayOrder(double amount) async {
+  Future<Map<String, dynamic>> createRazorpayOrder(
+    Map<String, dynamic> data,
+  ) async {
     final response = await _client.post(
       ApiEndpoints.razorpayCreateOrder,
-      data: {'amount': amount},
+      data: data,
     );
     return response.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> verifyPayment(
-      Map<String, dynamic> data) async {
-    final response =
-        await _client.post(ApiEndpoints.razorpayVerify, data: data);
+  Future<Map<String, dynamic>> verifyPayment(Map<String, dynamic> data) async {
+    final response = await _client.post(
+      ApiEndpoints.razorpayVerify,
+      data: data,
+    );
     return response.data as Map<String, dynamic>;
   }
 

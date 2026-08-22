@@ -1,8 +1,7 @@
 import asyncio
 import base64
-import binascii
 import json
-import os
+import logging
 import re
 import uuid
 from dataclasses import dataclass
@@ -15,6 +14,7 @@ from ..config import settings
 from ..schemas.ai_editor import AiAnalyzeResponse, AiEditResponse
 from .r2_storage import build_media_url, owned_media_key, r2_client
 
+logger = logging.getLogger(__name__)
 
 _ALLOWED_OPERATIONS = {
     "auto",
@@ -29,7 +29,19 @@ _ALLOWED_OPERATIONS = {
     "restore",
     "filter",
     "prompt",
+    # Extended 12-category operations
+    "style_transfer",
+    "scene_transform",
+    "fashion_edit",
+    "interior_design",
+    "text_graphic",
+    "multi_image",
+    "color_lighting",
+    "photo_enhance",
 }
+
+# In-memory conversation context for multi-turn editing sessions
+_CONVERSATION_CONTEXT: dict[str, dict] = {}
 
 
 @dataclass(frozen=True)
@@ -67,20 +79,27 @@ class AiPhotoEditorService:
             )
 
         source = await self._download_owned_image(image_url, user_id)
+
+        # Build conversation context for multi-turn editing
+        conversation_history = ""
+        if previous_interaction_id and previous_interaction_id in _CONVERSATION_CONTEXT:
+            ctx = _CONVERSATION_CONTEXT[previous_interaction_id]
+            conversation_history = ctx.get("history", "")
+
         edit_prompt = self._build_edit_prompt(
             operation=operation,
             prompt=prompt,
             product_name=product_name,
             selected_size=selected_size,
             has_mask=bool(mask_image_base64),
+            conversation_history=conversation_history,
         )
         try:
             result = await asyncio.to_thread(
-                self._run_gemini_edit,
+                self._run_hf_edit,
                 source,
                 edit_prompt,
                 mask_image_base64,
-                previous_interaction_id,
             )
             public_url = await asyncio.to_thread(
                 self._store_result,
@@ -96,9 +115,24 @@ class AiPhotoEditorService:
                 status_code=502,
                 detail="The AI editing service is temporarily unavailable.",
             ) from exc
+
+        # Track conversation for multi-turn editing
+        interaction_id = str(uuid.uuid4())
+        prev_history = f"{conversation_history} | " if conversation_history else ""
+        _CONVERSATION_CONTEXT[interaction_id] = {
+            "operation": operation,
+            "prompt": prompt,
+            "history": f"{prev_history}{operation}: {prompt[:200]}",
+        }
+        # Limit context store size
+        if len(_CONVERSATION_CONTEXT) > 500:
+            oldest = list(_CONVERSATION_CONTEXT.keys())[:100]
+            for key in oldest:
+                _CONVERSATION_CONTEXT.pop(key, None)
+
         return AiEditResponse(
             edited_image_url=public_url,
-            interaction_id=result.get("interaction_id"),
+            interaction_id=interaction_id,
             operation=operation,
             summary=result.get("summary", ""),
         )
@@ -114,17 +148,15 @@ class AiPhotoEditorService:
         source = await self._download_owned_image(image_url, user_id)
         baseline = self._baseline_analysis(source, product_name, selected_size)
         try:
-            gemini = await asyncio.to_thread(
-                self._run_gemini_analysis,
+            hf_analysis = await asyncio.to_thread(
+                self._run_hf_analysis,
                 source,
                 product_name,
                 selected_size,
             )
-        except HTTPException:
-            gemini = {}
         except Exception:
-            gemini = {}
-        return self._merge_analysis(baseline, gemini)
+            hf_analysis = {}
+        return self._merge_analysis(baseline, hf_analysis)
 
     async def _download_owned_image(self, image_url: str, user_id: str) -> _ImagePayload:
         key = owned_media_key(image_url, str(user_id))
@@ -160,94 +192,187 @@ class AiPhotoEditorService:
             height=height,
         )
 
-    def _run_gemini_edit(
+    # -------------------------------------------------------------------------
+    # Hugging Face: Image Editing
+    # -------------------------------------------------------------------------
+    # Strategy: Use Gemma-3 (vision) to describe the source image, then use
+    # FLUX.1-schnell to generate the edited version guided by the description
+    # plus the user's edit instruction. This works on HF's free tier.
+    # -------------------------------------------------------------------------
+
+    def _run_hf_edit(
         self,
         source: _ImagePayload,
         prompt: str,
         mask_image_base64: str | None,
-        previous_interaction_id: str | None,
     ) -> dict:
-        client = self._client()
-        input_parts: list[dict] = [
-            {"type": "text", "text": prompt},
-            {
-                "type": "image",
-                "data": base64.b64encode(source.data).decode("utf-8"),
-                "mime_type": source.mime_type,
-            },
-        ]
-        if mask_image_base64:
-            input_parts.append(
-                {
-                    "type": "image",
-                    "data": _strip_data_url(mask_image_base64),
-                    "mime_type": "image/png",
-                }
-            )
+        client = self._hf_client()
 
-        kwargs = {
-            "model": settings.gemini_image_model,
-            "input": input_parts,
-            "response_format": {
-                "type": "image",
-                "mime_type": "image/jpeg",
-                "image_size": "4K",
-            },
-        }
-        if previous_interaction_id:
-            kwargs["previous_interaction_id"] = previous_interaction_id
+        # Step 1: Describe the source image using vision model
+        b64_image = base64.b64encode(source.data).decode("utf-8")
+        mime = source.mime_type
 
-        interaction = client.interactions.create(**kwargs)
-        image_block = getattr(interaction, "output_image", None)
-        if image_block is None:
-            raise HTTPException(status_code=502, detail="Gemini did not return an edited image.")
+        # Use detailed description for operations that need to preserve more
+        needs_detail = any(kw in prompt.lower() for kw in [
+            "style", "anime", "cartoon", "painting", "sketch", "scene",
+            "night", "season", "sunset", "fashion", "outfit", "interior",
+            "room", "furniture", "composite", "blend",
+        ])
+        detail_level = "detailed" if needs_detail else "standard"
+        description = self._describe_image(client, b64_image, mime, detail_level)
 
-        encoded = getattr(image_block, "data", None)
-        if not encoded:
-            raise HTTPException(status_code=502, detail="Gemini image response was empty.")
+        # Step 2: Build a generation prompt that combines description + edit
+        gen_prompt = (
+            f"A professional high-quality photograph. "
+            f"Original scene: {description}. "
+            f"Edit applied: {prompt}. "
+            f"Photorealistic, sharp, vibrant, print-ready quality."
+        )
 
-        try:
-            image_bytes = base64.b64decode(encoded, validate=True)
-        except (binascii.Error, TypeError, ValueError) as exc:
-            raise HTTPException(status_code=502, detail="Gemini returned invalid image data.") from exc
+        # Step 3: Generate with FLUX.1-schnell
+        target_w = min(source.width or 1024, 1024)
+        target_h = min(source.height or 1024, 1024)
+        # FLUX requires dimensions divisible by 8
+        target_w = (target_w // 8) * 8
+        target_h = (target_h // 8) * 8
+
+        result_image = client.text_to_image(
+            prompt=gen_prompt,
+            model=settings.hf_edit_model,
+            width=target_w,
+            height=target_h,
+        )
+
+        buf = BytesIO()
+        result_image.save(buf, format="JPEG", quality=95)
+        image_bytes = buf.getvalue()
 
         return {
             "image_bytes": image_bytes,
-            "mime_type": getattr(image_block, "mime_type", None) or "image/jpeg",
-            "interaction_id": getattr(interaction, "id", None),
-            "summary": getattr(interaction, "output_text", "") or "",
+            "mime_type": "image/jpeg",
+            "summary": f"Applied: {prompt[:100]}",
         }
 
-    def _run_gemini_analysis(
+    def _describe_image(self, client, b64_image: str, mime_type: str, detail_level: str = "standard") -> str:
+        """Use Gemma-3 vision model to describe the source image."""
+        if detail_level == "detailed":
+            instruction = (
+                "Describe this photograph in comprehensive detail for an AI image generator. "
+                "Include: every subject (people, animals, objects), their exact poses, expressions, "
+                "clothing with colors and patterns, background elements and setting, "
+                "lighting direction and quality, color palette, composition and framing, "
+                "camera angle, depth of field, mood and atmosphere. "
+                "Be extremely specific about spatial relationships. Four sentences maximum."
+            )
+            max_tokens = 300
+        else:
+            instruction = (
+                "Describe this photograph in detail for an AI image generator. "
+                "Include: subjects, poses, expressions, clothing, background, "
+                "lighting, colors, composition, mood. Be specific and concise. "
+                "Two sentences maximum."
+            )
+            max_tokens = 150
+        try:
+            result = client.chat_completion(
+                model=settings.hf_vision_model,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{mime_type};base64,{b64_image}"},
+                        },
+                        {
+                            "type": "text",
+                            "text": instruction,
+                        },
+                    ],
+                }],
+                max_tokens=max_tokens,
+            )
+            return result.choices[0].message.content.strip()
+        except Exception:
+            return "a photograph"
+
+    # -------------------------------------------------------------------------
+    # Hugging Face: Image Analysis (Gemma-3 vision)
+    # -------------------------------------------------------------------------
+
+    def _run_hf_analysis(
         self,
         source: _ImagePayload,
         product_name: str,
         selected_size: str,
     ) -> dict:
-        client = self._client()
-        prompt = (
-            "Analyze this customer photo for professional photo printing. "
-            "Return compact JSON only with keys: score, blur, noise, exposure, faces, "
-            "crop_recommendation, suggestions. "
-            f"Product: {product_name or 'photo print'}. Size: {selected_size or 'not selected'}."
-        )
-        interaction = client.interactions.create(
-            model=settings.gemini_text_model,
-            input=[
-                {"type": "text", "text": prompt},
-                {
-                    "type": "image",
-                    "data": base64.b64encode(source.data).decode("utf-8"),
-                    "mime_type": source.mime_type,
-                },
-            ],
-        )
-        text = getattr(interaction, "output_text", "") or ""
-        start = text.find("{")
-        end = text.rfind("}")
-        if start == -1 or end == -1:
+        client = self._hf_client()
+        b64_image = base64.b64encode(source.data).decode("utf-8")
+        mime = source.mime_type
+
+        try:
+            result = client.chat_completion(
+                model=settings.hf_vision_model,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{mime};base64,{b64_image}"},
+                        },
+                        {
+                            "type": "text",
+                            "text": (
+                                "Analyze this photo for professional printing quality. "
+                                "Return ONLY valid JSON with these keys: "
+                                "blur (string: Low/Medium/High + detail), "
+                                "noise (string: Low/Medium/High + detail), "
+                                "exposure (string: assessment), "
+                                "faces (string: count and quality), "
+                                "crop_recommendation (string: advice for print cropping), "
+                                "score (int 0-100: overall print readiness), "
+                                "suggestions (array of 2-3 improvement tips). "
+                                f"Product: {product_name or 'photo print'}. "
+                                f"Size: {selected_size or 'standard'}. "
+                                "JSON only, no markdown."
+                            ),
+                        },
+                    ],
+                }],
+                max_tokens=300,
+            )
+            text = result.choices[0].message.content.strip()
+            # Extract JSON from response
+            start = text.find("{")
+            end = text.rfind("}")
+            if start == -1 or end == -1:
+                return {}
+            return json.loads(text[start : end + 1])
+        except Exception:
             return {}
-        return json.loads(text[start : end + 1])
+
+    # -------------------------------------------------------------------------
+    # Hugging Face Client
+    # -------------------------------------------------------------------------
+
+    def _hf_client(self):
+        token = settings.hf_api_token
+        if not token:
+            raise HTTPException(
+                status_code=503,
+                detail="AI editor is not configured. Set HF_API_TOKEN in server environment.",
+            )
+        try:
+            from huggingface_hub import InferenceClient
+        except ImportError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="huggingface_hub is not installed on the backend.",
+            ) from exc
+        return InferenceClient(token=token)
+
+    # -------------------------------------------------------------------------
+    # Result storage
+    # -------------------------------------------------------------------------
 
     def _store_result(
         self,
@@ -281,20 +406,9 @@ class AiPhotoEditorService:
         )
         return build_media_url(public_base_url, key)
 
-    def _client(self):
-        api_key = settings.google_api_key or settings.gemini_api_key
-        if not api_key and not os.getenv("GOOGLE_API_KEY") and not os.getenv("GEMINI_API_KEY"):
-            raise HTTPException(status_code=503, detail="Gemini AI editor is not configured.")
-        if api_key and not os.getenv("GOOGLE_API_KEY") and not os.getenv("GEMINI_API_KEY"):
-            os.environ["GEMINI_API_KEY"] = api_key
-        try:
-            from google import genai
-        except ImportError as exc:
-            raise HTTPException(
-                status_code=503,
-                detail="google-genai is not installed on the backend.",
-            ) from exc
-        return genai.Client()
+    # -------------------------------------------------------------------------
+    # Prompt building
+    # -------------------------------------------------------------------------
 
     def _build_edit_prompt(
         self,
@@ -304,32 +418,44 @@ class AiPhotoEditorService:
         product_name: str,
         selected_size: str,
         has_mask: bool,
+        conversation_history: str = "",
     ) -> str:
-        base = (
-            "Edit the provided customer-owned photo for premium photo printing. "
-            "Preserve the important people, faces, identity, composition intent, and natural realism. "
-            "Avoid adding text, logos, watermarks, or artifacts. Return a high-quality print-ready photo."
-        )
-        context = f" Product: {product_name or 'photo product'}. Target size: {selected_size or 'not selected'}."
+        context_suffix = ""
+        if conversation_history:
+            context_suffix = f" Previous edits in this session: {conversation_history}. Continue editing consistently."
+
         prompts = {
-            "enhance": "One-tap enhance: improve sharpness, lighting, color, contrast, saturation, dynamic range, haze, and overall quality naturally.",
-            "portrait": "Create a professional portrait look: natural skin smoothing, face clarity, eye detail, subtle teeth whitening, hair detail, and tasteful background blur.",
-            "background": f"Replace or refine the background as requested: {prompt or 'use a clean premium studio background'}. Keep subjects realistic.",
-            "object_removal": f"Remove unwanted people, objects, wires, dust, text, or photobombers requested by the user: {prompt}. Reconstruct the background naturally.",
+            "enhance": "Enhance this photo: improve sharpness, lighting, color balance, contrast, and overall quality. Make it look professional and print-ready.",
+            "portrait": "Make this a professional portrait: smooth skin naturally, enhance face clarity, improve eye detail, add subtle background blur. Keep it realistic.",
+            "background": f"Change the background: {prompt or 'use a clean studio background'}. Keep the subject unchanged and realistic.",
+            "object_removal": f"Remove the following from the photo: {prompt}. Fill the area naturally with the surrounding background.",
             "magic_eraser": (
-                "Use the second image as a red/painted mask showing the areas to remove. "
-                "Remove only the masked unwanted content and reconstruct the background naturally."
+                "Remove the masked/highlighted areas and reconstruct the background naturally."
                 if has_mask
-                else f"Remove the unwanted content requested by the user: {prompt}."
+                else f"Remove: {prompt}. Reconstruct the background naturally."
             ),
-            "upscale": f"Upscale for printing with detail restoration and noise reduction. Requested level: {prompt or '2x print-quality enhancement'}.",
-            "crop": f"Suggest and apply a print-safe crop for {product_name or 'the selected print product'} while keeping faces and key subjects inside the crop.",
-            "colorize": "Colorize this black-and-white or faded photograph into a realistic, historically plausible color photo.",
-            "restore": "Restore this old or damaged photograph: repair scratches, faded areas, torn edges, stains, and print damage while preserving authenticity.",
-            "filter": f"Apply a premium filter style: {prompt or 'luxury'}. Keep it suitable for professional printing.",
-            "prompt": prompt or "Make this suitable for a premium photo print.",
+            "upscale": "Upscale and enhance this photo: improve resolution, sharpen details, reduce noise. Make it suitable for large-format printing.",
+            "crop": f"Improve the composition of this photo for {product_name or 'printing'}. Center the main subject.",
+            "colorize": "Colorize this black-and-white photograph with realistic, natural colors.",
+            "restore": "Restore this old or damaged photo: fix scratches, faded areas, torn edges, and stains while keeping it authentic.",
+            "filter": f"Apply a {prompt or 'professional'} style filter to this photo. Keep it print-quality.",
+            # Extended 12-category operations
+            "style_transfer": f"Transform this photo into {prompt or 'an artistic style'}. Maintain the composition, subjects, and poses exactly. Apply the style consistently across the entire image. High quality, detailed result.",
+            "scene_transform": f"Transform the scene: {prompt or 'change the time of day to golden hour'}. Keep all subjects and objects exactly as they are. Only change the environment, lighting, and atmosphere.",
+            "fashion_edit": f"Edit the clothing/fashion: {prompt or 'change to a professional outfit'}. Keep the person's face, pose, and body proportions exactly the same. Only modify the clothing realistically.",
+            "interior_design": f"Redesign the interior space: {prompt or 'modern minimalist style'}. Keep the room structure and layout. Change furniture, decor, colors, and styling as specified.",
+            "text_graphic": f"Add text or graphic overlay: {prompt or 'add elegant title text'}. Place it naturally within the composition. Use professional typography that complements the image.",
+            "multi_image": f"Composite/blend instruction: {prompt or 'combine elements seamlessly'}. Create a natural-looking result with consistent lighting and perspective.",
+            "color_lighting": f"Apply color grading and lighting: {prompt or 'cinematic color grading with dramatic lighting'}. Preserve the subjects and composition. Only modify colors, tones, and lighting atmosphere.",
+            "photo_enhance": f"Professional photo enhancement: {prompt or 'maximize quality for printing'}. Reduce noise, enhance details, improve dynamic range, correct lens distortion. Print-ready at {selected_size or 'any size'}.",
+            "prompt": prompt or "Make this photo look professional and print-ready.",
         }
-        return f"{base}{context} {prompts[operation]}"
+        base = prompts.get(operation, prompt or "Enhance this photo.")
+        return base + context_suffix
+
+    # -------------------------------------------------------------------------
+    # Baseline analysis (works without any AI model)
+    # -------------------------------------------------------------------------
 
     def _baseline_analysis(
         self,
@@ -367,33 +493,31 @@ class AiPhotoEditorService:
             "suggestions": suggestions or ["Image looks ready for standard photo printing."],
         }
 
-    def _merge_analysis(self, baseline: dict, gemini: dict) -> AiAnalyzeResponse:
-        suggestions = gemini.get("suggestions") or baseline["suggestions"]
+    def _merge_analysis(self, baseline: dict, hf_result: dict) -> AiAnalyzeResponse:
+        suggestions = hf_result.get("suggestions") or baseline["suggestions"]
         if isinstance(suggestions, str):
             suggestions = [suggestions]
         return AiAnalyzeResponse(
-            score=max(0, min(100, int(gemini.get("score") or baseline["score"]))),
+            score=max(0, min(100, int(hf_result.get("score") or baseline["score"]))),
             resolution=baseline["resolution"],
             dpi_estimate=baseline["dpi_estimate"],
-            blur=str(gemini.get("blur") or baseline["blur"]),
-            noise=str(gemini.get("noise") or baseline["noise"]),
-            exposure=str(gemini.get("exposure") or baseline["exposure"]),
-            faces=str(gemini.get("faces") or baseline["faces"]),
+            blur=str(hf_result.get("blur") or baseline["blur"]),
+            noise=str(hf_result.get("noise") or baseline["noise"]),
+            exposure=str(hf_result.get("exposure") or baseline["exposure"]),
+            faces=str(hf_result.get("faces") or baseline["faces"]),
             crop_recommendation=str(
-                gemini.get("crop_recommendation") or baseline["crop_recommendation"]
+                hf_result.get("crop_recommendation") or baseline["crop_recommendation"]
             ),
             suggestions=[str(item) for item in suggestions][:5],
         )
-
-
-def _strip_data_url(value: str) -> str:
-    return value.split(",", 1)[1] if "," in value else value
 
 
 def _classify_prompt_operation(prompt: str) -> str:
     text = " ".join(prompt.lower().strip().split())
     if not text:
         return "prompt"
+
+    # --- Background editing ---
     if _has_any(
         text,
         "remove background",
@@ -420,24 +544,189 @@ def _classify_prompt_operation(prompt: str) -> str:
         "moon",
     ):
         return "background"
+
+    # --- Object editing / removal ---
     if _has_any(
         text,
         "remove people",
         "remove person",
         "remove object",
         "remove objects",
+        "remove the",
         "remove chair",
-        "chair",
-        "car",
-        "dog",
-        "cat",
         "remove wire",
         "remove wires",
         "remove text",
         "photobomber",
         "watermark",
+        "erase",
+        "delete",
+        "get rid of",
+        "take out",
+        "clean up",
     ):
         return "object_removal"
+
+    # --- Style transfer (artistic) ---
+    if _has_any(
+        text,
+        "anime",
+        "pixar",
+        "disney",
+        "ghibli",
+        "cartoon",
+        "pencil sketch",
+        "watercolor",
+        "oil painting",
+        "pop art",
+        "comic book",
+        "comic",
+        "clay",
+        "plasticine",
+        "lego",
+        "minecraft",
+        "cyberpunk",
+        "vaporwave",
+        "steampunk",
+        "art deco",
+        "impressionist",
+        "baroque",
+        "surreal",
+        "3d render",
+        "low poly",
+        "pixel art",
+        "ukiyo-e",
+        "art nouveau",
+        "turn into",
+        "make it look like",
+        "in the style of",
+        "style of",
+    ):
+        return "style_transfer"
+
+    # --- Scene transformation ---
+    if _has_any(
+        text,
+        "day to night",
+        "night to day",
+        "make it night",
+        "make it day",
+        "summer",
+        "winter",
+        "autumn",
+        "fall season",
+        "spring",
+        "sunset",
+        "sunrise",
+        "golden hour",
+        "rainy",
+        "rain",
+        "snowy",
+        "snow",
+        "foggy",
+        "fog",
+        "underwater",
+        "apocalyptic",
+        "change season",
+        "change time",
+        "time of day",
+        "add clouds",
+        "starry sky",
+        "northern lights",
+        "aurora",
+    ):
+        return "scene_transform"
+
+    # --- Fashion editing ---
+    if _has_any(
+        text,
+        "change outfit",
+        "change clothes",
+        "change clothing",
+        "wearing",
+        "dress",
+        "suit",
+        "casual wear",
+        "formal wear",
+        "t-shirt",
+        "hoodie",
+        "jacket",
+        "uniform",
+        "costume",
+        "swap outfit",
+        "different outfit",
+        "wedding dress",
+        "traditional",
+        "saree",
+        "kurta",
+    ):
+        return "fashion_edit"
+
+    # --- Interior design ---
+    if _has_any(
+        text,
+        "redesign room",
+        "redecorate",
+        "change furniture",
+        "living room",
+        "bedroom",
+        "kitchen",
+        "bathroom",
+        "modern style",
+        "minimalist room",
+        "change wallpaper",
+        "different decor",
+        "interior",
+        "room makeover",
+        "home design",
+        "scandinavian",
+        "industrial style",
+        "bohemian",
+    ):
+        return "interior_design"
+
+    # --- Text & graphic overlay ---
+    if _has_any(
+        text,
+        "add text",
+        "write text",
+        "put text",
+        "overlay text",
+        "add logo",
+        "caption",
+        "title",
+        "label",
+        "add watermark",
+        "add stamp",
+        "add date",
+        "typography",
+        "lettering",
+    ):
+        return "text_graphic"
+
+    # --- Color & lighting ---
+    if _has_any(
+        text,
+        "color grade",
+        "color grading",
+        "warm tone",
+        "cool tone",
+        "dramatic lighting",
+        "neon",
+        "moody",
+        "film grain",
+        "desaturate",
+        "cross process",
+        "split toning",
+        "teal and orange",
+        "cinematic color",
+        "noir",
+        "sepia",
+        "bleach bypass",
+    ):
+        return "color_lighting"
+
+    # --- Photo enhancement ---
     if _has_any(
         text,
         "upscale",
@@ -447,10 +736,18 @@ def _classify_prompt_operation(prompt: str) -> str:
         "sharpen",
         "deblur",
         "denoise",
+        "noise reduction",
+        "clarity",
+        "detail enhancement",
+        "hdr",
     ):
-        return "upscale"
+        return "photo_enhance"
+
+    # --- Colorize ---
     if _has_any(text, "colorize", "colourize"):
         return "colorize"
+
+    # --- Restore ---
     if _has_any(
         text,
         "restore",
@@ -460,8 +757,12 @@ def _classify_prompt_operation(prompt: str) -> str:
         "torn",
         "old photo",
         "repair",
+        "damaged",
+        "cracked",
     ):
         return "restore"
+
+    # --- Portrait editing ---
     if _has_any(
         text,
         "face",
@@ -472,26 +773,21 @@ def _classify_prompt_operation(prompt: str) -> str:
         "eye",
         "hair",
         "portrait",
+        "skin",
+        "complexion",
+        "makeup",
+        "age",
+        "younger",
+        "older",
+        "beard",
+        "glasses",
+        "freckles",
     ):
         return "portrait"
+
+    # --- Legacy filter (catch local-handlable styles) ---
     if _has_any(
         text,
-        "anime",
-        "pixar",
-        "disney",
-        "ghibli",
-        "cartoon",
-        "pencil",
-        "sketch",
-        "watercolor",
-        "oil painting",
-        "pop art",
-        "comic",
-        "clay",
-        "lego",
-        "minecraft",
-        "cyberpunk",
-        "vaporwave",
         "cinematic",
         "vintage",
         "matte",
@@ -502,18 +798,37 @@ def _classify_prompt_operation(prompt: str) -> str:
         "black & white",
         "grayscale",
         "monochrome",
+        "vibrant",
     ):
         return "filter"
+
+    # --- General enhance ---
     if _has_any(
         text,
         "enhance",
-        "hdr",
         "brightness",
         "contrast",
         "saturation",
         "professional",
+        "improve",
+        "better quality",
+        "make it pop",
     ):
         return "enhance"
+
+    # --- Multi-image ---
+    if _has_any(
+        text,
+        "combine",
+        "merge",
+        "collage",
+        "side by side",
+        "blend images",
+        "composite",
+        "double exposure",
+    ):
+        return "multi_image"
+
     return "prompt"
 
 

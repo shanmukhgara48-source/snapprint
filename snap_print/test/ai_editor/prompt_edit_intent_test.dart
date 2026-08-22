@@ -40,8 +40,43 @@ void main() {
         'colorize',
       );
       expect(classifyPromptEdit('Fix scratches').operation, 'restore');
-      expect(classifyPromptEdit('Upscale to 4K').operation, 'upscale');
-      expect(classifyPromptEdit('Turn into anime').operation, 'filter');
+      expect(classifyPromptEdit('Upscale to 4K').operation, 'photo_enhance');
+      expect(classifyPromptEdit('Turn into anime').operation, 'style_transfer');
+    });
+
+    test('routes extended 12-category operations correctly', () {
+      expect(
+        classifyPromptEdit('Oil painting effect').operation,
+        'style_transfer',
+      );
+      expect(
+        classifyPromptEdit('Make it sunset').operation,
+        'scene_transform',
+      );
+      expect(
+        classifyPromptEdit('Change outfit to suit').operation,
+        'fashion_edit',
+      );
+      expect(
+        classifyPromptEdit('Redesign room modern').operation,
+        'interior_design',
+      );
+      expect(
+        classifyPromptEdit('Add text overlay').operation,
+        'text_graphic',
+      );
+      expect(
+        classifyPromptEdit('Apply teal and orange color grading').operation,
+        'color_lighting',
+      );
+      expect(
+        classifyPromptEdit('Double exposure effect').operation,
+        'multi_image',
+      );
+      expect(
+        classifyPromptEdit('Sharpen and denoise').operation,
+        'photo_enhance',
+      );
     });
 
     test('uses generic prompt editing for unknown instructions', () {

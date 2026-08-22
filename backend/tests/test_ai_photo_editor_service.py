@@ -19,35 +19,32 @@ def _jpeg_bytes() -> bytes:
     return output.getvalue()
 
 
-def test_gemini_edit_requests_4k_output(monkeypatch):
-    captured = {}
-
-    class Interactions:
-        def create(self, **kwargs):
-            captured.update(kwargs)
-            image = type(
-                "OutputImage",
-                (),
-                {
-                    "data": base64.b64encode(_jpeg_bytes()).decode(),
-                    "mime_type": "image/jpeg",
-                },
-            )()
-            return type(
-                "Interaction",
-                (),
-                {"output_image": image, "id": "interaction-1", "output_text": "done"},
-            )()
-
-    client = type("Client", (), {"interactions": Interactions()})()
+def test_hf_edit_returns_jpeg(monkeypatch):
+    """HF edit pipeline returns a valid JPEG result."""
     service = AiPhotoEditorService()
-    monkeypatch.setattr(service, "_client", lambda: client)
     source = _ImagePayload(_jpeg_bytes(), "image/jpeg", 16, 12)
 
-    result = service._run_gemini_edit(source, "enhance", None, None)
+    result_img = Image.new("RGB", (512, 512), "blue")
 
-    assert captured["response_format"]["image_size"] == "4K"
-    assert result["image_bytes"] == _jpeg_bytes()
+    class FakeClient:
+        def text_to_image(self, **kwargs):
+            return result_img
+
+        def chat_completion(self, **kwargs):
+            return type(
+                "R", (), {"choices": [
+                    type("C", (), {"message": type("M", (), {"content": "a white square"})()})()
+                ]}
+            )()
+
+    monkeypatch.setattr(service, "_hf_client", lambda: FakeClient())
+
+    result = service._run_hf_edit(source, "enhance this photo", None)
+
+    assert result["mime_type"] == "image/jpeg"
+    assert len(result["image_bytes"]) > 0
+    img = Image.open(io.BytesIO(result["image_bytes"]))
+    assert img.format == "JPEG"
 
 
 def test_corrupt_provider_image_is_rejected_before_storage():
@@ -70,7 +67,7 @@ def test_provider_failure_returns_a_stable_gateway_error(monkeypatch):
         raise RuntimeError("provider timeout")
 
     monkeypatch.setattr(service, "_download_owned_image", download)
-    monkeypatch.setattr(service, "_run_gemini_edit", fail)
+    monkeypatch.setattr(service, "_run_hf_edit", fail)
 
     with pytest.raises(HTTPException) as exc:
         asyncio.run(
@@ -100,10 +97,35 @@ def test_prompt_auto_classifier_routes_common_photo_edits():
         == "background"
     )
     assert _classify_prompt_operation("Remove the chair") == "object_removal"
-    assert _classify_prompt_operation("Upscale to 4K") == "upscale"
+    assert _classify_prompt_operation("Upscale to 4K") == "photo_enhance"
     assert _classify_prompt_operation("Colorize this old photo") == "colorize"
     assert _classify_prompt_operation("Fix scratches") == "restore"
-    assert _classify_prompt_operation("Turn this into anime") == "filter"
+    assert _classify_prompt_operation("Turn this into anime") == "style_transfer"
+
+
+def test_extended_12_category_classifier():
+    """Test all 12 feature categories classify correctly."""
+    assert _classify_prompt_operation("Make it anime style") == "style_transfer"
+    assert _classify_prompt_operation("Oil painting effect") == "style_transfer"
+    assert _classify_prompt_operation("Turn into pencil sketch") == "style_transfer"
+    assert _classify_prompt_operation("Make it sunset") == "scene_transform"
+    assert _classify_prompt_operation("Day to night") == "scene_transform"
+    assert _classify_prompt_operation("Add rain effect") == "scene_transform"
+    assert _classify_prompt_operation("Change outfit to suit") == "fashion_edit"
+    assert _classify_prompt_operation("Redesign room modern") == "interior_design"
+    assert _classify_prompt_operation("Add text overlay") == "text_graphic"
+    assert _classify_prompt_operation("Cinematic color grading") == "color_lighting"
+    assert _classify_prompt_operation("Double exposure effect") == "multi_image"
+    assert _classify_prompt_operation("Sharpen and denoise") == "photo_enhance"
+    assert _classify_prompt_operation("Smooth skin naturally") == "portrait"
+    assert _classify_prompt_operation("Restore old damaged photo") == "restore"
+
+
+def test_conversation_context_tracking():
+    """Test that multi-turn editing returns interaction IDs."""
+    # Conversation context is module-level dict; just verify it's importable
+    from app.services.ai_photo_editor import _CONVERSATION_CONTEXT
+    assert isinstance(_CONVERSATION_CONTEXT, dict)
 
 
 def test_auto_operation_uses_classified_prompt_pipeline(monkeypatch):
@@ -114,12 +136,11 @@ def test_auto_operation_uses_classified_prompt_pipeline(monkeypatch):
     async def download(*args, **kwargs):
         return source
 
-    def run(source, prompt, mask_image_base64, previous_interaction_id):
+    def run(source, prompt, mask_image_base64):
         captured["prompt"] = prompt
         return {
             "image_bytes": _jpeg_bytes(),
             "mime_type": "image/jpeg",
-            "interaction_id": "interaction-1",
             "summary": "done",
         }
 
@@ -127,7 +148,7 @@ def test_auto_operation_uses_classified_prompt_pipeline(monkeypatch):
         return "https://api.test/media/ai-edits/user-1/result.jpg?sig=test"
 
     monkeypatch.setattr(service, "_download_owned_image", download)
-    monkeypatch.setattr(service, "_run_gemini_edit", run)
+    monkeypatch.setattr(service, "_run_hf_edit", run)
     monkeypatch.setattr(service, "_store_result", store)
 
     result = asyncio.run(

@@ -7,7 +7,8 @@ import '../providers/auth_provider.dart';
 const _kYellow = Color(0xFFF5FF2D);
 const _kBg = Color(0xFFF5F5F5);
 
-/// Profile setup — shown after OTP verification for new users (login tab flow).
+/// Profile setup — shown after OTP verification for new users (login tab flow)
+/// or after email sign-in with no Firestore profile.
 class RegisterScreen extends ConsumerStatefulWidget {
   final String phone;
 
@@ -54,6 +55,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hasPhone = widget.phone.isNotEmpty;
+
     return Scaffold(
       backgroundColor: _kBg,
       body: SafeArea(
@@ -135,43 +138,44 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Verified phone row
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0FFF4),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                            color:
-                                AppColors.primary.withValues(alpha: 0.3)),
+                    // Verified phone row (only shown when phone was used)
+                    if (hasPhone)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FFF4),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color:
+                                  AppColors.primary.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.phone_outlined,
+                                size: 18,
+                                color: AppColors.primary),
+                            const SizedBox(width: 10),
+                            Text(
+                              widget.phone,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: Color(0xFF1A1A1A)),
+                            ),
+                            const Spacer(),
+                            const Icon(Icons.verified_rounded,
+                                size: 18, color: AppColors.primary),
+                            const SizedBox(width: 4),
+                            const Text('Verified',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.phone_outlined,
-                              size: 18,
-                              color: AppColors.primary),
-                          const SizedBox(width: 10),
-                          Text(
-                            widget.phone,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                                color: Color(0xFF1A1A1A)),
-                          ),
-                          const Spacer(),
-                          const Icon(Icons.verified_rounded,
-                              size: 18, color: AppColors.primary),
-                          const SizedBox(width: 4),
-                          const Text('Verified',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+                    if (hasPhone) const SizedBox(height: 20),
 
                     const _FieldLabel('Full Name'),
                     const SizedBox(height: 8),
@@ -280,4 +284,3 @@ class _FieldLabel extends StatelessWidget {
     );
   }
 }
-

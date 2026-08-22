@@ -5,6 +5,9 @@ const apiBaseUrl = import.meta.env.VITE_API_URL;
 if (import.meta.env.PROD && !apiBaseUrl) {
   throw new Error("VITE_API_URL must be set for production builds.");
 }
+if (import.meta.env.PROD && !apiBaseUrl.startsWith("https://")) {
+  throw new Error("VITE_API_URL must use HTTPS for production builds.");
+}
 
 export const api = axios.create({
   baseURL: apiBaseUrl || "http://localhost:8000",

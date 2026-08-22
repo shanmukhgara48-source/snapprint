@@ -146,15 +146,15 @@ void addItem(CartItemEntity item) {
 
 ---
 
-### BUG-011 — Razorpay Key Defaulting to REPLACE_ME Placeholder (High) ✅ FIXED
-**Component:** Flutter Build — `payment_screen.dart`  
-**Symptom:** Razorpay SDK was initialized with key `rzp_test_REPLACE_ME` (placeholder), causing all payment attempts to fail with "Invalid API key".  
-**Root Cause:** Build command only passed `--dart-define=SNAPPRINT_API_URL=...` but omitted `--dart-define=RAZORPAY_KEY_ID=...`. The `String.fromEnvironment('RAZORPAY_KEY_ID', defaultValue: 'rzp_test_REPLACE_ME')` fell through to the default value.  
+### BUG-011 — Razorpay Key Defaulting to Placeholder (High) ✅ FIXED
+**Component:** Flutter Build — `payment_screen.dart`
+**Symptom:** Razorpay SDK was initialized with a placeholder test key, causing all payment attempts to fail with "Invalid API key".
+**Root Cause:** Build command only passed `--dart-define=SNAPPRINT_API_URL=...` but omitted `--dart-define=RAZORPAY_KEY_ID=...`. The payment key build define fell through to a placeholder test value.
 **Fix:** Rebuild APK with both dart-defines:
 ```bash
 flutter build apk --debug \
   --dart-define=SNAPPRINT_API_URL=http://192.168.0.106:8000 \
-  --dart-define=RAZORPAY_KEY_ID=rzp_test_T7ub1zMHZM6uO3
+  --dart-define=RAZORPAY_KEY_ID=<redacted-razorpay-test-key>
 ```
 **Verified:** Razorpay payment sheet opens with correct key.
 
@@ -230,10 +230,10 @@ if (token != null && token.isNotEmpty) {
 ---
 
 ### BUG-016 — iOS Firebase App ID Is Placeholder (High) 🔴 OPEN
-**Component:** Flutter — `snap_print/lib/firebase_options.dart`  
-**Symptom:** App crashes on iOS with `[core/no-app] No Firebase App '[DEFAULT]' has been created` or similar initialization failure.  
-**Root Cause:** `firebase_options.dart` has `appId: '1:204019052123:ios:REPLACE_WITH_IOS_APP_ID'` — a placeholder, not a real iOS app ID. The iOS bundle `com.snapprint.app` has not been registered in Firebase Console.  
-**Impact:** iOS build is non-functional. Android is unaffected (Android appId is real and correct).  
+**Component:** Flutter — `snap_print/lib/firebase_options.dart`
+**Symptom:** App crashes on iOS with `[core/no-app] No Firebase App '[DEFAULT]' has been created` or similar initialization failure.
+**Root Cause:** `firebase_options.dart` had a placeholder iOS app ID instead of a real Firebase iOS app ID. The iOS bundle `com.snapprint.app` had not been registered in Firebase Console.
+**Impact:** iOS build is non-functional. Android is unaffected (Android appId is real and correct).
 **Fix:**
 1. Go to Firebase Console → Project → Add App → iOS
 2. Register bundle ID: `com.snapprint.app`
@@ -282,7 +282,7 @@ if (token != null && token.isNotEmpty) {
 **Component:** Backend — `payment_service.py` / Razorpay account credentials
 **Session:** 3 (Physical Device: RZCW31FQWFL, 2026-08-13)
 **Symptom:** `POST /payments/razorpay/order` returns `502 Bad Gateway`. Backend log shows `razorpay.errors.BadRequestError: Authentication failed` raised from `client.order.create(...)` in `create_razorpay_order()`. This blocks checkout for every order — "Place Order" shows a generic "Something went wrong. Please try again." snackbar with no indication it's a payment-provider issue.
-**Root Cause Confirmed:** Not an app bug. `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` in `backend/.env` are syntactically clean (verified byte-for-byte via `od -c` — no stray whitespace/quotes) and match the test key documented as working in BUG-011 (`rzp_test_T7ub1zMHZM6uO3`). A direct, app-independent request to Razorpay's own API (`GET https://api.razorpay.com/v1/orders`) using those exact credentials returns `401 Unauthorized` from Razorpay itself. This is a regression since the 2026-07-29 end-to-end payment verification (checkout was confirmed working with this same key ID then) — the key secret was likely regenerated/revoked on the Razorpay dashboard, or the account's test-mode access changed, sometime between 2026-07-29 and 2026-08-13.
+**Root Cause Confirmed:** Not an app bug. `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` in `backend/.env` were syntactically clean (verified byte-for-byte via `od -c` — no stray whitespace/quotes) and matched the redacted test key documented as working in BUG-011. A direct, app-independent request to Razorpay's own API (`GET https://api.razorpay.com/v1/orders`) using those exact credentials returned `401 Unauthorized` from Razorpay itself. This is a regression since the 2026-07-29 end-to-end payment verification (checkout was confirmed working with this same key ID then) — the key secret was likely regenerated/revoked on the Razorpay dashboard, or the account's test-mode access changed, sometime between 2026-07-29 and 2026-08-13.
 **Impact:** 100% of checkout attempts fail at "Place Order." No customer can complete a purchase. This also blocked live-device verification of BUG-009 (Continue Shopping button), since the order-confirmation screen is only reachable after a completed payment and the app has no deep-link entry point to reach it directly.
 **Fix Required (cannot be done from this session):** Log into the Razorpay Dashboard → Settings → API Keys, confirm the test-mode key is still active, regenerate if needed, and update `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` in `backend/.env` (and the Flutter build's `--dart-define=RAZORPAY_KEY_ID=...`, kept in sync per BUG-011) with the fresh test-mode values. Per standing instructions, this must stay a **test-mode** key — do not switch to live keys.
 **Verification once fixed:** Re-run `curl -u "$RAZORPAY_KEY_ID:$RAZORPAY_KEY_SECRET" https://api.razorpay.com/v1/orders?count=1` and confirm `200` instead of `401`, then retry the on-device checkout flow.

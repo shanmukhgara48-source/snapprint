@@ -1,11 +1,11 @@
 # SnapPrint QA Report — Full End-to-End Purchase Flow
-**Date:** 2026-06-30  
-**Tester:** QA Automation (Claude Code)  
-**App Version:** 1.0.0  
-**Platform:** Android Emulator — Medium Phone API 36.1 (1080×2400 px, density 420)  
-**Backend:** FastAPI 0.115 + PostgreSQL + Firebase Auth  
-**Payment:** Razorpay SDK (test mode — rzp_test_T7lL1ZSiEFthEp)  
-**Storage:** Cloudflare R2 (presigned URL upload)  
+**Date:** 2026-06-30
+**Tester:** QA Automation (Claude Code)
+**App Version:** 1.0.0
+**Platform:** Android Emulator — Medium Phone API 36.1 (1080×2400 px, density 420)
+**Backend:** FastAPI 0.115 + PostgreSQL + Firebase Auth
+**Payment:** Razorpay SDK test mode with a redacted test key ID
+**Storage:** Cloudflare R2 (presigned URL upload)
 **Test Duration:** ~3 hours (including bug discovery, fixes, rebuilds, retesting)
 
 ---

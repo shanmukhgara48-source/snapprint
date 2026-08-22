@@ -68,7 +68,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         }
         return;
       }
-      final razorpayOrder = await ds.createRazorpayOrder(cart.total);
+      final checkoutPayload = {
+        'items': cart.items
+            .map(
+              (item) => {
+                'product_id': item.productId,
+                'qty': item.quantity,
+                'size': item.selectedSize,
+                'image_url': item.customizationImageUrl,
+              },
+            )
+            .toList(),
+        'address_id': selectedAddress.id,
+        'delivery_type': cart.deliveryTypeKey,
+        if (cart.couponCode != null) 'coupon_code': cart.couponCode,
+      };
+      final razorpayOrder = await ds.createRazorpayOrder(checkoutPayload);
 
       if (mounted) {
         context.push(

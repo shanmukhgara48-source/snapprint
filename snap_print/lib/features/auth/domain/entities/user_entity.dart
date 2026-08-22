@@ -6,6 +6,7 @@ class UserEntity {
     required this.role,
     required this.isActive,
     this.displayName,
+    this.email,
     this.fcmToken,
   });
 
@@ -15,5 +16,6 @@ class UserEntity {
   final String role; // 'customer' | 'delivery'
   final bool isActive;
   final String? displayName;
+  final String? email;
   final String? fcmToken;
 }

@@ -1,10 +1,5 @@
 /// Every action the AI editor toolbar can trigger, tagged with whether it
-/// runs purely on-device or needs the Gemini-backed server pipeline.
-///
-/// Adding a future AI provider (Phase 3: object removal, upscaling, etc.)
-/// only means branching on [serverOperationKey] inside
-/// `AiEditorRepository` — nothing here, in the notifier, or in the toolbar
-/// needs to change.
+/// runs purely on-device or needs the server pipeline.
 enum EditorTool {
   none,
   crop,
@@ -13,17 +8,25 @@ enum EditorTool {
   background,
   magicEraser,
   enhance,
+  // Extended 12-category tools
+  style,
+  scene,
+  colorGrading,
 }
 
 extension EditorToolServer on EditorTool {
   /// True when this tool always results in a call to the server `/ai/photo/edit`
   /// endpoint (as opposed to crop/rotate/adjust, which are local until "Apply").
   bool get isServerDriven => switch (this) {
-    EditorTool.magicEraser || EditorTool.enhance => true,
+    EditorTool.magicEraser ||
+    EditorTool.enhance ||
+    EditorTool.style ||
+    EditorTool.scene => true,
     EditorTool.crop ||
     EditorTool.transform ||
     EditorTool.adjust ||
-    EditorTool.background => false,
+    EditorTool.background ||
+    EditorTool.colorGrading => false,
     EditorTool.none => false,
   };
 }

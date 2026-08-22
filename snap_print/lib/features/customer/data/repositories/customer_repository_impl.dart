@@ -82,8 +82,8 @@ class CustomerRepositoryImpl implements CustomerRepository {
       _dataSource.setDefaultAddress(id);
 
   @override
-  Future<Map<String, dynamic>> createRazorpayOrder(double amount) =>
-      _dataSource.createRazorpayOrder(amount);
+  Future<Map<String, dynamic>> createRazorpayOrder(Map<String, dynamic> data) =>
+      _dataSource.createRazorpayOrder(data);
 
   @override
   Future<Map<String, dynamic>> verifyPayment(Map<String, dynamic> data) =>

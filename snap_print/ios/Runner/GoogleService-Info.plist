@@ -2,18 +2,24 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CLIENT_ID</key>
+	<string>204019052123-h8aqt2sk94epbcf26hooc0rgs1at2pb8.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.204019052123-h8aqt2sk94epbcf26hooc0rgs1at2pb8</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>204019052123-47m14j9hnq65ktgall3bf92m3r21l579.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
-	<string>AIzaSyDRt7p3OTLXgn7vHyyqx-TJCCmDmnMC9R8</string>
+	<string>AIzaSyBckoL4ulXInB0M9b291uEEoWroN6wUDls</string>
 	<key>GCM_SENDER_ID</key>
-	<string>3125789062</string>
+	<string>204019052123</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>com.snapprint.app</string>
 	<key>PROJECT_ID</key>
-	<string>snap-print-7146d</string>
+	<string>snapprint-5076c</string>
 	<key>STORAGE_BUCKET</key>
-	<string>snap-print-7146d.firebasestorage.app</string>
+	<string>snapprint-5076c.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:3125789062:ios:c64e4fc58a23e89a732c07</string>
+	<string>1:204019052123:ios:ec45b1e5f13aceb220197e</string>
 </dict>
 </plist>

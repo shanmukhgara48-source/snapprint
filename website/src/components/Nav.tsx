@@ -34,7 +34,7 @@ export function Nav() {
       }`}
     >
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
-        <NavLink to="/" className="flex items-center gap-2.5 text-base font-extrabold tracking-tight text-[var(--color-ink)]">
+        <NavLink to="/" className="flex items-center gap-2.5 text-base font-extrabold tracking-normal text-[var(--color-ink)]">
           <LogoMark className="h-7.5 w-7.5" />
           Snap<span className="text-[var(--color-accent)]">Print</span>
         </NavLink>

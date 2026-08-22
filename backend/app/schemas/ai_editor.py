@@ -99,7 +99,7 @@ class AiEditRequest(BaseModel):
     image_url: str = Field(min_length=1, max_length=2048)
     operation: str = Field(
         ...,
-        description="auto, enhance, portrait, background, object_removal, magic_eraser, upscale, colorize, restore, filter, prompt",
+        description="auto, enhance, portrait, background, object_removal, magic_eraser, upscale, colorize, restore, filter, style_transfer, scene_transform, fashion_edit, interior_design, text_graphic, multi_image, color_lighting, photo_enhance, prompt",
     )
     prompt: str = Field(default="", max_length=4000)
     product_name: str = Field(default="", max_length=200)

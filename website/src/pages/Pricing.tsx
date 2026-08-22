@@ -41,7 +41,7 @@ export function Pricing() {
           </span>
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
             <div>
-              <h1 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
+              <h1 className="font-display text-4xl font-semibold tracking-normal text-balance sm:text-6xl">
                 Transparent product pricing
               </h1>
               <p className="mt-4 max-w-2xl leading-7 text-[var(--color-muted)]">
@@ -103,7 +103,7 @@ export function Pricing() {
               <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
                 Full price list
               </span>
-              <h2 className="font-display mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+              <h2 className="font-display mt-2 text-2xl font-semibold tracking-normal sm:text-3xl">
                 Product base prices
               </h2>
             </div>

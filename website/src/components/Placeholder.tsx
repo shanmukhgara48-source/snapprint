@@ -13,9 +13,9 @@ interface PlaceholderProps {
  */
 export function Placeholder({ label, example }: PlaceholderProps) {
   return (
-    <span className="box-decoration-clone rounded border border-dashed border-red-500/70 bg-red-500/10 px-1.5 py-0.5 font-mono text-[0.82em] leading-relaxed text-red-300">
-      [PLACEHOLDER: {label}
-      {example ? ` — e.g. ${example}` : ''}]
+    <span className="box-decoration-clone rounded-md border border-dashed border-[var(--color-coral)]/70 bg-[var(--color-coral)]/10 px-1.5 py-0.5 text-[0.82em] font-semibold leading-relaxed text-[var(--color-coral)]">
+      Pending final detail: {label}
+      {example ? `, e.g. ${example}` : ''}
     </span>
   )
 }

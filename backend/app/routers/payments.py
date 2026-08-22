@@ -12,8 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
 from ..dependencies import require_customer
-from ..models import PaymentAttempt, PaymentIntent, User
+from ..models import Address, PaymentAttempt, PaymentIntent, User
+from ..schemas.cart import CartCalculateRequest, CartItemInput
 from ..services.event_bus import emit_event
+from ..services.order_service import calculate_cart
 from ..services.payment_service import (
     amount_to_paise,
     create_razorpay_order,
@@ -28,7 +30,10 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 class RazorpayOrderRequest(BaseModel):
-    amount: Decimal = Field(gt=0, le=1_000_000, multiple_of=Decimal("0.01"))
+    items: list[CartItemInput] = Field(min_length=1, max_length=100)
+    address_id: str = Field(min_length=1, max_length=128)
+    delivery_type: str = Field(default="free", min_length=1, max_length=50)
+    coupon_code: str | None = Field(default=None, max_length=64)
 
 
 class RazorpayVerifyRequest(BaseModel):
@@ -45,9 +50,31 @@ async def create_order(
     user: Annotated[User, Depends(require_customer)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
-    """Create a Razorpay order to be consumed by the Flutter SDK."""
+    """Create a Razorpay order using a server-calculated cart total."""
+    address_result = await db.execute(
+        select(Address).where(
+            Address.id == payload.address_id,
+            Address.user_id == user.id,
+        )
+    )
+    if address_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Address not found")
+
+    quote = await calculate_cart(
+        db,
+        CartCalculateRequest(
+            items=payload.items,
+            delivery_type=payload.delivery_type,
+            coupon_code=payload.coupon_code,
+        ),
+        user_id=user.id,
+    )
+    amount = Decimal(str(quote.total))
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Online payment is not required")
+
     try:
-        result = await asyncio.to_thread(create_razorpay_order, payload.amount)
+        result = await asyncio.to_thread(create_razorpay_order, amount)
     except Exception as exc:
         logger.exception("Could not create Razorpay order")
         raise HTTPException(502, "Payment provider is unavailable.") from exc
@@ -55,7 +82,7 @@ async def create_order(
         PaymentIntent(
             razorpay_order_id=result["razorpay_order_id"],
             user_id=user.id,
-            amount_paise=amount_to_paise(payload.amount),
+            amount_paise=amount_to_paise(amount),
             status="created",
         )
     )

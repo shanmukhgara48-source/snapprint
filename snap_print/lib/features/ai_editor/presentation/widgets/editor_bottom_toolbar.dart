@@ -5,6 +5,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../domain/editor_operation.dart';
 import '../providers/ai_editor_provider.dart';
 import 'editor_preset_sheet.dart';
+import 'editor_style_sheet.dart';
 
 class EditorBottomToolbar extends ConsumerWidget {
   const EditorBottomToolbar({super.key, required this.args});
@@ -66,6 +67,28 @@ class EditorBottomToolbar extends ConsumerWidget {
         onTap: state.isBusy
             ? null
             : () => notifier.setActiveTool(EditorTool.crop),
+      ),
+      _ToolbarItemData(
+        icon: Icons.brush_rounded,
+        label: 'Style',
+        active: state.activeTool == EditorTool.style,
+        onTap: state.isBusy
+            ? null
+            : () => showStyleSheet(context, ref, args),
+      ),
+      _ToolbarItemData(
+        icon: Icons.landscape_rounded,
+        label: 'Scene',
+        onTap: state.isBusy
+            ? null
+            : () => showSceneSheet(context, ref, args),
+      ),
+      _ToolbarItemData(
+        icon: Icons.auto_awesome_rounded,
+        label: 'Enhance',
+        onTap: state.isBusy
+            ? null
+            : () => notifier.applyPromptEdit('Enhance photo quality'),
       ),
     ];
 

@@ -1,11 +1,27 @@
 import { useMemo, useState } from 'react'
-import { categories, formatPrice, formatPriceRange, productCount, trendingProducts } from '../data/products'
+import {
+  catalogProducts,
+  categories,
+  formatPrice,
+  formatPriceRange,
+  overallPriceRange,
+  productCount,
+  trendingProducts,
+} from '../data/products'
 import type { CatalogProduct } from '../data/products'
 import { sameDayDeliveryNote } from '../data/delivery'
 import { Reveal } from '../components/Reveal'
 import { Button } from '../components/Button'
 import { handleSpotlight } from '../lib/spotlight'
-import { ArrowRightIcon, BookOpenIcon, CameraIcon, FrameIcon, GiftIcon } from '../components/Icons'
+import {
+  ArrowRightIcon,
+  BookOpenIcon,
+  CameraIcon,
+  FrameIcon,
+  GiftIcon,
+  PackageIcon,
+  SearchIcon,
+} from '../components/Icons'
 
 function CategoryIcon({ icon, className = 'h-5 w-5' }: { icon: string; className?: string }) {
   if (icon === 'book') return <BookOpenIcon className={className} />
@@ -81,11 +97,38 @@ function ProductCard({ product }: { product: CatalogProduct }) {
 }
 
 export function Products() {
-  const [activeId, setActiveId] = useState(categories[0].id)
+  const [activeId, setActiveId] = useState('all')
+  const [query, setQuery] = useState('')
   const activeCategory = useMemo(
-    () => categories.find((category) => category.id === activeId) ?? categories[0],
+    () => categories.find((category) => category.id === activeId),
     [activeId],
   )
+  const scopedProducts = activeCategory ? activeCategory.products : catalogProducts
+  const normalizedQuery = query.trim().toLowerCase()
+  const visibleProducts = useMemo(() => {
+    if (!normalizedQuery) return scopedProducts
+    return scopedProducts.filter((product) => {
+      const haystack = [
+        product.name,
+        product.categoryName,
+        product.summary,
+        product.minimum,
+        product.finish,
+        product.sizes.join(' '),
+      ]
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(normalizedQuery)
+    })
+  }, [normalizedQuery, scopedProducts])
+  const categoryTitle = activeCategory?.name ?? 'All products'
+  const categoryDescription =
+    activeCategory?.description ??
+    'Search the complete SnapPrint catalog across prints, albums, frames, wall decor, and personalised gifts.'
+  const categoryImage = activeCategory?.imageUrl ?? trendingProducts[0]?.imageUrl ?? categories[0].imageUrl
+  const categoryRange = activeCategory?.priceRange ?? overallPriceRange
+  const hasPriceOnRequest =
+    activeCategory?.hasPriceOnRequest ?? catalogProducts.some((product) => product.basePrice === 0)
 
   return (
     <div>
@@ -96,7 +139,7 @@ export function Products() {
           </span>
           <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
             <div>
-              <h1 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
+              <h1 className="font-display text-4xl font-semibold tracking-normal text-balance sm:text-6xl">
                 The SnapPrint catalog
               </h1>
               <p className="mt-4 max-w-2xl leading-7 text-[var(--color-muted)]">
@@ -122,6 +165,20 @@ export function Products() {
           role="tablist"
           aria-label="Product categories"
         >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeId === 'all'}
+            onClick={() => setActiveId('all')}
+            className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+              activeId === 'all'
+                ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]'
+                : 'border-[var(--color-border-strong)] text-[var(--color-muted)] hover:text-[var(--color-ink)]'
+            }`}
+          >
+            <PackageIcon className="h-4 w-4" />
+            All products
+          </button>
           {categories.map((category) => (
             <button
               key={category.id}
@@ -148,8 +205,8 @@ export function Products() {
             <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
               <div className="image-vignette aspect-[5/3]">
                 <img
-                  src={activeCategory.imageUrl}
-                  alt={activeCategory.name}
+                  src={categoryImage}
+                  alt={categoryTitle}
                   loading="eager"
                   decoding="async"
                   className="h-full w-full object-cover"
@@ -157,20 +214,20 @@ export function Products() {
               </div>
               <div className="p-6">
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
-                  <CategoryIcon icon={activeCategory.icon} />
+                  {activeCategory ? <CategoryIcon icon={activeCategory.icon} /> : <PackageIcon className="h-5 w-5" />}
                 </span>
-                <h2 className="font-display mt-5 text-2xl font-semibold tracking-tight">{activeCategory.name}</h2>
-                <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">{activeCategory.description}</p>
+                <h2 className="font-display mt-5 text-2xl font-semibold tracking-normal">{categoryTitle}</h2>
+                <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">{categoryDescription}</p>
                 <div className="mt-5 border-t border-[var(--color-border)] pt-5">
                   <p className="text-xs font-semibold tracking-wide text-[var(--color-muted-2)] uppercase">
-                    Category range
+                    Price range
                   </p>
                   <p className="mt-1 text-xl font-extrabold text-[var(--color-accent)]">
-                    {formatPriceRange(activeCategory.priceRange)}
+                    {formatPriceRange(categoryRange)}
                   </p>
-                  {activeCategory.hasPriceOnRequest && (
+                  {hasPriceOnRequest && (
                     <p className="mt-2 text-xs text-[var(--color-muted-2)]">
-                      Some products in this category are price on request.
+                      Some products are price on request.
                     </p>
                   )}
                 </div>
@@ -182,10 +239,10 @@ export function Products() {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
-                  {activeCategory.products.length} products
+                  {visibleProducts.length} of {scopedProducts.length} products
                 </p>
-                <h2 className="font-display mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-                  {activeCategory.name}
+                <h2 className="font-display mt-2 text-2xl font-semibold tracking-normal sm:text-3xl">
+                  {categoryTitle}
                 </h2>
               </div>
               <Button to="/pricing" variant="secondary" className="!px-5 !py-2.5">
@@ -194,13 +251,32 @@ export function Products() {
               </Button>
             </div>
 
+            <label className="mt-6 flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-muted)] focus-within:border-[var(--color-accent)]">
+              <SearchIcon className="h-5 w-5 shrink-0 text-[var(--color-accent)]" />
+              <span className="sr-only">Search catalog</span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search products, sizes, finishes, or occasions"
+                className="w-full bg-transparent text-[var(--color-ink)] outline-none placeholder:text-[var(--color-muted-2)]"
+              />
+            </label>
+
             <div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {activeCategory.products.map((product, index) => (
+              {visibleProducts.map((product, index) => (
                 <Reveal key={product.id} delay={index < 9 ? index * 35 : 0}>
                   <ProductCard product={product} />
                 </Reveal>
               ))}
             </div>
+            {visibleProducts.length === 0 && (
+              <div className="mt-8 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+                <p className="font-display text-2xl font-semibold">No matching products</p>
+                <p className="mt-2 text-sm text-[var(--color-muted)]">
+                  Try a broader term like album, frame, canvas, mug, poster, or print.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -212,7 +288,7 @@ export function Products() {
               <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
                 Trending now
               </span>
-              <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+              <h2 className="font-display mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
                 Popular picks from our catalog
               </h2>
             </Reveal>

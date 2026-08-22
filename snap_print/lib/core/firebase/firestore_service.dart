@@ -18,13 +18,15 @@ class FirestoreService {
     required String phone,
     required String role,
     String? displayName,
+    String? email,
   }) async {
     final data = {
       'phone': phone,
       'role': role,
       'isActive': true,
       'displayName': displayName ?? '',
-      'phoneVerified': true,
+      'email': email ?? '',
+      'phoneVerified': phone.isNotEmpty,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
@@ -36,6 +38,7 @@ class FirestoreService {
       role: role,
       isActive: true,
       displayName: displayName ?? '',
+      email: email,
     );
   }
 

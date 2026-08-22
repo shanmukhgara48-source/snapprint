@@ -8,6 +8,7 @@ class UserModel extends UserEntity {
     required super.role,
     required super.isActive,
     super.displayName,
+    super.email,
     super.fcmToken,
   });
 
@@ -19,6 +20,7 @@ class UserModel extends UserEntity {
         role: data['role'] as String? ?? 'customer',
         isActive: data['isActive'] as bool? ?? true,
         displayName: data['displayName'] as String?,
+        email: data['email'] as String?,
         fcmToken: data['fcmToken'] as String?,
       );
 
@@ -32,6 +34,7 @@ class UserModel extends UserEntity {
     role: data['role'] as String? ?? 'customer',
     isActive: data['is_active'] as bool? ?? true,
     displayName: displayName,
+    email: data['email'] as String?,
     fcmToken: data['fcm_token'] as String?,
   );
 
@@ -40,6 +43,7 @@ class UserModel extends UserEntity {
     'role': role,
     'isActive': isActive,
     'displayName': displayName,
+    'email': email,
     'fcmToken': fcmToken,
     'updatedAt': DateTime.now().toIso8601String(),
   };

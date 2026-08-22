@@ -96,7 +96,7 @@ class AuthNotifier extends AsyncNotifier<UserEntity?>
       final idToken = await firebaseUser.getIdToken();
       if (idToken == null) {
         dev.log(
-          '[PhoneAuth] backend sync skipped — no id token',
+          '[Auth] backend sync skipped — no id token',
           name: 'SnapPrint',
         );
         return null;
@@ -108,6 +108,7 @@ class AuthNotifier extends AsyncNotifier<UserEntity?>
         data: {
           'id_token': idToken,
           'phone': firebaseUser.phoneNumber ?? '',
+          'email': firebaseUser.email ?? '',
           'role': role,
           'fcm_token': ?token,
         },
@@ -122,7 +123,7 @@ class AuthNotifier extends AsyncNotifier<UserEntity?>
       await _storage.write(key: _storageKeyRole, value: user.role);
       ref.read(authSyncErrorProvider.notifier).state = null;
       dev.log(
-        '[PhoneAuth] backend sync success uid=${firebaseUser.uid}',
+        '[Auth] backend sync success uid=${firebaseUser.uid}',
         name: 'SnapPrint',
       );
       return user;
@@ -130,7 +131,7 @@ class AuthNotifier extends AsyncNotifier<UserEntity?>
       ref.read(authSyncErrorProvider.notifier).state =
           "Couldn't sync your session with the server. Cart, checkout, and orders may not work until you retry.";
       dev.log(
-        '[PhoneAuth] backend sync failed (non-fatal): $e',
+        '[Auth] backend sync failed (non-fatal): $e',
         name: 'SnapPrint',
       );
       return null;
@@ -148,7 +149,8 @@ class AuthNotifier extends AsyncNotifier<UserEntity?>
       phone: backendUser.phone,
       role: backendUser.role,
       isActive: backendUser.isActive,
-      displayName: profile?.displayName,
+      displayName: profile?.displayName ?? backendUser.displayName,
+      email: profile?.email ?? backendUser.email,
       fcmToken: backendUser.fcmToken,
     );
   }
@@ -173,6 +175,10 @@ class AuthNotifier extends AsyncNotifier<UserEntity?>
     final firebaseUser = ref.read(firebaseAuthServiceProvider).currentUser;
     if (firebaseUser != null) await _syncBackend(firebaseUser, fcmToken: token);
   }
+
+  // ---------------------------------------------------------------------------
+  // Phone Authentication
+  // ---------------------------------------------------------------------------
 
   /// Initiates SMS OTP. Returns the verificationId when the SMS is sent,
   /// or 'auto-verified' if Android auto-detected and signed in the user.
@@ -258,6 +264,142 @@ class AuthNotifier extends AsyncNotifier<UserEntity?>
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Email / Password Authentication
+  // ---------------------------------------------------------------------------
+
+  /// Signs in with email and password. Returns true if new user (no Firestore
+  /// profile yet — shouldn't normally happen for email login).
+  Future<bool> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      final authService = ref.read(firebaseAuthServiceProvider);
+      final userCred = await authService.signInWithEmail(
+        email: email,
+        password: password,
+      );
+      final firebaseUser = userCred.user;
+      if (firebaseUser == null) throw Exception('Authentication failed');
+
+      final backendUser = await _syncBackend(firebaseUser);
+      final profile = await _loadFromFirestore(firebaseUser);
+      if (profile == null) {
+        state = const AsyncData(null);
+        return true;
+      }
+
+      _verifiedJustNow = true;
+      state = AsyncData(_mergeBackendProfile(backendUser, profile));
+      _notifyListeners();
+      return false;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      return false;
+    }
+  }
+
+  /// Creates a new account with email and password, then creates the Firestore
+  /// profile immediately (unlike phone flow which splits OTP + profile setup).
+  Future<void> signUpWithEmail({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final authService = ref.read(firebaseAuthServiceProvider);
+      final userCred = await authService.signUpWithEmail(
+        email: email,
+        password: password,
+      );
+      final firebaseUser = userCred.user;
+      if (firebaseUser == null) throw Exception('Account creation failed');
+
+      // Set display name on Firebase Auth profile
+      await firebaseUser.updateDisplayName(displayName);
+
+      // Create Firestore profile
+      final profile = await ref.read(firestoreServiceProvider).createUser(
+        uid: firebaseUser.uid,
+        phone: '',
+        role: 'customer',
+        displayName: displayName,
+        email: email,
+      );
+
+      // Sync with backend
+      final backendUser = await _syncBackend(firebaseUser);
+      final user = _mergeBackendProfile(backendUser, profile) ?? profile;
+      await _storage.write(key: _storageKeyRole, value: user.role);
+
+      _verifiedJustNow = true;
+      _notifyListeners();
+      return user;
+    });
+  }
+
+  /// Sends a password reset email.
+  Future<void> sendPasswordResetEmail(String email) async {
+    final authService = ref.read(firebaseAuthServiceProvider);
+    await authService.sendPasswordResetEmail(email);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Google Sign-In
+  // ---------------------------------------------------------------------------
+
+  /// Signs in with Google. Creates Firestore profile if new user. Returns true
+  /// if this is a brand-new user.
+  Future<bool> signInWithGoogle() async {
+    state = const AsyncLoading();
+    try {
+      final authService = ref.read(firebaseAuthServiceProvider);
+      final userCred = await authService.signInWithGoogle();
+      if (userCred == null) {
+        // User cancelled the Google sign-in flow
+        state = const AsyncData(null);
+        return false;
+      }
+
+      final firebaseUser = userCred.user;
+      if (firebaseUser == null) throw Exception('Authentication failed');
+
+      final backendUser = await _syncBackend(firebaseUser);
+      final profile = await _loadFromFirestore(firebaseUser);
+
+      if (profile == null) {
+        // New user — create Firestore profile from Google account info
+        final newProfile = await ref.read(firestoreServiceProvider).createUser(
+          uid: firebaseUser.uid,
+          phone: firebaseUser.phoneNumber ?? '',
+          role: 'customer',
+          displayName: firebaseUser.displayName ?? '',
+          email: firebaseUser.email ?? '',
+        );
+
+        _verifiedJustNow = true;
+        state = AsyncData(_mergeBackendProfile(backendUser, newProfile) ?? newProfile);
+        _notifyListeners();
+        return true;
+      }
+
+      _verifiedJustNow = true;
+      state = AsyncData(_mergeBackendProfile(backendUser, profile));
+      _notifyListeners();
+      return false;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Profile Completion (phone flow — new users only)
+  // ---------------------------------------------------------------------------
+
   /// Creates the Firestore profile after OTP verification (new users only).
   Future<void> completeProfile({
     required String phone,
@@ -278,6 +420,7 @@ class AuthNotifier extends AsyncNotifier<UserEntity?>
             phone: phone,
             role: role,
             displayName: displayName,
+            email: firebaseUser.email,
           );
 
       final backendUser = await _syncBackend(firebaseUser, role: role);
@@ -288,6 +431,10 @@ class AuthNotifier extends AsyncNotifier<UserEntity?>
       return user;
     });
   }
+
+  // ---------------------------------------------------------------------------
+  // Dev Login (debug only)
+  // ---------------------------------------------------------------------------
 
   /// Dev-only: logs in via backend bypass without real Firebase OTP.
   /// Only callable in debug builds — no-ops in release.
@@ -329,6 +476,8 @@ class AuthNotifier extends AsyncNotifier<UserEntity?>
       // Dev login never fires Firebase's authStateChanges, so the realtime
       // service's auth listener won't see this sign-in — kick it directly.
       ref.read(realtimeServiceProvider).reconnect();
+      // Clear any previous sync error (e.g. from a failed Google Sign-In).
+      ref.read(authSyncErrorProvider.notifier).state = null;
 
       _verifiedJustNow = true;
       _notifyListeners();
@@ -342,6 +491,10 @@ class AuthNotifier extends AsyncNotifier<UserEntity?>
       );
     });
   }
+
+  // ---------------------------------------------------------------------------
+  // Sign Out
+  // ---------------------------------------------------------------------------
 
   Future<void> signOut() async {
     setDevAuthToken(null);

@@ -1,3 +1,4 @@
+import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -18,7 +19,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
-from app.config import settings
+from app.config import looks_like_placeholder, settings
 from app.database import AsyncSessionLocal, Base, engine
 from app.models.admin_user import AdminUser
 from app.models.category import Category
@@ -30,22 +31,47 @@ from app.services.password import hash_password
 
 _IS_PROD = settings.is_production
 
+
+def _firebase_credentials_project_id() -> str:
+    try:
+        if settings.firebase_credentials_json:
+            data = json.loads(settings.firebase_credentials_json)
+        else:
+            data = json.loads(Path(settings.firebase_credentials_path).read_text())
+    except Exception as exc:
+        raise RuntimeError("Firebase Admin credentials must be valid JSON") from exc
+
+    project_id = data.get("project_id")
+    if not isinstance(project_id, str) or not project_id:
+        raise RuntimeError("Firebase Admin credentials must contain project_id")
+    return project_id
+
+
 # Fail fast if critical secrets are missing in production
 if _IS_PROD:
-    _missing = [k for k, v in {
+    _production_values = {
         "SECRET_KEY": settings.secret_key,
         "RAZORPAY_KEY_ID": settings.razorpay_key_id,
         "RAZORPAY_KEY_SECRET": settings.razorpay_key_secret,
         "FIREBASE_STORAGE_BUCKET": settings.firebase_storage_bucket,
         "FIREBASE_PROJECT_ID": settings.firebase_project_id,
+        "FIREBASE_API_KEY": settings.firebase_api_key,
         "R2_ACCESS_KEY_ID": settings.r2_access_key_id,
         "R2_SECRET_ACCESS_KEY": settings.r2_secret_access_key,
         "R2_ACCOUNT_ID": settings.r2_account_id,
+        "R2_BUCKET_NAME": settings.r2_bucket_name,
         "PUBLIC_API_URL": settings.public_api_url,
         "AI_SEGMENTATION_URL": settings.ai_segmentation_url,
         "AI_SEGMENTATION_TOKEN": settings.ai_segmentation_token,
         "ADMIN_PASSWORD": settings.admin_password,
-    }.items() if not v]
+        "FRONTEND_URL": settings.frontend_url,
+        "ALLOWED_ORIGINS": settings.allowed_origins,
+        "ALLOWED_HOSTS": settings.allowed_hosts,
+    }
+    _missing = [k for k, v in _production_values.items() if not v]
+    _placeholders = [
+        k for k, v in _production_values.items() if looks_like_placeholder(str(v))
+    ]
     if (
         not settings.firebase_credentials_json
         and (
@@ -57,26 +83,54 @@ if _IS_PROD:
     # DATABASE_URL always has a value (pydantic default), so check it's not
     # still pointing at the local-dev default — that would mean it was never
     # actually set for this deploy.
-    if settings.database_url == "postgresql+asyncpg://postgres:password@localhost:5432/snapprint":
+    if (
+        settings.database_url
+        == "postgresql+asyncpg://postgres:password@localhost:5432/snapprint"
+    ):
         _missing.append("DATABASE_URL")
+    if looks_like_placeholder(settings.database_url):
+        _placeholders.append("DATABASE_URL")
+    if settings.firebase_credentials_json and looks_like_placeholder(
+        settings.firebase_credentials_json
+    ):
+        _placeholders.append("FIREBASE_CREDENTIALS_JSON")
     if _missing:
         raise RuntimeError(f"Missing required production env vars: {', '.join(_missing)}")
+    if _placeholders:
+        raise RuntimeError(
+            f"Production env vars contain placeholder values: {', '.join(_placeholders)}"
+        )
+    if _firebase_credentials_project_id() != settings.firebase_project_id:
+        raise RuntimeError(
+            "Firebase Admin credentials project_id must match FIREBASE_PROJECT_ID"
+        )
     if settings.dev_bypass_secret:
         raise RuntimeError("DEV_BYPASS_SECRET must be empty when ENV=production")
     if settings.admin_password == "changeme123":
         raise RuntimeError("ADMIN_PASSWORD must be changed when ENV=production")
     if settings.allowed_hosts == "*":
         raise RuntimeError("ALLOWED_HOSTS must be restricted when ENV=production")
-    if settings.razorpay_key_id.startswith("rzp_test_"):
+    if not settings.razorpay_key_id.startswith("rzp_live_"):
         raise RuntimeError("RAZORPAY_KEY_ID must use live keys when ENV=production")
-    if len(settings.secret_key) < 32:
-        raise RuntimeError("SECRET_KEY must contain at least 32 characters in production")
+    if len(settings.secret_key) < 64:
+        raise RuntimeError("SECRET_KEY must contain at least 64 characters in production")
     if urlparse(settings.public_api_url).scheme != "https":
         raise RuntimeError("PUBLIC_API_URL must use HTTPS in production")
+    if urlparse(settings.frontend_url).scheme != "https":
+        raise RuntimeError("FRONTEND_URL must use HTTPS in production")
     if "*" in settings.allowed_origin_list or any(
         urlparse(origin).scheme != "https" for origin in settings.allowed_origin_list
     ):
         raise RuntimeError("ALLOWED_ORIGINS must contain only explicit HTTPS origins")
+    if any(
+        host in settings.public_api_url
+        for host in ("localhost", "127.0.0.1", "10.0.2.2")
+    ):
+        raise RuntimeError("PUBLIC_API_URL must not use a local development host")
+    if urlparse(settings.ai_segmentation_url).scheme != "https":
+        raise RuntimeError("AI_SEGMENTATION_URL must use HTTPS in production")
+    if settings.r2_public_url and urlparse(settings.r2_public_url).scheme != "https":
+        raise RuntimeError("R2_PUBLIC_URL must use HTTPS in production")
 
 _DEFAULT_DELIVERY_SETTINGS = [
     DeliverySetting(type="free",     label="Free Delivery",     price=0,  days_label="5-7 business days"),

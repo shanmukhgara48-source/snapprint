@@ -1,11 +1,11 @@
 {
-    "name": "snap_print",
-    "short_name": "snap_print",
+    "name": "SnapPrint",
+    "short_name": "SnapPrint",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Order personalized photo prints and photo products from SnapPrint.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
