@@ -28,7 +28,7 @@ service cloud.firestore {
       allow read: if isOwner(uid) || isAdmin();
       allow create: if isOwner(uid)
         && request.resource.data.keys().hasOnly([
-            'phone', 'role', 'isActive', 'displayName',
+            'phone', 'role', 'isActive', 'displayName', 'email',
             'phoneVerified', 'createdAt', 'updatedAt', 'fcmToken'
           ])
         && request.resource.data.role in ['customer', 'delivery'];
