@@ -11,7 +11,12 @@ import {
 import { deliveryOptions, formatDeliveryPrice } from '../data/delivery'
 import { Reveal } from '../components/Reveal'
 import { handleSpotlight } from '../lib/spotlight'
-import { ClockIcon, ReceiptIcon, ShieldCheckIcon, TruckIcon } from '../components/Icons'
+import {
+  ClockIcon,
+  ReceiptIcon,
+  ShieldCheckIcon,
+  TruckIcon,
+} from '../components/Icons'
 
 const paymentTrust = [
   {
@@ -27,7 +32,7 @@ const paymentTrust = [
   {
     icon: ClockIcon,
     title: 'Final total at checkout',
-    body: 'Size, finish, quantity, discounts, and delivery are confirmed in the app before payment.',
+    body: 'Size, finish, quantity, discounts, and delivery are confirmed at checkout from live server pricing before payment.',
   },
 ]
 
@@ -45,21 +50,23 @@ export function Pricing() {
                 Transparent product pricing
               </h1>
               <p className="mt-4 max-w-2xl leading-7 text-[var(--color-muted)]">
-                Base prices are listed in Indian Rupees and sourced from the backend seed catalog.
-                Prices run from {formatPrice(overallPriceRange[0])} to{' '}
-                {formatPrice(overallPriceRange[1])}. Shipping and final customisation totals are
-                calculated separately at checkout.
+                Starting prices are listed in Indian Rupees. Find the right fit
+                for your memories and your budget. Prices run from{' '}
+                {formatPrice(overallPriceRange[0])} to{' '}
+                {formatPrice(overallPriceRange[1])}. Shipping and final
+                customisation totals are calculated separately at checkout.
               </p>
             </div>
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-accent)]">
                 <ReceiptIcon className="h-4 w-4" />
-                Review-ready price list
+                Find your perfect fit
               </p>
               <p className="mt-3 text-3xl font-extrabold">{productCount}</p>
               <p className="mt-1 text-sm leading-6 text-[var(--color-muted)]">
-                products listed. {priceOnRequestCount} products are marked as price on request
-                and are quoted individually based on customisation.
+                products listed. {priceOnRequestCount} products are marked as
+                price on request and are quoted individually based on
+                customisation.
               </p>
             </div>
           </div>
@@ -77,8 +84,12 @@ export function Pricing() {
                 <p className="text-xs font-semibold tracking-wide text-[var(--color-muted-2)] uppercase">
                   {category.products.length} products
                 </p>
-                <h2 className="font-display mt-2 text-lg font-semibold">{category.name}</h2>
-                <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">{category.description}</p>
+                <h2 className="font-display mt-2 text-lg font-semibold">
+                  {category.name}
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-[var(--color-muted)]">
+                  {category.description}
+                </p>
                 <div className="mt-5 border-t border-[var(--color-border)] pt-5">
                   <p className="text-xs font-semibold tracking-wide text-[var(--color-muted-2)] uppercase">
                     Base price range
@@ -108,8 +119,8 @@ export function Pricing() {
               </h2>
             </div>
             <p className="max-w-md text-sm leading-6 text-[var(--color-muted)]">
-              Base price is the starting price. Exact line-item totals depend on selected
-              size, finish, quantity, discounts, and delivery.
+              Base price is the starting price. Exact line-item totals depend on
+              selected size, finish, quantity, discounts, and delivery.
             </p>
           </div>
           <div className="mt-6 overflow-x-auto rounded-xl border border-[var(--color-border)]">
@@ -118,8 +129,12 @@ export function Pricing() {
                 <tr className="sticky top-[64px] border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 text-[var(--color-ink)] backdrop-blur">
                   <th className="py-4 pr-4 pl-5 font-semibold">Product</th>
                   <th className="py-4 pr-4 font-semibold">Category</th>
-                  <th className="py-4 pr-4 font-semibold">Representative sizes</th>
-                  <th className="py-4 pr-5 text-right font-semibold">Base price</th>
+                  <th className="py-4 pr-4 font-semibold">
+                    Representative sizes
+                  </th>
+                  <th className="py-4 pr-5 text-right font-semibold">
+                    Base price
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -128,11 +143,22 @@ export function Pricing() {
                     key={product.id}
                     className="border-b border-[var(--color-border)] bg-[var(--color-bg)]/28 transition-colors last:border-0 hover:bg-[var(--color-accent-soft)]"
                   >
-                    <td className="py-4 pr-4 pl-5 font-semibold text-[var(--color-ink)]">{product.name}</td>
-                    <td className="py-4 pr-4 text-[var(--color-muted)]">{product.categoryName}</td>
+                    <td className="py-4 pr-4 pl-5 font-semibold text-[var(--color-ink)]">
+                      <Link
+                        to={`/products/${product.id}`}
+                        className="underline underline-offset-4"
+                      >
+                        {product.name}
+                      </Link>
+                    </td>
+                    <td className="py-4 pr-4 text-[var(--color-muted)]">
+                      {product.categoryName}
+                    </td>
                     <td className="max-w-sm py-4 pr-4 text-[var(--color-muted)]">
                       {product.sizes.slice(0, 3).join(', ')}
-                      {product.sizes.length > 3 ? `, +${product.sizes.length - 3} more` : ''}
+                      {product.sizes.length > 3
+                        ? `, +${product.sizes.length - 3} more`
+                        : ''}
                     </td>
                     <td className="py-4 pr-5 text-right font-extrabold text-[var(--color-accent)]">
                       {formatPrice(product.basePrice)}
@@ -156,13 +182,27 @@ export function Pricing() {
                   <item.icon className="h-5 w-5" />
                 </span>
                 <p className="mt-4 font-bold">{item.title}</p>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">{item.body}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">
+                  {item.body}
+                </p>
               </div>
             ))}
           </div>
           <p className="mt-6 text-sm leading-6 text-[var(--color-muted)]">
-            See the <Link to="/shipping" className="text-[var(--color-accent)] underline underline-offset-2">Shipping Policy</Link>{' '}
-            and <Link to="/refund" className="text-[var(--color-accent)] underline underline-offset-2">Cancellation and Refund Policy</Link>{' '}
+            See the{' '}
+            <Link
+              to="/shipping"
+              className="text-[var(--color-accent)] underline underline-offset-2"
+            >
+              Shipping Policy
+            </Link>{' '}
+            and{' '}
+            <Link
+              to="/refund"
+              className="text-[var(--color-accent)] underline underline-offset-2"
+            >
+              Cancellation and Refund Policy
+            </Link>{' '}
             for delivery and refund terms.
           </p>
         </Reveal>

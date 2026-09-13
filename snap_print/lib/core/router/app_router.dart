@@ -17,6 +17,7 @@ import '../../features/customer/presentation/screens/checkout_screen.dart';
 import '../../features/customer/presentation/screens/payment_screen.dart';
 import '../../features/customer/presentation/screens/order_confirmation_screen.dart';
 import '../../features/customer/presentation/screens/order_history_screen.dart';
+import '../../features/customer/presentation/screens/wishlist_screen.dart';
 import '../../features/customer/presentation/screens/profile_screen.dart';
 import '../../features/ai_editor/presentation/screens/ai_photo_editor_screen.dart';
 import '../../features/delivery/presentation/screens/delivery_home_screen.dart';
@@ -46,6 +47,7 @@ class AppRoutes {
   static const payment = '/customer/payment';
   static const orderConfirmation = '/customer/order-confirmation/:id';
   static const orderHistory = '/customer/orders';
+  static const wishlist = '/customer/wishlist';
   static const profile = '/customer/profile';
   static const deliveryHome = '/delivery';
   static const deliveryOrderDetail = '/delivery/order/:id';
@@ -182,6 +184,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.profile,
             builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.wishlist,
+            builder: (context, state) => const WishlistScreen(),
           ),
         ],
       ),

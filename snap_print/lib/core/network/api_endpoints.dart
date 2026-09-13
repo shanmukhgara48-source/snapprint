@@ -35,6 +35,21 @@ class ApiEndpoints {
   // Products
   static const String products = '/products';
   static String productDetail(String id) => '/products/$id';
+  static const String productsSuggest = '/products/suggest';
+  static const String productsRatings = '/products/ratings';
+  static String productReviews(String id) => '/products/$id/reviews';
+  static String productReviewSummary(String id) => '/products/$id/reviews/summary';
+  static String productBoughtTogether(String id) => '/products/$id/bought-together';
+  static String reviewHelpful(String id) => '/reviews/$id/helpful';
+
+  // Wishlist
+  static const String wishlist = '/wishlist';
+  static const String wishlistIds = '/wishlist/ids';
+  static String wishlistItem(String id) => '/wishlist/$id';
+
+  // Returns
+  static const String returns = '/returns';
+  static const String myReturns = '/returns/me';
 
   // Categories
   static const String categories = '/categories';

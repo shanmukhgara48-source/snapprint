@@ -1,11 +1,18 @@
 import { PolicyLayout } from '../components/PolicyLayout'
-import { Placeholder } from '../components/Placeholder'
+import { BusinessValue } from '../components/BusinessValue'
+import { Seo } from '../components/Seo'
 
 export function Refund() {
   return (
+    <>
+    <Seo
+      title="Cancellation and Refund Policy | SnapPrint"
+      description="SnapPrint cancellation windows and refund timelines for custom-printed orders."
+      path="/refund"
+    />
     <PolicyLayout
       title="Cancellation and Refund Policy"
-      lastUpdated={<Placeholder label="publish date" example="1 August 2026" />}
+      lastUpdated={<BusinessValue field="policyLastUpdated" fallback="Last reviewed: pending owner confirmation" />}
       intro="SnapPrint products are custom-printed from customer-provided photos. This policy explains when orders can be cancelled and how refunds are handled."
       sections={[
         {
@@ -23,7 +30,7 @@ export function Refund() {
           body: (
             <p>
               Orders may be cancelled within{' '}
-              <Placeholder label="customer cancellation window" example="1 hour of order placement" />{' '}
+              <BusinessValue field="cancellationWindow" />{' '}
               if production has not started. Once a product enters production, cancellation may
               no longer be available for that item.
             </p>
@@ -54,8 +61,8 @@ export function Refund() {
           heading: '5. How to Raise a Request',
           body: (
             <p>
-              Contact <Placeholder label="support email" example="support@snapprint.in" /> within{' '}
-              <Placeholder label="claim window" example="7 days of delivery" /> with your order
+              Contact <BusinessValue field="supportEmail" /> within{' '}
+              <BusinessValue field="claimWindow" /> with your order
               ID, issue description, and photos of any damaged, defective, or incorrect product.
             </p>
           ),
@@ -65,12 +72,13 @@ export function Refund() {
           body: (
             <p>
               Approved refunds are returned to the original payment method through Razorpay within{' '}
-              <Placeholder label="refund processing timeline" example="5-7 business days after approval" />.
+              <BusinessValue field="refundTimeline" />.
               Bank or payment-provider processing time may vary.
             </p>
           ),
         },
       ]}
     />
+    </>
   )
 }

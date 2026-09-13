@@ -1,451 +1,345 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  categories,
-  featuredProducts,
-  formatPrice,
-  formatPriceRange,
-  overallPriceRange,
-  priceOnRequestCount,
-  productCount,
-} from '../data/products'
-import type { CatalogCategory } from '../data/products'
-import { deliveryOptions, formatDeliveryPrice } from '../data/delivery'
-import { Button } from '../components/Button'
-import { Reveal } from '../components/Reveal'
-import { useParallax } from '../hooks/useParallax'
-import { handleSpotlight } from '../lib/spotlight'
+import { categories, formatPrice } from '../data/products'
+import { curatedProducts, moments, photoUrl } from '../data/shopping'
+import { api } from '../services/api'
+import { toCatalogProduct } from '../lib/products'
+import type { CatalogProduct } from '../data/products'
+import { ProductVisual } from '../components/ProductVisual'
+import { ProductCard } from '../components/ProductCard'
 import {
   ArrowRightIcon,
-  BookOpenIcon,
-  CameraIcon,
-  CheckIcon,
-  ClockIcon,
-  FrameIcon,
-  GiftIcon,
-  PackageIcon,
-  ReceiptIcon,
+  UploadIcon,
+  TruckIcon,
   ShieldCheckIcon,
   SparkleIcon,
-  TruckIcon,
-  UploadIcon,
+  GiftIcon,
 } from '../components/Icons'
+import { Reveal } from '../components/Reveal'
+import { Seo } from '../components/Seo'
+import { appAsset } from '../lib/assets'
+import { AntiGravityWrap } from '../components/antiGravity/AntiGravityWrap'
 
-const heroStats = [
-  { value: productCount.toString(), label: 'catalog products' },
-  { value: categories.length.toString(), label: 'ways to print' },
-  { value: `${formatPrice(overallPriceRange[0])}+`, label: 'starting price' },
-]
-
-const trustItems = [
-  { icon: ShieldCheckIcon, label: 'Razorpay-secured checkout' },
-  { icon: TruckIcon, label: 'Delivery tiers from ₹0' },
-  { icon: ReceiptIcon, label: 'Published pricing and policies' },
-]
-
-const heroProducts = featuredProducts.slice(0, 3)
-
-const steps = [
-  {
-    icon: UploadIcon,
-    title: 'Upload your photos',
-    body: 'Choose memories from your device and place a custom print order in the SnapPrint app.',
-  },
-  {
-    icon: SparkleIcon,
-    title: 'Pick product and finish',
-    body: 'Select sizes, paper or product finish, quantity, and delivery option before checkout.',
-  },
-  {
-    icon: PackageIcon,
-    title: 'Track print to doorstep',
-    body: 'Order status moves through processing, printed, out for delivery, and delivered in the app.',
-  },
-]
-
-const reviewLinks = [
-  { to: '/pricing', title: 'Transparent pricing', body: `${productCount} products with clearly listed base prices.` },
-  { to: '/shipping', title: 'Shipping policy', body: `${deliveryOptions.length} delivery tiers, including ${formatDeliveryPrice(deliveryOptions[0].price)} delivery, with timelines shown in business days.` },
-  { to: '/privacy', title: 'Privacy policy', body: 'Covers photo storage, retention, and how your data is used.' },
-  { to: '/refund', title: 'Refund policy', body: 'Cancellation window, claim period, and refund processing timeline.' },
-]
-
-const occasionGuides = [
-  {
-    title: 'Wedding and event sets',
-    body: 'Albums, framed highlights, and bulk prints for ceremonies, parties, and keepsake gifting.',
-    imageUrl: categories[1].imageUrl,
-    meta: 'Photo books + bulk prints',
-  },
-  {
-    title: 'Home wall refresh',
-    body: 'Canvas wraps, acrylic displays, wooden stands, and framed prints for shelves and gallery walls.',
-    imageUrl: categories[2].imageUrl,
-    meta: 'Frames + wall decor',
-  },
-  {
-    title: 'Everyday photo drops',
-    body: 'Classic, square, retro, instant, passport, and stamp prints for albums and quick sharing.',
-    imageUrl: categories[0].imageUrl,
-    meta: 'Photo prints from small batches',
-  },
-  {
-    title: 'Gifts that feel personal',
-    body: 'Mugs, bottles, magnets, calendars, keychains, apparel, games, bags, and custom keepsakes.',
-    imageUrl: categories[3].imageUrl,
-    meta: 'Personalised gifts',
-  },
-]
-
-const serviceSignals = [
-  {
-    icon: CheckIcon,
-    title: 'Server-verified totals',
-    body: 'Product prices, coupons, delivery charges, stock, and payment amounts are verified by the backend before an order is confirmed.',
-  },
-  {
-    icon: ClockIcon,
-    title: 'Trackable order states',
-    body: 'Customers can follow orders from confirmed to processing, printed, out for delivery, and delivered.',
-  },
-  {
-    icon: ShieldCheckIcon,
-    title: 'Privacy-first photo handling',
-    body: 'Photos are used for print fulfilment, with privacy and refund terms published before ordering.',
-  },
-]
-
-function CategoryIcon({ icon, className = 'h-5 w-5' }: { icon: string; className?: string }) {
-  if (icon === 'book') return <BookOpenIcon className={className} />
-  if (icon === 'frame') return <FrameIcon className={className} />
-  if (icon === 'gift') return <GiftIcon className={className} />
-  return <CameraIcon className={className} />
-}
-
-function Hero() {
-  const { ref: parallaxRef, offset } = useParallax<HTMLDivElement>(0.08)
+export function Home() {
+  // Curated picks: real backend products first, static catalogue fallback.
+  const [curated, setCurated] = useState<CatalogProduct[]>(curatedProducts)
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const [featured, trending] = await Promise.all([
+          api.getProducts(undefined, 1).catch(() => null),
+          api.getProducts(undefined, 1).catch(() => null),
+        ])
+        const items = [
+          ...((featured as any)?.items ?? []),
+          ...((trending as any)?.items ?? []),
+        ]
+        if (!cancelled && items.length > 0) {
+          const seen = new Set<string>()
+          const adapted = items
+            .map(toCatalogProduct)
+            .filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)))
+            .slice(0, 4)
+          if (adapted.length > 0) setCurated(adapted)
+        }
+      } catch {
+        /* static fallback stays */
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
-    <section className="relative isolate overflow-hidden">
-      <div
-        ref={parallaxRef}
-        className="absolute inset-0 -z-20"
-        style={{ transform: `translate3d(0, ${offset}px, 0) scale(1.12)` }}
-      >
-        <img
-          src="/og.jpg"
-          alt=""
-          aria-hidden="true"
-          loading="eager"
-          decoding="async"
-          className="hero-photo-develop h-full w-full object-cover object-[100%_45%] opacity-35"
-        />
-      </div>
-      <div className="cinematic-scrim -z-10" />
-
-      <div className="mx-auto grid min-h-[82vh] max-w-6xl items-center gap-12 px-6 py-20 sm:min-h-[88vh] sm:py-24 lg:grid-cols-[1fr_0.9fr]">
-        <div className="max-w-3xl text-center lg:text-left">
-          <span
-            className="hero-enter animate-float inline-flex items-center gap-2 rounded-full border border-[var(--color-border-strong)] bg-black/30 px-4 py-1.5 text-xs font-semibold tracking-wide text-[var(--color-accent)] uppercase backdrop-blur"
-            style={{ animationDelay: '0ms' }}
-          >
-            <SparkleIcon className="h-3.5 w-3.5" />
-            Premium Indian photo printing
-          </span>
-          <h1
-            className="hero-enter hero-title font-display mt-7 font-extrabold text-balance"
-            style={{ animationDelay: '110ms' }}
-          >
-            SnapPrint photo printing,
-            <span className="block text-gradient-craft">made gift-ready.</span>
+    <div className="storefront">
+      <Seo
+        title="SnapPrint — Photo Prints, Albums, Frames & Gifts"
+        description="SnapPrint turns phone photos into premium prints, albums, frames, wall decor, and personalised gifts with clear pricing, secure Razorpay checkout, and delivery across India."
+        path="/"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: 'SnapPrint',
+          url: 'https://snapprint.in/',
+          logo: 'https://snapprint.in/favicon.svg',
+          sameAs: [],
+        }}
+      />
+      <section className="home-hero wrap">
+        <Reveal delay={100} className="hero-copy">
+          <p className="eyebrow">
+            <span /> MADE FROM YOUR MEMORIES
+          </p>
+          <h1>
+            Some moments
+            <br />
+            deserve to be
+            <br />
+            <em>held onto.</em>
           </h1>
-          <p
-            className="hero-enter mt-7 max-w-2xl text-base leading-8 text-[var(--color-muted)] sm:text-lg lg:mx-0"
-            style={{ animationDelay: '220ms' }}
-          >
-            Turn phone photos into prints, albums, frames, wall decor, and personalised gifts
-            with clear pricing, secure checkout, and delivery options before you pay.
+          <p className="hero-description">
+            The big days. The little things. The beautifully ordinary.
+            <br className="desktop-break" /> Turn your favourite photos into
+            something real.
           </p>
-          <div
-            className="hero-enter mt-10 flex flex-col justify-center gap-3 sm:flex-row sm:items-center lg:justify-start"
-            style={{ animationDelay: '320ms' }}
-          >
-            <Button to="/products" variant="primary">
-              Explore Catalog
-              <ArrowRightIcon className="h-4 w-4" />
-            </Button>
-            <Button to="/pricing" variant="secondary">
-              Compare Prices
-            </Button>
+          <div className="hero-actions">
+            <Link className="shop-button" to="/products/classic-photo-prints">
+              <UploadIcon /> Start with your photos <ArrowRightIcon />
+            </Link>
+            <Link className="text-link" to="/products">
+              Explore the collection <ArrowRightIcon />
+            </Link>
           </div>
-          <div
-            className="hero-enter mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-[var(--color-muted)] sm:text-sm lg:justify-start"
-            style={{ animationDelay: '400ms' }}
-          >
-            {trustItems.map((item) => (
-              <span key={item.label} className="inline-flex items-center gap-2">
-                <item.icon className="h-4 w-4 text-[var(--color-accent)]" />
-                {item.label}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div
-          className="hero-enter hidden lg:block"
-          style={{ animationDelay: '260ms' }}
-          aria-hidden="true"
-        >
-          <div className="grid grid-cols-[1.1fr_0.9fr] gap-4">
-            <div className="image-vignette photo-corner overflow-hidden rounded-2xl border border-white/15 bg-black shadow-[0_38px_90px_-50px_rgba(0,0,0,0.9)]">
-              <img
-                src={heroProducts[0]?.imageUrl}
-                alt=""
-                className="aspect-[4/5] h-full w-full object-cover"
-                loading="eager"
-                decoding="async"
-              />
-            </div>
-            <div className="grid gap-4">
-              {heroProducts.slice(1).map((product) => (
-                <div
-                  key={product.id}
-                  className="overflow-hidden rounded-2xl border border-white/12 bg-[var(--color-surface)]/80 backdrop-blur"
-                >
-                  <img
-                    src={product.imageUrl}
-                    alt=""
-                    className="aspect-[4/3] w-full object-cover"
-                    loading="eager"
-                    decoding="async"
-                  />
-                  <div className="p-4">
-                    <p className="text-xs font-semibold text-[var(--color-accent)] uppercase">
-                      {product.categoryName}
-                    </p>
-                    <p className="mt-1 text-sm font-bold text-[var(--color-ink)]">{product.name}</p>
-                  </div>
-                </div>
-              ))}
-              <div className="rounded-2xl border border-white/12 bg-black/35 p-5 backdrop-blur">
-                <p className="text-xs font-semibold tracking-wide text-[var(--color-muted-2)] uppercase">
-                  Checkout flow
-                </p>
-                <p className="mt-2 text-2xl font-extrabold text-[var(--color-mint)]">
-                  Upload → customise → pay → track
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="hero-enter relative border-t border-white/10 bg-black/25 backdrop-blur"
-        style={{ animationDelay: '480ms' }}
-      >
-        <div className="mx-auto grid max-w-5xl grid-cols-1 divide-y divide-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-          {heroStats.map((stat) => (
-            <div key={stat.label} className="px-6 py-5 text-center">
-              <p className="text-2xl font-extrabold text-[var(--color-ink)]">{stat.value}</p>
-              <p className="mt-1 text-xs font-semibold tracking-wide text-[var(--color-muted-2)] uppercase">
-                {stat.label}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function CategoryStory({ category, index }: { category: CatalogCategory; index: number }) {
-  const reversed = index % 2 === 1
-
-  return (
-    <Reveal>
-      <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-        <div
-          className={`image-vignette photo-corner group aspect-[4/3] overflow-hidden rounded-2xl border border-[var(--color-border)] shadow-[0_40px_100px_-50px_rgba(0,0,0,0.9)] ${
-            reversed ? 'lg:order-2' : ''
-          }`}
-        >
-          <img
-            src={category.imageUrl}
-            alt={category.name}
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover transition-transform duration-[1200ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
-          />
-        </div>
-        <div className={reversed ? 'lg:order-1' : ''}>
-          <div className="flex items-center gap-3">
-            <span className="numeral-ghost text-6xl sm:text-7xl">0{index + 1}</span>
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
-              <CategoryIcon icon={category.icon} />
+          <p className="hero-footnote">
+            Yours to create. Yours to keep. Or theirs to treasure.
+          </p>
+        </Reveal>
+        <Reveal delay={300} className="hero-art">
+          <AntiGravityWrap intensity={8} scaleOnHover={1.01}>
+            <img
+              src={appAsset('images/memories-still-life.jpg')}
+              alt="A sunlit arrangement of personal photo prints, a memory book, and a framed seaside moment"
+              fetchPriority="high"
+            />
+            <span className="hero-stamp">
+              off your phone.
+              <br />
+              <em>into your life.</em>
+              <SparkleIcon />
             </span>
-          </div>
-          <h3 className="font-display mt-5 text-3xl font-semibold tracking-normal sm:text-4xl">{category.name}</h3>
-          <p className="mt-4 max-w-md leading-7 text-[var(--color-muted)]">{category.description}</p>
-          <p className="mt-6 text-2xl font-extrabold text-[var(--color-accent)]">
-            {formatPriceRange(category.priceRange)}
-          </p>
-          <Link
-            to="/products"
-            className="group/link mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-ink)] transition-colors hover:text-[var(--color-accent)]"
-          >
-            Browse {category.name}
-            <ArrowRightIcon className="h-4 w-4 transition-transform duration-300 group-hover/link:translate-x-1" />
+            <Link
+              className="hero-product-tag"
+              to="/products/retro-polaroid-prints"
+            >
+              <span className="tag-symbol">↗</span>
+              <span>
+                A little nostalgia, printed.
+                <small>Discover retro prints · from ₹478</small>
+              </span>
+              <ArrowRightIcon />
+            </Link>
+            <span className="image-caption">
+              A little inspiration. Your photos make it yours.
+            </span>
+          </AntiGravityWrap>
+        </Reveal>
+      </section>
+      <div className="promise-strip">
+        <div className="wrap">
+          <span>
+            <SparkleIcon /> Made personal, by you
+          </span>
+          <span>
+            <TruckIcon /> Delivery across India
+          </span>
+          <span>
+            <ShieldCheckIcon /> Secure Razorpay checkout
+          </span>
+          <Link to="/pricing">
+            Clear prices. Happy surprises. <ArrowRightIcon />
           </Link>
         </div>
       </div>
-    </Reveal>
-  )
-}
-
-export function Home() {
-  return (
-    <div>
-      <Hero />
-      <div className="film-divider" />
-
-      <section className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
-        <Reveal className="max-w-2xl">
-          <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
-            Products and services
-          </span>
-          <h2 className="font-display mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
-            Every product, made to feel personal
-          </h2>
-          <p className="mt-4 leading-7 text-[var(--color-muted)]">
-            {productCount} products across {categories.length} categories, priced from{' '}
-            {formatPrice(overallPriceRange[0])} to {formatPrice(overallPriceRange[1])}.{' '}
-            {priceOnRequestCount} items are marked price on request.
-          </p>
-        </Reveal>
-
-        <div className="mt-16 space-y-20 sm:space-y-28">
+      <section className="shop-section wrap">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">FROM CAMERA ROLL TO REAL LIFE</p>
+            <h2>What will you make?</h2>
+          </div>
+          <Link className="text-link" to="/products">
+            Shop all products <ArrowRightIcon />
+          </Link>
+        </div>
+        <div className="category-grid">
           {categories.map((category, index) => (
-            <CategoryStory key={category.id} category={category} index={index} />
-          ))}
-        </div>
-      </section>
-
-      <section className="border-y border-[var(--color-border)] bg-[var(--color-bg-soft)]">
-        <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
-          <Reveal className="max-w-2xl">
-            <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
-              Shop by moment
-            </span>
-            <h2 className="font-display mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
-              Start with what you are making
-            </h2>
-          </Reveal>
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {occasionGuides.map((item, index) => (
-              <Reveal key={item.title} delay={index * 70}>
-                <Link
-                  to="/products"
-                  className="group block h-full overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1.5 hover:border-[var(--color-accent)]/60"
-                >
-                  <div className="image-vignette aspect-[4/3]">
-                    <img
-                      src={item.imageUrl}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                  </div>
-                  <div className="p-5">
-                    <p className="text-xs font-semibold tracking-wide text-[var(--color-coral)] uppercase">
-                      {item.meta}
-                    </p>
-                    <h3 className="font-display mt-2 text-xl font-semibold">{item.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">{item.body}</p>
-                  </div>
-                </Link>
-              </Reveal>
-            ))}
-          </div>
-
-          <div className="my-20 h-px bg-[var(--color-border)] sm:my-24" />
-
-          <Reveal className="max-w-2xl">
-            <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
-              How it works
-            </span>
-            <h2 className="font-display mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
-              Simple enough for everyday prints, careful enough for heirlooms
-            </h2>
-          </Reveal>
-          <div className="mt-14 grid gap-10 sm:grid-cols-3 sm:gap-8">
-            {steps.map((step, index) => (
-              <Reveal key={step.title} delay={index * 90}>
-                <div className="group">
-                  <span className="numeral-ghost text-5xl">0{index + 1}</span>
-                  <div className="mt-4 flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)] transition-transform duration-500 group-hover:scale-110">
-                    <step.icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="mt-5 text-lg font-bold">{step.title}</h3>
-                  <p className="mt-2 leading-6 text-[var(--color-muted)]">{step.body}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
-        <Reveal className="max-w-2xl">
-          <span className="text-xs font-semibold tracking-[0.2em] text-[var(--color-accent)] uppercase">
-            Why customers trust SnapPrint
-          </span>
-          <h2 className="font-display mt-3 text-3xl font-semibold tracking-normal sm:text-4xl">
-            Everything you need before you order
-          </h2>
-          <p className="mt-4 leading-7 text-[var(--color-muted)]">
-            Pricing, policies, contact information, delivery details, and payment handling are
-            all published up front, so there are no surprises at checkout.
-          </p>
-        </Reveal>
-
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {serviceSignals.map((item, index) => (
-            <Reveal key={item.title} delay={index * 70}>
-              <div
-                onMouseMove={handleSpotlight}
-                className="spotlight h-full overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:border-[var(--color-accent)]/50"
-              >
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
-                  <item.icon className="h-5 w-5" />
-                </span>
-                <h3 className="mt-4 font-bold">{item.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-muted)]">{item.body}</p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-
-        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {reviewLinks.map((item, index) => (
-            <Reveal key={item.to} delay={index * 70}>
-              <Link
-                to={item.to}
-                onMouseMove={handleSpotlight}
-                className="spotlight group flex h-full flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1.5 hover:border-[var(--color-accent)]/60 hover:shadow-[0_22px_60px_-34px_rgba(212,175,55,0.6)]"
-              >
-                <h3 className="font-bold transition-colors duration-300 group-hover:text-[var(--color-accent)]">
-                  {item.title}
+            <Link
+              className="category-card"
+              to={`/products?category=${category.id}`}
+              key={category.id}
+            >
+              <ProductVisual categoryId={category.id} />
+              <div>
+                <h3>
+                  {
+                    [
+                      'Photo prints',
+                      'Photo books',
+                      'Frames & canvas',
+                      'Personalised gifts',
+                    ][index]
+                  }
+                  <ArrowRightIcon />
                 </h3>
-                <p className="mt-2 flex-1 text-sm leading-6 text-[var(--color-muted)]">{item.body}</p>
-                <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-accent)]">
-                  Review
-                  <ArrowRightIcon className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                <p>
+                  {
+                    [
+                      'Small prints. Endless possibilities.',
+                      'Your stories, page by page.',
+                      'Make yourself at home.',
+                      'A little more “you” in every gift.',
+                    ][index]
+                  }
+                </p>
+                <span>From {formatPrice(category.priceRange[0])}</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+        <p className="visual-note">
+          Product visuals are illustrative. Explore each product for available
+          formats and finishes.
+        </p>
+      </section>
+      <section className="finder-band wrap">
+        <div className="finder-spark">✳</div>
+        <div>
+          <p className="eyebrow">A LITTLE HELP GETTING STARTED</p>
+          <h2>
+            A camera roll full of memories.
+            <br />
+            Not sure what to make?
+          </h2>
+        </div>
+        <Link className="shop-button light-button" to="/products">
+          Browse top picks first <ArrowRightIcon />
+        </Link>
+        <span className="finder-note">
+          A few simple choices. Something very you.
+        </span>
+      </section>
+      <section className="shop-section wrap">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">GOOD PLACES TO START</p>
+            <h2>Small things. Lasting feelings.</h2>
+          </div>
+          <Link className="text-link" to="/products">
+            Find your favourite <ArrowRightIcon />
+          </Link>
+        </div>
+        <div className="product-grid">
+          {curated.map((p) => (
+            <ProductCard product={p} key={p.id} />
+          ))}
+        </div>
+      </section>
+      <section className="occasion-section">
+        <div className="wrap shop-section">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">THERE’S A MEMORY FOR THAT</p>
+              <h2>Shop the feeling.</h2>
+            </div>
+            <p>
+              Big milestones or no occasion at all.
+              <br />
+              Start with what matters to you.
+            </p>
+          </div>
+          <div className="occasion-grid">
+            {moments.map((moment) => (
+              <Link
+                to={`/products?occasion=${moment.id}`}
+                className="occasion-card"
+                key={moment.id}
+              >
+                <img
+                  src={photoUrl(moment.image)}
+                  alt={
+                    moment.short === 'Travel'
+                      ? 'A lakeside holiday surrounded by mountains'
+                      : moment.short === 'Gifting'
+                        ? 'A little new arrival held close'
+                        : moment.short === 'Everyday'
+                          ? 'A beautiful view from a day worth remembering'
+                          : 'A wedding celebration under the lights'
+                  }
+                  loading="lazy"
+                />
+                <div>
+                  <span>{moment.short}</span>
+                  <h3>{moment.label}</h3>
+                  <p>{moment.description}</p>
+                </div>
+                <span className="occasion-arrow">
+                  <ArrowRightIcon />
                 </span>
               </Link>
-            </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="story-section wrap">
+        <div className="story-photo">
+          <ProductVisual categoryId="photo-prints" />
+          <span className="handwritten">remember this?</span>
+        </div>
+        <div className="story-copy">
+          <p className="eyebrow">LESS SCROLLING. MORE SMILING.</p>
+          <h2>
+            Your photos weren’t
+            <br />
+            meant to stay
+            <br />
+            <em>on your phone.</em>
+          </h2>
+          <p>
+            A photo on the fridge. A story on the coffee table. A favourite face
+            waiting on your desk. Make a little space for the moments that make
+            you, you.
+          </p>
+          <Link className="text-link" to="/products?occasion=everyday">
+            Bring a memory home <ArrowRightIcon />
+          </Link>
+        </div>
+      </section>
+      <section className="how-section wrap">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">HAPPY MEMORIES. SIMPLE STEPS.</p>
+            <h2>A little you. A little us. A lot to love.</h2>
+          </div>
+        </div>
+        <div className="steps-grid">
+          {[
+            {
+              icon: UploadIcon,
+              title: 'Pick your happy moments',
+              body: 'Choose a product and try a photo in your private, on-device preview.',
+            },
+            {
+              icon: SparkleIcon,
+              title: 'Make it feel like you',
+              body: 'Explore formats, choose a size, and save your favourites to your card.',
+            },
+            {
+              icon: GiftIcon,
+              title: 'Make it real in the app',
+              body: 'Upload your originals, finish customising, and confirm delivery before you pay.',
+            },
+          ].map((step, i) => (
+            <div key={step.title}>
+              <span className="step-number">0{i + 1}</span>
+              <step.icon />
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </div>
           ))}
         </div>
+      </section>
+      <section className="last-call">
+        <p className="eyebrow">
+          YOUR NEXT FAVOURITE THING IS ALREADY IN YOUR CAMERA ROLL
+        </p>
+        <h2>
+          Let’s make something <em>meaningful.</em>
+        </h2>
+        <Link to="/products" className="shop-button">
+          Find your first print <ArrowRightIcon />
+        </Link>
       </section>
     </div>
   )

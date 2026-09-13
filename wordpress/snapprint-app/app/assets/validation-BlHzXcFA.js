@@ -1,0 +1,1 @@
+function e(e){let t=e.replace(/\D/g,``);return t.length===12&&t.startsWith(`91`)&&(t=t.slice(2)),t.length===11&&t.startsWith(`0`)&&(t=t.slice(1)),/^[6-9]\d{9}$/.test(t)?`+91${t}`:null}function t(e){return/^[1-9][0-9]{5}$/.test(e.trim())}function n(e){let t=e.trim();return t.length>254||t.length<5?!1:/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(t)}export{t as n,e as r,n as t};

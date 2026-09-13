@@ -42,6 +42,7 @@ abstract final class RealtimeTopics {
   static const deliverySetting = 'delivery_setting';
   static const setting = 'setting';
   static const order = 'order';
+  static const review = 'review';
   static const user = 'user';
 }
 

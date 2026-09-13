@@ -6,7 +6,10 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/custom_button.dart';
+import '../../../../core/widgets/error_snackbar.dart';
+import '../../data/datasources/customer_remote_datasource.dart';
 import '../providers/orders_provider.dart';
+import '../providers/social_providers.dart';
 import '../widgets/order_status_chip.dart';
 
 class OrderConfirmationScreen extends ConsumerWidget {
@@ -43,7 +46,7 @@ class OrderConfirmationScreen extends ConsumerWidget {
   }
 }
 
-class _SuccessView extends StatelessWidget {
+class _SuccessView extends ConsumerWidget {
   const _SuccessView({
     required this.orderId,
     required this.estimatedDelivery,
@@ -57,8 +60,15 @@ class _SuccessView extends StatelessWidget {
   final bool detailsUnavailable;
   final VoidCallback? onRetry;
 
+  static const _returnable = {
+    'confirmed',
+    'picked_up',
+    'out_for_delivery',
+    'delivered',
+  };
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(24),
@@ -173,6 +183,8 @@ class _SuccessView extends StatelessWidget {
             onPressed: () => context.push(AppRoutes.orderHistory),
           ),
           const SizedBox(height: 12),
+          _ReturnSection(orderId: orderId, status: status),
+          const SizedBox(height: 12),
           CustomButton(
             label: AppStrings.continueShopping,
             isOutlined: true,
@@ -181,6 +193,122 @@ class _SuccessView extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _ReturnSection extends ConsumerStatefulWidget {
+  const _ReturnSection({required this.orderId, this.status});
+  final String orderId;
+  final String? status;
+
+  @override
+  ConsumerState<_ReturnSection> createState() => _ReturnSectionState();
+}
+
+class _ReturnSectionState extends ConsumerState<_ReturnSection> {
+  static const _reasons = [
+    ('damaged', 'Damaged / defective'),
+    ('wrong_item', 'Wrong item'),
+    ('quality_issue', 'Print quality issue'),
+    ('late_delivery', 'Arrived too late'),
+    ('changed_mind', 'Changed my mind'),
+    ('other', 'Other'),
+  ];
+
+  String _reason = 'damaged';
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final returnsAsync = ref.watch(myReturnsProvider);
+    return returnsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, s) => const SizedBox.shrink(),
+      data: (returns) {
+        Map<String, dynamic>? existing;
+        for (final r in returns) {
+          if (r['order_id'] == widget.orderId) {
+            existing = r;
+            break;
+          }
+        }
+        if (existing != null) {
+          final st = existing['status'] as String? ?? 'requested';
+          final note = existing['admin_note'] as String?;
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: Text(
+              'Return ${st.replaceAll('_', ' ')}${note != null && note.isNotEmpty ? ' — $note' : ''}',
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+        if (widget.status == null ||
+            !_SuccessView._returnable.contains(widget.status)) {
+          return const SizedBox.shrink();
+        }
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Need a return or refund?',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _reason,
+                decoration: const InputDecoration(labelText: 'Reason'),
+                items: [
+                  for (final r in _reasons)
+                    DropdownMenuItem(value: r.$1, child: Text(r.$2)),
+                ],
+                onChanged: (v) => setState(() => _reason = v ?? _reason),
+              ),
+              const SizedBox(height: 10),
+              CustomButton(
+                label: _busy ? 'Submitting...' : 'Request return',
+                isOutlined: true,
+                onPressed: _busy ? null : _submit,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _submit() async {
+    setState(() => _busy = true);
+    try {
+      await ref.read(customerDataSourceProvider).requestReturn({
+        'order_id': widget.orderId,
+        'reason': _reason,
+      });
+      ref.invalidate(myReturnsProvider);
+      if (mounted) {
+        showSuccessSnackbar(context, 'Return requested — we will update you soon.');
+      }
+    } catch (e) {
+      if (mounted) {
+        showErrorSnackbar(context, 'Could not request the return.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 }
 

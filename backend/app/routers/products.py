@@ -110,6 +110,38 @@ async def list_products(
     )
 
 
+@router.get("/suggest")
+async def suggest_products(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    q: str = Query("", max_length=100),
+    limit: int = Query(8, ge=1, le=20),
+) -> list[dict]:
+    """Amazon-style autocomplete: instant name matches for the search box."""
+    term = q.strip()
+    if len(term) < 2:
+        return []
+    result = await db.execute(
+        select(Product)
+        .where(
+            Product.is_active.is_(True),
+            Product.base_price >= 0,
+            Product.name.ilike(f"%{term}%"),
+        )
+        .order_by(Product.is_bestseller.desc(), Product.sort_order)
+        .limit(limit)
+    )
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "category": p.category,
+            "base_price": p.base_price,
+            "image": p.images[0] if p.images else None,
+        }
+        for p in result.scalars().all()
+    ]
+
+
 @router.get("/{product_id}", response_model=ProductOut)
 async def get_product(
     product_id: str,

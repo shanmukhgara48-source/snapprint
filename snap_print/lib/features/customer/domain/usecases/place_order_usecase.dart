@@ -16,11 +16,15 @@ class PlaceOrderUseCase {
     String? razorpayPaymentId,
     String? razorpayOrderId,
     String? razorpaySignature,
+    String source = 'mobile_app',
   }) {
     final data = <String, dynamic>{
       'items': items,
       'address_id': addressId,
       'delivery_type': deliveryType,
+      // Purchase channel for the admin dashboard breakdown
+      // (mobile_app vs website); stock still decrements centrally.
+      'source': source,
     };
     if (couponCode != null) data['coupon_code'] = couponCode;
     if (razorpayPaymentId != null) data['razorpay_payment_id'] = razorpayPaymentId;

@@ -6,9 +6,13 @@ import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/product_images.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/custom_button.dart';
+import '../../../../core/widgets/error_snackbar.dart';
 import '../../../../core/widgets/premium_network_image.dart';
 import '../../domain/entities/product_entity.dart';
 import '../providers/products_provider.dart';
+import '../providers/social_providers.dart';
+import '../widgets/bought_together.dart';
+import '../widgets/product_reviews.dart';
 
 class ProductDetailScreen extends ConsumerWidget {
   const ProductDetailScreen({super.key, required this.productId});
@@ -24,6 +28,35 @@ class ProductDetailScreen extends ConsumerWidget {
         title: const Text(AppStrings.productDetails),
         backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
+        actions: [
+          Consumer(
+            builder: (context, ref, _) {
+              final saved = ref.watch(wishlistProvider).maybeWhen(
+                    data: (ids) => ids.contains(productId),
+                    orElse: () => false,
+                  );
+              return IconButton(
+                tooltip: saved ? 'Remove from wishlist' : 'Add to wishlist',
+                onPressed: () async {
+                  try {
+                    await ref.read(wishlistProvider.notifier).toggle(productId);
+                  } catch (_) {
+                    if (context.mounted) {
+                      showErrorSnackbar(
+                        context,
+                        'Please sign in to use your wishlist.',
+                      );
+                    }
+                  }
+                },
+                icon: Icon(
+                  saved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  color: saved ? const Color(0xFFE0245E) : AppColors.primary,
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: productAsync.when(
         loading: () => const Center(
@@ -131,14 +164,74 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                       ),
                       const SizedBox(height: 8),
 
-                      Text(
-                        product.priceLabel,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.accent,
-                        ),
+                      // Amazon-style social proof + deal row.
+                      _RatingSummaryRow(productId: product.id),
+                      const SizedBox(height: 8),
+
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            product.priceLabel,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.accent,
+                            ),
+                          ),
+                          if (product.hasSale) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              'M.R.P. ₹${product.compareAtPrice!.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFCC0C39),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${product.discountPercent}% off',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
+                      if (product.isBestseller) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE07B28),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            '#1 Bestseller',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
                       if (!product.isOrderable) ...[
                         const SizedBox(height: 10),
                         const Text(
@@ -156,6 +249,20 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                           style: TextStyle(
                             color: AppColors.error,
                             fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                      // Shared live stock: backend decrements centrally, so a
+                      // website purchase is reflected here on refetch/realtime.
+                      if (product.tracksInventory && product.isInStock) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          product.stockQuantity <= 5
+                              ? 'Only ${product.stockQuantity} left in stock'
+                              : '${product.stockQuantity} in stock',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -281,6 +388,10 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
                         ),
                       ],
 
+                      const SizedBox(height: 24),
+                      BoughtTogetherStrip(productId: product.id),
+                      const SizedBox(height: 24),
+                      ProductReviewsSection(productId: product.id),
                       const SizedBox(height: 20),
                       const _GuaranteeGrid(),
                       const SizedBox(height: 24),
@@ -373,8 +484,40 @@ class _ProductDetailBodyState extends State<_ProductDetailBody> {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
+/// Compact star summary under the product title (detail enriches via
+/// a single batched-style summary call; cards stay lightweight).
+class _RatingSummaryRow extends ConsumerWidget {
+  const _RatingSummaryRow({required this.productId});
+  final String productId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summaryAsync = ref.watch(reviewSummaryProvider(productId));
+    return summaryAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, s) => const SizedBox.shrink(),
+      data: (summary) {
+        if (summary.reviewCount == 0) return const SizedBox.shrink();
+        return Row(
+          children: [
+            StarRow(value: summary.avgRating, size: 15),
+            const SizedBox(width: 6),
+            Text(
+              '${summary.avgRating.toStringAsFixed(1)} · ${summary.reviewCount} rating${summary.reviewCount == 1 ? '' : 's'}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {  const _InfoRow({
     required this.icon,
     required this.label,
     required this.value,

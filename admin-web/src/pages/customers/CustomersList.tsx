@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "../../components/Link";
 import { api } from "../../lib/api";
 import type { UserListItem } from "../../lib/types";
+import { useQueryParam } from "../../lib/search";
 import { Badge, Card, Input, PageHeader, Spinner, Table, Td, Th } from "../../components/ui";
 
 export default function CustomersList() {
   const [role, setRole] = useState("");
+  const [urlQ] = useQueryParam("q");
   const [q, setQ] = useState("");
+
+  // Header global search (?q=…) lands here through the URL.
+  useEffect(() => {
+    if (urlQ) setQ(urlQ);
+  }, [urlQ]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["users", role, q],

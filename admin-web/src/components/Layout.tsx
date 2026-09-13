@@ -1,4 +1,6 @@
+import { useState } from "react";
 import clsx from "clsx";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Package,
@@ -12,20 +14,28 @@ import {
   UserCog,
   Bell,
   BarChart3,
+  FileDown,
+  Inbox as InboxIcon,
+  Star,
+  Undo2,
+  ShieldCheck,
   Settings as SettingsIcon,
   LogOut,
+  Search,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useAdminRealtime } from "../lib/realtime";
 import { useNavigate, usePathname } from "../lib/router";
+import { api } from "../lib/api";
 import { Link } from "./Link";
 
-const sections: { label: string; items: { to: string; label: string; icon: typeof Package }[] }[] = [
+const sections: { label: string; items: { to: string; label: string; icon: typeof Package; badge?: number }[] }[] = [
   {
     label: "Overview",
     items: [
       { to: "/", label: "Dashboard", icon: LayoutDashboard },
       { to: "/analytics", label: "Analytics", icon: BarChart3 },
+      { to: "/reports", label: "Reports", icon: FileDown },
     ],
   },
   {
@@ -39,6 +49,7 @@ const sections: { label: string; items: { to: string; label: string; icon: typeo
     label: "Sales",
     items: [
       { to: "/orders", label: "Orders", icon: ShoppingCart },
+      { to: "/returns", label: "Returns", icon: Undo2 },
       { to: "/coupons", label: "Offers & Coupons", icon: Ticket },
       { to: "/banners", label: "Banners", icon: GalleryHorizontal },
       { to: "/delivery-settings", label: "Delivery Settings", icon: Truck },
@@ -53,13 +64,85 @@ const sections: { label: string; items: { to: string; label: string; icon: typeo
     ],
   },
   {
+    label: "Support",
+    items: [
+      { to: "/inbox", label: "Inbox", icon: InboxIcon },
+      { to: "/reviews", label: "Reviews", icon: Star },
+    ],
+  },
+  {
     label: "System",
     items: [
       { to: "/notifications", label: "Notifications", icon: Bell },
+      { to: "/audit", label: "Audit Log", icon: ShieldCheck },
       { to: "/settings", label: "Settings", icon: SettingsIcon },
     ],
   },
 ];
+
+const SEARCH_SCOPES = [
+  { value: "orders", label: "Orders" },
+  { value: "products", label: "Products" },
+  { value: "customers", label: "Customers" },
+];
+
+function GlobalSearch() {
+  const navigate = useNavigate();
+  const [q, setQ] = useState("");
+  const [scope, setScope] = useState("orders");
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const query = q.trim();
+    navigate(query ? `/${scope}?q=${encodeURIComponent(query)}` : `/${scope}`, { replace: true });
+  }
+
+  return (
+    <form onSubmit={submit} className="flex items-center gap-2">
+      <select
+        value={scope}
+        onChange={(e) => setScope(e.target.value)}
+        aria-label="Search scope"
+        className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-xs text-neutral-300 outline-none"
+      >
+        {SEARCH_SCOPES.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.label}
+          </option>
+        ))}
+      </select>
+      <div className="relative">
+        <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search order, product, phone…"
+          className="w-64 rounded-lg border border-border bg-surface-2 py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-neutral-500 outline-none focus:border-accent"
+        />
+      </div>
+    </form>
+  );
+}
+
+function InboxBell() {
+  const { data } = useQuery({
+    queryKey: ["inbox-unread-count"],
+    queryFn: async () =>
+      (await api.get<{ id: string }[]>("/admin/contact-messages", { params: { unread_only: true, limit: 50 } })).data,
+    refetchInterval: 60_000,
+  });
+  const count = data?.length ?? 0;
+  return (
+    <Link to="/inbox" className="relative rounded-lg p-2 text-neutral-400 hover:bg-surface-2 hover:text-white" aria-label="Support inbox">
+      <Bell size={17} />
+      {count > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-black">
+          {count > 50 ? "50+" : count}
+        </span>
+      )}
+    </Link>
+  );
+}
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { username, role, logout } = useAuth();
@@ -117,9 +200,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
       </aside>
-      <main className="flex-1 overflow-y-auto p-8">
-        {children}
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center justify-between border-b border-border bg-surface px-8 py-2.5">
+          <GlobalSearch />
+          <InboxBell />
+        </header>
+        <main className="flex-1 overflow-y-auto p-8">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

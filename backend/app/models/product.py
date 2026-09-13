@@ -36,6 +36,12 @@ class Product(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     stock_quantity: Mapped[int] = mapped_column(Integer, default=0)
     tracks_inventory: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Amazon-parity merchandising: seller SKU, strike-through MRP
+    # (compare_at_price is display-only — orders always use base_price/sizes),
+    # and an editorial bestseller flag for badges.
+    sku: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
+    compare_at_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    is_bestseller: Mapped[bool] = mapped_column(Boolean, default=False)
     is_featured: Mapped[bool] = mapped_column(Boolean, default=False)
     is_trending: Mapped[bool] = mapped_column(Boolean, default=False)
     is_orderable: Mapped[bool] = mapped_column(Boolean, default=True)

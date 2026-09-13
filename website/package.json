@@ -7,19 +7,26 @@
     "node": ">=20.19.0"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 127.0.0.1 --port 4173",
     "build": "tsc -b && vite build",
+    "build:wp": "tsc -b && VITE_WP_EMBED=true vite build --base=/wp-content/plugins/snapprint-app/app/ --outDir ../wordpress/snapprint-app/app --emptyOutDir",
     "lint": "oxlint",
-    "preview": "vite preview",
-    "start": "serve -s dist -l ${PORT:-4174}"
+    "test": "node --test tests/printOptions.test.ts",
+    "test:e2e": "playwright test",
+    "preview": "vite preview --host 127.0.0.1 --port 4174",
+    "start": "vite preview --host 127.0.0.1 --port 4174",
+    "deploy": "npm run build && if command -v vercel >/dev/null 2>&1; then npx vercel --prod; elif command -v netlify >/dev/null 2>&1; then npx netlify deploy --dir dist --prod; elif command -v firebase >/dev/null 2>&1; then firebase deploy --project ${FIREBASE_PROJECT_ID:-snapprint-5076c} --config firebase.json --only hosting; else echo \"No deploy CLI found. Install one: npm i -g vercel (recommended), npm i -g netlify-cli, or npm i -g firebase-tools.\"; exit 1; fi"
   },
   "dependencies": {
+    "firebase": "^12.19.0",
+    "framer-motion": "^13.2.0",
+    "razorpay": "^2.9.8",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router-dom": "^7.9.5",
-    "serve": "^14.2.4"
+    "react-router-dom": "^7.9.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.2",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",

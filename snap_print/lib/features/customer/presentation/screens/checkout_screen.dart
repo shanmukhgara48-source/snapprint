@@ -59,6 +59,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               .toList(),
           'address_id': selectedAddress.id,
           'delivery_type': cart.deliveryTypeKey,
+          'source': 'mobile_app',
           if (cart.couponCode != null) 'coupon_code': cart.couponCode,
         });
         ref.read(cartProvider.notifier).clearCart();

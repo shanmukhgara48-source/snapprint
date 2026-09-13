@@ -48,6 +48,9 @@ class ProductCreate(BaseModel):
     sort_order: int = Field(default=0, ge=-100_000, le=100_000)
     stock_quantity: int = Field(default=0, ge=0, le=10_000_000)
     tracks_inventory: bool = False
+    sku: str | None = Field(default=None, max_length=64)
+    compare_at_price: float | None = Field(default=None, ge=0, le=10_000_000)
+    is_bestseller: bool = False
     is_featured: bool = False
     is_trending: bool = False
     is_orderable: bool = True
@@ -82,6 +85,9 @@ class ProductUpdate(BaseModel):
     sort_order: int | None = Field(default=None, ge=-100_000, le=100_000)
     stock_quantity: int | None = Field(default=None, ge=0, le=10_000_000)
     tracks_inventory: bool | None = None
+    sku: str | None = Field(default=None, max_length=64)
+    compare_at_price: float | None = Field(default=None, ge=0, le=10_000_000)
+    is_bestseller: bool | None = None
     is_featured: bool | None = None
     is_trending: bool | None = None
     is_orderable: bool | None = None
@@ -112,6 +118,9 @@ class ProductOut(BaseModel):
     sort_order: int
     stock_quantity: int
     tracks_inventory: bool
+    sku: str | None = None
+    compare_at_price: float | None = None
+    is_bestseller: bool
     is_featured: bool
     is_trending: bool
     is_orderable: bool

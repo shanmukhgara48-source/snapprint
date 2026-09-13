@@ -4,6 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev": "cd website && npm run dev",
+    "build": "cd website && npm run build",
+    "deploy": "cd website && npm run deploy",
+    "start": "cd website && npm run start",
+    "preview": "cd website && npm run preview",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

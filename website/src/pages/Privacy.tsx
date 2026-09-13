@@ -1,11 +1,18 @@
 import { PolicyLayout } from '../components/PolicyLayout'
-import { Placeholder } from '../components/Placeholder'
+import { BusinessValue } from '../components/BusinessValue'
+import { Seo } from '../components/Seo'
 
 export function Privacy() {
   return (
+    <>
+    <Seo
+      title="Privacy Policy | SnapPrint"
+      description="How SnapPrint collects, uses and protects your information."
+      path="/privacy"
+    />
     <PolicyLayout
       title="Privacy Policy"
-      lastUpdated={<Placeholder label="publish date" example="1 August 2026" />}
+      lastUpdated={<BusinessValue field="policyLastUpdated" fallback="Last reviewed: pending owner confirmation" />}
       intro="This Privacy Policy explains what information SnapPrint collects, how it is used, and the choices you have. It applies to the SnapPrint website and app."
       sections={[
         {
@@ -57,8 +64,10 @@ export function Privacy() {
           body: (
             <p>
               We retain account data for as long as your account is active. You can delete your
-              account at any time from the Profile screen in the SnapPrint app. On deletion, all
-              personal data and order history are permanently removed within 30 days.
+              account at any time from the Account page (My Account → Danger zone) after signing
+              in. On deletion, personal identifiers are removed and paid order records are
+              anonymised within 30 days. Orders that are still active must be completed or
+              cancelled first.
             </p>
           ),
         },
@@ -70,9 +79,7 @@ export function Privacy() {
               correction of inaccurate data, delete your account and associated data, and
               withdraw consent for push notifications at any time. To exercise these rights, use
               the in-app controls or contact us at{' '}
-              <a href="mailto:privacy@snapprint.in" className="text-[var(--color-accent)] underline underline-offset-2">
-                privacy@snapprint.in
-              </a>.
+              <BusinessValue field="privacyEmail" />.
             </p>
           ),
         },
@@ -100,14 +107,13 @@ export function Privacy() {
           body: (
             <p>
               For privacy questions or to exercise your data rights, email{' '}
-              <a href="mailto:privacy@snapprint.in" className="text-[var(--color-accent)] underline underline-offset-2">
-                privacy@snapprint.in
-              </a>{' '}
-              or write to <Placeholder label="registered business address" />.
+              <BusinessValue field="privacyEmail" />{' '}
+              or write to <BusinessValue field="registeredAddress" />.
             </p>
           ),
         },
       ]}
     />
+    </>
   )
 }

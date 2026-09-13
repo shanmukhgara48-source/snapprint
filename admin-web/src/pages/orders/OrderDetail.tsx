@@ -3,8 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "../../components/Link";
 import { api } from "../../lib/api";
 import type { OrderDetail as OrderDetailType, UserListItem } from "../../lib/types";
+import { useQueryParam } from "../../lib/search";
 import { Badge, Button, Card, ErrorState, PageHeader, Spinner } from "../../components/ui";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
 
 const STATUS_TRANSITIONS: Record<string, string[]> = {
   confirmed: ["picked_up", "cancelled"],
@@ -41,6 +42,42 @@ export default function OrderDetail({ id }: { id: string }) {
     queryFn: async () => (await api.get<UserListItem[]>("/admin/delivery-partners")).data,
   });
 
+  // Packing slip: printable pick-pack sheet for the fulfilment desk.
+  function printSlip() {
+    if (!order) return;
+    const rows = order.items
+      .map(
+        (i) =>
+          `<tr><td>${i.product_name ?? "Custom item"}</td><td>${i.selected_size ?? "—"}</td><td>${i.quantity}</td><td>₹${i.unit_price}</td></tr>`,
+      )
+      .join("");
+    const w = window.open("", "_blank", "width=640,height=800");
+    if (!w) return;
+    w.document.write(`<html><head><title>Packing slip ${order.id.slice(0, 8)}</title>
+      <style>body{font-family:sans-serif;padding:24px;color:#111}table{width:100%;border-collapse:collapse;margin:12px 0}td,th{border:1px solid #999;padding:6px 8px;text-align:left;font-size:13px}h1{font-size:20px}</style>
+      </head><body>
+      <h1>SnapPrint — Packing slip</h1>
+      <p><strong>Order:</strong> #${order.id.slice(0, 8).toUpperCase()} &nbsp; <strong>Status:</strong> ${order.status}<br/>
+      <strong>Customer:</strong> ${order.customer_phone ?? "—"}<br/>
+      <strong>Deliver to:</strong> ${order.address ?? "—"}</p>
+      <table><thead><tr><th>Item</th><th>Size</th><th>Qty</th><th>Price</th></tr></thead><tbody>${rows}</tbody></table>
+      <p><strong>Total: ₹${order.total_price}</strong> (${order.delivery_type})</p>
+      <p>Packed by: __________ &nbsp; Checked: __________</p>
+      <script>window.onload = () => window.print()</script>
+      </body></html>`);
+    w.document.close();
+  }
+
+  const [printParam] = useQueryParam("print");
+  const autoPrinted = useRef(false);
+  useEffect(() => {
+    if (printParam && order && !autoPrinted.current) {
+      autoPrinted.current = true;
+      printSlip();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [printParam, order]);
+
   const updateMut = useMutation({
     mutationFn: (payload: { status?: string; notes?: string }) => api.patch(`/admin/orders/${id}`, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["order", id] }),
@@ -62,8 +99,18 @@ export default function OrderDetail({ id }: { id: string }) {
       </Link>
       <PageHeader
         title={`Order #${order.id.slice(0, 8)}`}
-        subtitle={`Placed ${new Date(order.created_at).toLocaleString()}`}
-        action={<Badge tone="info">{order.status}</Badge>}
+        subtitle={`Placed ${new Date(order.created_at).toLocaleString()} · Channel: ${(order.source ?? "unknown").replaceAll("_", " ")}`}
+        action={
+          <div className="flex items-center gap-2">
+            <Badge tone={order.source === "mobile_app" ? "info" : order.source === "website" ? "success" : "neutral"}>
+              {(order.source ?? "unknown").replaceAll("_", " ")}
+            </Badge>
+            <Badge tone="info">{order.status}</Badge>
+            <Button variant="secondary" onClick={printSlip}>
+              <Printer size={15} /> Packing slip
+            </Button>
+          </div>
+        }
       />
 
       <div className="grid grid-cols-3 gap-4">

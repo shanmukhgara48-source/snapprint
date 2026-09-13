@@ -17,6 +17,18 @@ export interface CatalogProduct {
   isFeatured: boolean
   isTrending: boolean
   imageUrl: string
+  // Live inventory from the backend (authoritative stock shared with the
+  // mobile app). Absent for static fallback products.
+  stock_quantity?: number
+  tracks_inventory?: boolean
+  is_orderable?: boolean
+  // Amazon-parity merchandising from the backend.
+  sku?: string | null
+  compare_at_price?: number
+  is_bestseller?: boolean
+  // Star aggregates (filled by the listing page via POST /products/ratings).
+  avg_rating?: number
+  review_count?: number
 }
 
 export interface CatalogCategory {
@@ -209,7 +221,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": true,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "square-photo-prints",
@@ -229,7 +241,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": true,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1495567720989-cebdbdd97913?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1495567720989-cebdbdd97913?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "retro-polaroid-prints",
@@ -247,7 +259,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": true,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "passport-stamp-prints",
@@ -266,7 +278,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": true,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "instant-photo-prints",
@@ -285,7 +297,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": true,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1500634245200-e5245c7574ef?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "bulk-photo-prints",
@@ -305,7 +317,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": true,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1554034483-04fda0d3507b?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "classic-photo-albums",
@@ -323,7 +335,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru only; standard nationwide delivery otherwise",
     "isFeatured": true,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "pre-wedding-photo-albums",
@@ -342,7 +354,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": true,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "baby-shower-photo-albums",
@@ -361,7 +373,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1519689680058-324335c77eba?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1519689680058-324335c77eba?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "baby-album-photo-albums",
@@ -380,7 +392,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1519689680058-324335c77eba?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "anniversary-photo-albums",
@@ -399,7 +411,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1606216794074-735e91aa2c92?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "travel-photo-albums",
@@ -418,7 +430,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "milestone-birthday-photo-albums",
@@ -437,7 +449,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "graduation-year-photo-albums",
@@ -456,7 +468,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1627556704302-624286467c65?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1627556704302-624286467c65?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "classic-photo-frames",
@@ -477,7 +489,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1517705008128-361805f42e86?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1517705008128-361805f42e86?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "wall-photo-frames-large-photo-frames",
@@ -500,7 +512,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1618220048045-10a6dbdf83e0?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "canvas-photo-frames-framed-canvas",
@@ -523,7 +535,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "desktop-collage-foldable-frames",
@@ -542,7 +554,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru only; standard nationwide delivery otherwise",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1611559982969-c4e3a99a3e5f?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "frameless-photo-frame",
@@ -562,7 +574,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1594026112284-02bb6f3352fe?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1594026112284-02bb6f3352fe?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-selfie-frames",
@@ -580,7 +592,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1627556704302-624286467c65?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1531058020387-3be344556be6?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "led-photo-frames",
@@ -600,7 +612,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalised-acrylic-photo-frames",
@@ -622,7 +634,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1581783342308-f792dbdd27c5?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "standard-acrylic-photo-frames",
@@ -641,7 +653,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1574717024652-c2a86dd9405a?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "premium-acrylic-photo-frames",
@@ -663,7 +675,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1505236858219-8359eb29e329?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "ready-to-buy-premium-frame",
@@ -682,7 +694,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1577083552431-6e5fd01988ec?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "custom-premium-frame",
@@ -701,7 +713,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "3-7 working days based on order quantity",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1579762715118-a6f1d4b934f1?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "leatherette-acrylic-frame",
@@ -721,7 +733,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1615529151169-7b1d8a6b2434?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "acrylic-photo-cut-outs",
@@ -740,7 +752,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1559548331-f9cb98001426?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "canvas-gallery-wraps",
@@ -763,7 +775,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1536924940846-227afb31e2a5?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "eco-friendly-canvas-posters",
@@ -786,7 +798,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1582979512210-99b6a53386f9?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "2-split-vertical-canvas-wrap",
@@ -804,7 +816,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1585399000684-d2f72660f092?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "3-split-rectangle-canvas-wrap",
@@ -822,7 +834,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1600566752355-35792bedcfea?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "3-split-vertical-canvas-wrap",
@@ -840,7 +852,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1570168007204-dfb528c6958f?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "4-split-square-canvas-wrap",
@@ -858,7 +870,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "5-split-rectangle-canvas-wrap",
@@ -876,7 +888,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1549187774-b4e9b0445b41?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "mdf-canvas-gallery-wrap",
@@ -898,7 +910,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalised-mdf-canvas-prints",
@@ -919,7 +931,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "premium-mdf-prints",
@@ -939,7 +951,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru only; standard nationwide delivery otherwise",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1517705008128-361805f42e86?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "rolled-canvas-posters",
@@ -962,7 +974,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1541742425281-c2c0a9e2b2d8?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "photo-with-wooden-stand",
@@ -980,7 +992,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1585314062604-1a357de8b000?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "photo-pendant-wooden-stand",
@@ -999,7 +1011,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1517705008128-361805f42e86?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "wooden-engraved-plaque-with-photo",
@@ -1018,7 +1030,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1623014215373-e8a2e79b3d5e?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "rectangle-wall-decals",
@@ -1037,7 +1049,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalised-white-photo-mug",
@@ -1056,7 +1068,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "photo-mini-mug",
@@ -1076,7 +1088,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1502740479091-635887520276?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "bulk-mugs",
@@ -1094,7 +1106,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "photo-magic-mug",
@@ -1114,7 +1126,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1608500218890-b1b6cf31d267?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalised-beer-mug",
@@ -1132,7 +1144,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1567696911980-2eed69a46042?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-sipper-bottle-600-ml",
@@ -1150,7 +1162,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-spout-sipper-bottle-750-ml",
@@ -1168,7 +1180,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "multicolour-printed-steel-bottle-1000-ml",
@@ -1186,7 +1198,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-mason-jar",
@@ -1204,7 +1216,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-cola-bottle-340-ml",
@@ -1222,7 +1234,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1581006852262-e4307cf6283a?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "premium-photo-matte-posters",
@@ -1245,7 +1257,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1461344577544-4e5dc9487184?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "premium-photo-glossy-posters",
@@ -1268,7 +1280,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1499781350541-7783f6c6a0c8?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "large-format-posters",
@@ -1289,7 +1301,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1558591710-4b4a1ae0f7b8?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "standard-paper-posters",
@@ -1309,7 +1321,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "special-paper-posters",
@@ -1327,7 +1339,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "premium-print-posters",
@@ -1346,7 +1358,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "raised-foil-posters-premium-finish",
@@ -1366,7 +1378,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1558591710-4b4a1ae0f7b8?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "non-tearable-posters",
@@ -1387,7 +1399,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "sun-board-posters",
@@ -1408,7 +1420,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1549277513-f1b32fe1f8f5?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "photo-fridge-magnet-combo-set-of-4",
@@ -1426,7 +1438,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1628440167046-03c6a2cc05db?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "acrylic-photo-fridge-magnets",
@@ -1444,7 +1456,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1628440167046-03c6a2cc05db?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "premium-canvas-fridge-magnets",
@@ -1462,7 +1474,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1628440167046-03c6a2cc05db?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "rectangle-square-fridge-magnets-set-of-4",
@@ -1480,7 +1492,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1628440167046-03c6a2cc05db?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "a5-desktop-calendar-landscape",
@@ -1499,7 +1511,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "long-desktop-calendar",
@@ -1517,7 +1529,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-wall-calendar",
@@ -1535,7 +1547,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1564141985-6ccc7f6c7a93?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "small-square-wooden-base-calendar",
@@ -1553,7 +1565,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "alphabet-with-photo-keychain",
@@ -1571,7 +1583,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1622467827417-bbe2237067a9?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "square-acrylic-photo-keychain",
@@ -1589,7 +1601,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1622467827417-bbe2237067a9?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "circle-acrylic-photo-keychain",
@@ -1607,7 +1619,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1622467827417-bbe2237067a9?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "heart-acrylic-photo-keychain",
@@ -1625,7 +1637,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1591195853828-11db59a44f43?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "oval-acrylic-photo-keychain",
@@ -1643,7 +1655,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1622467827417-bbe2237067a9?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "rectangle-acrylic-photo-keychain",
@@ -1661,7 +1673,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1622467827417-bbe2237067a9?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "star-acrylic-photo-keychain",
@@ -1679,7 +1691,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1622467827417-bbe2237067a9?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "octagon-acrylic-photo-keychain",
@@ -1697,7 +1709,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1622467827417-bbe2237067a9?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-mobile-pop-socket",
@@ -1715,7 +1727,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru only; standard nationwide delivery otherwise",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-tote-bags",
@@ -1733,7 +1745,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1591085686350-798c0f9faa7f?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "acrylic-photo-coasters",
@@ -1754,7 +1766,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-mousepads",
@@ -1773,7 +1785,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalised-photo-playing-cards",
@@ -1791,7 +1803,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1511193311914-0346f16efe90?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1511193311914-0346f16efe90?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalised-ludo",
@@ -1809,7 +1821,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1511193311914-0346f16efe90?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1531058020387-3be344556be6?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalised-memory-game",
@@ -1827,7 +1839,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1511193311914-0346f16efe90?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1606503153255-59d8b8b82176?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-gift-wrapping-paper",
@@ -1845,7 +1857,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1513201099705-a9746e1e201f?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1513201099705-a9746e1e201f?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "desktop-frames-with-messages-3d-printed",
@@ -1863,7 +1875,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1594026112284-02bb6f3352fe?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1594026112284-02bb6f3352fe?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalised-t-shirt-round-neck",
@@ -1885,7 +1897,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-laptop-sleeve-13-in",
@@ -1903,7 +1915,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3b?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3b?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-laptop-sleeve-13-5-in",
@@ -1921,7 +1933,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3b?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3b?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-laptop-sleeve-15-6-in",
@@ -1939,7 +1951,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Same-day delivery (4-6 hrs) in Bengaluru, Hyderabad, NCR & Chennai if ordered before 4:30 PM; standard nationwide",
     "isFeatured": false,
     "isTrending": false,
-    "imageUrl": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3b?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1548092372-0d1bd40894a3?auto=format&fit=crop&w=1200&h=900&q=80"
   },
   {
     "id": "personalized-selfie-photo-booth",
@@ -1957,7 +1969,7 @@ export const catalogProducts: CatalogProduct[] = [
     "delivery": "Not specified on page",
     "isFeatured": false,
     "isTrending": true,
-    "imageUrl": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&h=900&q=74"
+    "imageUrl": "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=1200&h=900&q=80"
   }
 ]
 

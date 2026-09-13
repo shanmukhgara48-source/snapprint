@@ -8,6 +8,11 @@ import Login from "./pages/Login";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Analytics = lazy(() => import("./pages/Analytics"));
+const Reports = lazy(() => import("./pages/reports/Reports"));
+const Inbox = lazy(() => import("./pages/inbox/Inbox"));
+const Reviews = lazy(() => import("./pages/reviews/Reviews"));
+const Returns = lazy(() => import("./pages/returns/Returns"));
+const Audit = lazy(() => import("./pages/audit/Audit"));
 const Categories = lazy(() => import("./pages/Categories"));
 const ProductsList = lazy(() => import("./pages/products/ProductsList"));
 const OrdersList = lazy(() => import("./pages/orders/OrdersList"));
@@ -22,7 +27,18 @@ const Admins = lazy(() => import("./pages/admins/Admins"));
 const Settings = lazy(() => import("./pages/settings/Settings"));
 const Notifications = lazy(() => import("./pages/notifications/Notifications"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Amazon-snappy navigation: serve cached rows instantly, refresh in
+      // the background; realtime socket + manual invalidations keep it live.
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 function AppRoutes() {
   const { isAuthenticated } = useAuth();
   const pathname = usePathname();
@@ -44,6 +60,11 @@ function AppRoutes() {
     {
       "/": <Dashboard />,
       "/analytics": <Analytics />,
+      "/reports": <Reports />,
+      "/inbox": <Inbox />,
+      "/reviews": <Reviews />,
+      "/returns": <Returns />,
+      "/audit": <Audit />,
       "/products": <ProductsList />,
       "/categories": <Categories />,
       "/orders": <OrdersList />,

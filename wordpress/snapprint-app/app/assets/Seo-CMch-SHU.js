@@ -1,0 +1,1 @@
+import{ct as e,lt as t}from"./index-Hrcaw54Q.js";var n=t(e(),1);function r(e){let t=`/wp-content/plugins/snapprint-app/app/`;return`${t.endsWith(`/`)?t:`${t}/`}${e.replace(/^\//,``)}`}function i({title:e,description:t,path:i=`/`,image:a=r(`og.jpg`),noindex:o=!1,type:s=`website`,jsonLd:c}){return(0,n.useEffect)(()=>{},[e,t,i,a,o,s]),null}export{r as n,i as t};

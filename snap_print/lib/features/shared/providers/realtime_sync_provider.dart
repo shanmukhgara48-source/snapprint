@@ -38,6 +38,12 @@ void _dispatch(Ref ref, RealtimeEvent event) {
       _onDeliverySettingEvent(ref, event);
     case RealtimeTopics.order:
       _onOrderEvent(ref, event);
+    case RealtimeTopics.review:
+      // A new/updated review refreshes the open product detail sections.
+      final id = event.entityId;
+      if (id != null) {
+        ref.invalidate(productDetailProvider(id));
+      }
     default:
       break; // setting/user events have no live consumers yet
   }

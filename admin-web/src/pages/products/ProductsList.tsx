@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import type { Category, Product } from "../../lib/types";
+import { useQueryParam } from "../../lib/search";
 import { Badge, Button, Card, Input, Modal, PageHeader, Spinner, Table, Td, Th } from "../../components/ui";
 import { ImageGalleryUploader } from "../../components/ImageUpload";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, Download } from "lucide-react";
 
 type ProductForm = {
   name: string;
@@ -16,6 +17,9 @@ type ProductForm = {
   tracks_inventory: boolean;
   is_trending: boolean;
   is_orderable: boolean;
+  sku: string;
+  compare_at_price: string;
+  is_bestseller: boolean;
 };
 
 const emptyForm: ProductForm = {
@@ -28,6 +32,9 @@ const emptyForm: ProductForm = {
   tracks_inventory: false,
   is_trending: false,
   is_orderable: true,
+  sku: "",
+  compare_at_price: "",
+  is_bestseller: false,
 };
 
 function parseImages(raw: string): string[] {
@@ -39,11 +46,18 @@ function parseImages(raw: string): string[] {
 
 export default function ProductsList() {
   const qc = useQueryClient();
+  const [urlQ] = useQueryParam("q");
   const [q, setQ] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
+
+  // Header global search (?q=…) lands here through the URL.
+  useEffect(() => {
+    if (urlQ) setQ(urlQ);
+  }, [urlQ]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["products", q],
@@ -77,6 +91,9 @@ export default function ProductsList() {
         tracks_inventory: payload.tracks_inventory,
         is_trending: payload.is_trending,
         is_orderable: payload.is_orderable,
+        sku: payload.sku.trim() || null,
+        compare_at_price: payload.compare_at_price ? Number(payload.compare_at_price) : null,
+        is_bestseller: payload.is_bestseller,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
@@ -151,12 +168,29 @@ export default function ProductsList() {
       tracks_inventory: p.tracks_inventory ?? false,
       is_trending: p.is_trending ?? false,
       is_orderable: p.is_orderable ?? true,
+      sku: p.sku ?? "",
+      compare_at_price: p.compare_at_price ? String(p.compare_at_price) : "",
+      is_bestseller: p.is_bestseller ?? false,
     });
     setModalOpen(true);
   }
 
-  function handleSave() {
-    if (editing) {
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const res = await api.get("/admin/products/export", { responseType: "blob" });
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "snapprint-inventory.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function handleSave() {    if (editing) {
       updateMut.mutate({
         id: editing.id,
         payload: {
@@ -169,6 +203,9 @@ export default function ProductsList() {
           tracks_inventory: form.tracks_inventory,
           is_trending: form.is_trending,
           is_orderable: form.is_orderable,
+          sku: form.sku.trim() || null,
+          compare_at_price: form.compare_at_price ? Number(form.compare_at_price) : null,
+          is_bestseller: form.is_bestseller,
         },
       });
     } else {
@@ -182,9 +219,14 @@ export default function ProductsList() {
         title="Products"
         subtitle="Full CRUD — wired to /admin/products"
         action={
-          <Button onClick={openCreate}>
-            <Plus size={16} /> Add product
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={exportCsv} disabled={exporting}>
+              <Download size={16} /> {exporting ? "Exporting…" : "Export CSV"}
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus size={16} /> Add product
+            </Button>
+          </div>
         }
       />
       <Card className="mb-4 p-3">
@@ -200,6 +242,8 @@ export default function ProductsList() {
           <button onClick={() => bulkUpdateMut.mutate({ is_trending: false })} className="text-xs text-neutral-400 hover:text-white">Untrend</button>
           <button onClick={() => bulkUpdateMut.mutate({ is_featured: true })} className="text-xs text-neutral-400 hover:text-white">Feature</button>
           <button onClick={() => bulkUpdateMut.mutate({ is_featured: false })} className="text-xs text-neutral-400 hover:text-white">Unfeature</button>
+          <button onClick={() => bulkUpdateMut.mutate({ tracks_inventory: true })} className="text-xs text-neutral-400 hover:text-white">Track stock</button>
+          <button onClick={() => bulkUpdateMut.mutate({ tracks_inventory: false })} className="text-xs text-neutral-400 hover:text-white">Untrack stock</button>
           <button
             onClick={() => confirm(`Delete ${selected.size} products?`) && bulkDeleteMut.mutate()}
             className="text-xs text-red-500 hover:text-red-400"
@@ -239,10 +283,37 @@ export default function ProductsList() {
                 <Td>{p.name}</Td>
                 <Td className="capitalize">{p.category}</Td>
                 <Td>{p.is_orderable ? `₹${p.base_price}` : "Pricing pending"}</Td>
-                <Td>{p.tracks_inventory ? p.stock_quantity : "Unlimited"}</Td>
+                <Td>
+                  {p.tracks_inventory ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <button
+                        aria-label={`Decrease stock for ${p.name}`}
+                        disabled={updateMut.isPending || p.stock_quantity <= 0}
+                        onClick={() => updateMut.mutate({ id: p.id, payload: { stock_quantity: Math.max(0, p.stock_quantity - 1) } })}
+                        className="rounded border border-border px-1.5 text-neutral-300 hover:bg-surface-2 disabled:opacity-40"
+                      >
+                        −
+                      </button>
+                      <span className={p.stock_quantity <= 5 ? "font-semibold text-red-400" : ""}>
+                        {p.stock_quantity}{p.stock_quantity <= 5 ? (p.stock_quantity === 0 ? " · out" : " · low") : ""}
+                      </span>
+                      <button
+                        aria-label={`Increase stock for ${p.name}`}
+                        disabled={updateMut.isPending}
+                        onClick={() => updateMut.mutate({ id: p.id, payload: { stock_quantity: p.stock_quantity + 1 } })}
+                        className="rounded border border-border px-1.5 text-neutral-300 hover:bg-surface-2 disabled:opacity-40"
+                      >
+                        +
+                      </button>
+                    </span>
+                  ) : (
+                    "Unlimited"
+                  )}
+                </Td>
                 <Td>
                   <div className="flex gap-1">
                     <Badge tone={p.is_active ? "success" : "neutral"}>{p.is_active ? "Active" : "Disabled"}</Badge>
+                    {p.is_bestseller && <Badge tone="warning">Bestseller</Badge>}
                     {p.is_featured && <Badge tone="success">Featured</Badge>}
                     {p.is_trending && <Badge tone="success">Trending</Badge>}
                     {!p.is_orderable && <Badge tone="neutral">Catalog only</Badge>}
@@ -264,6 +335,12 @@ export default function ProductsList() {
                       className="text-xs text-neutral-400 hover:text-white"
                     >
                       {p.is_trending ? "Untrend" : "Trend"}
+                    </button>
+                    <button
+                      onClick={() => updateMut.mutate({ id: p.id, payload: { is_bestseller: !p.is_bestseller } })}
+                      className="text-xs text-neutral-400 hover:text-white"
+                    >
+                      {p.is_bestseller ? "Unbest" : "Best"}
                     </button>
                     <button
                       onClick={() => confirm(`Delete ${p.name}?`) && deleteMut.mutate(p.id)}
@@ -308,6 +385,27 @@ export default function ProductsList() {
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              placeholder="SKU (e.g. PRINT-4X6-001)"
+              value={form.sku}
+              onChange={(e) => setForm({ ...form, sku: e.target.value })}
+            />
+            <Input
+              placeholder="MRP / compare-at price (strike-through)"
+              type="number"
+              value={form.compare_at_price}
+              onChange={(e) => setForm({ ...form, compare_at_price: e.target.value })}
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm text-neutral-300">
+            <input
+              type="checkbox"
+              checked={form.is_bestseller}
+              onChange={(e) => setForm({ ...form, is_bestseller: e.target.checked })}
+            />
+            Bestseller badge
+          </label>
           <Input
             placeholder="Stock quantity"
             type="number"

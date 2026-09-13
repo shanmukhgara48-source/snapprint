@@ -1,109 +1,170 @@
 import { useEffect, useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { LogoMark } from './Logo'
-import { Button } from './Button'
-import { MenuIcon, XIcon } from './Icons'
+import { ArrowRightIcon, MenuIcon, XIcon, PackageIcon } from './Icons'
+import { usePrintPlan } from '../context/PrintPlan'
+import { useWishlist } from '../context/Wishlist'
+import { getAuthToken, clearAuthToken, api } from '../services/api'
+import { firebaseSignOut } from '../lib/firebase'
+import { GravityField } from './antiGravity/GravityField'
 
 const links = [
-  { to: '/', label: 'Home', end: true },
-  { to: '/products', label: 'Products' },
-  { to: '/pricing', label: 'Pricing' },
-  { to: '/contact', label: 'Contact Us' },
+  { to: '/products?category=photo-prints', label: 'Photo prints' },
+  { to: '/products?category=photo-books', label: 'Photo books' },
+  { to: '/products?category=frames-wall-decor', label: 'Frames & canvas' },
+  { to: '/products?occasion=gift', label: 'Gifts' },
 ]
 
 export function Nav() {
   const [open, setOpen] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
   const location = useLocation()
-
-  useEffect(() => setOpen(false), [location.pathname])
+  const { items } = usePrintPlan()
+  const { count: wishlistCount } = useWishlist()
+  const [authenticated, setAuthenticated] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8)
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+    const token = getAuthToken()
+    if (token) {
+      api.getOrders()
+        .then(() => setAuthenticated(true))
+        .catch(() => setAuthenticated(false))
+    } else {
+      setAuthenticated(false)
+    }
+  }, [location.pathname])
+
+  useEffect(() => setOpen(false), [location])
+
+  async function handleLogout() {
+    clearAuthToken()
+    try {
+      await firebaseSignOut()
+    } catch {
+      /* non-fatal */
+    }
+    setAuthenticated(false)
+    navigate('/auth')
+  }
 
   return (
-    <header
-      className={`sticky top-0 z-50 border-b transition-colors duration-300 ${
-        scrolled
-          ? 'border-[var(--color-border)] bg-[var(--color-bg)]/75 backdrop-blur-xl'
-          : 'border-transparent bg-transparent'
-      }`}
-    >
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
-        <NavLink to="/" className="flex items-center gap-2.5 text-base font-extrabold tracking-normal text-[var(--color-ink)]">
-          <LogoMark className="h-7.5 w-7.5" />
-          Snap<span className="text-[var(--color-accent)]">Print</span>
-        </NavLink>
-
-        <ul className="hidden items-center gap-9 text-[13px] font-medium tracking-wide md:flex">
-          {links.map((link) => (
-            <li key={link.to}>
-              <NavLink
-                to={link.to}
-                end={link.end}
-                className={({ isActive }) =>
-                  `group relative py-1 transition-colors ${
-                    isActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-ink)]/80 hover:text-[var(--color-accent)]'
-                  }`
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    {link.label}
-                    <span
-                      className={`absolute inset-x-0 -bottom-1 h-px origin-left bg-[var(--color-accent)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                        isActive ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'
-                      }`}
-                    />
-                  </>
-                )}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-
-        <div className="hidden md:block">
-          <Button to="/products" variant="primary" className="!px-5 !py-2.5 text-xs">
-            Browse Catalog
-          </Button>
-        </div>
-
-        <button
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-border-strong)] text-[var(--color-ink)] md:hidden"
-          onClick={() => setOpen((o) => !o)}
-          aria-label="Toggle menu"
-          aria-expanded={open}
-        >
-          {open ? <XIcon /> : <MenuIcon />}
-        </button>
-      </nav>
-
-      {open && (
-        <div className="border-t border-[var(--color-border)] bg-[var(--color-bg)] px-6 py-5 md:hidden">
-          <ul className="flex flex-col gap-4 text-sm font-medium">
+    <>
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
+      <div className="announcement">
+        Good memories deserve more than a camera roll.{' '}
+        <Link to="/shipping">
+          Free delivery · 5–7 business days <ArrowRightIcon />
+        </Link>
+      </div>
+      <header className="shop-header">
+        <nav className="shop-nav wrap" aria-label="Main navigation">
+          <GravityField pullIntensity={10}>
+            <Link to="/" className="brand">
+              <LogoMark className="h-8 w-8" />
+              <span>
+                snap<span>print</span>
+              </span>
+            </Link>
+          </GravityField>
+          <div className="desktop-links">
             {links.map((link) => (
-              <li key={link.to}>
-                <NavLink
-                  to={link.to}
-                  end={link.end}
-                  className={({ isActive }) =>
-                    isActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-ink)]/85'
-                  }
-                >
+              <GravityField key={link.to} pullIntensity={8} className="inline-block">
+                <Link to={link.to}>
                   {link.label}
-                </NavLink>
-              </li>
+                </Link>
+              </GravityField>
             ))}
-          </ul>
-          <Button to="/products" variant="primary" className="mt-5 w-full">
-            Browse Catalog
-          </Button>
-        </div>
-      )}
-    </header>
+            <GravityField pullIntensity={10} className="inline-block ml-4">
+              <Link to="/products" className="guide-link">
+                Shop collection <span>✧</span>
+              </Link>
+            </GravityField>
+          </div>
+          <div className="nav-actions">
+            <GravityField pullIntensity={12}>
+              <Link
+                to="/wishlist"
+                className="plan-link block"
+                aria-label={`Wishlist with ${wishlistCount} items`}
+              >
+                <span aria-hidden="true">♡</span>
+                <span>Wishlist</span>
+                {wishlistCount > 0 && <b>{wishlistCount}</b>}
+              </Link>
+            </GravityField>
+            <GravityField pullIntensity={12}>
+              <Link
+                to="/card"
+                className="plan-link block"
+                aria-label={`Cart with ${items.length} items`}
+              >
+                <PackageIcon />
+                <span>Cart</span>
+                {items.length > 0 && <b>{items.length}</b>}
+              </Link>
+            </GravityField>
+            {authenticated ? (
+              <GravityField pullIntensity={12}>
+                <div className="flex items-center gap-2">
+                  <Link to="/orders" className="text-sm text-accent hover:underline">
+                    Orders
+                  </Link>
+                  <Link to="/account" className="text-sm text-muted hover:text-ink transition-colors">
+                    Account
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="text-sm text-muted hover:text-ink transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </GravityField>
+            ) : (
+              <GravityField pullIntensity={12}>
+                <Link to="/auth" className="shop-button text-sm py-2 px-4">
+                  Sign In
+                </Link>
+              </GravityField>
+            )}
+            <GravityField pullIntensity={12}>
+              <button
+                className="icon-button menu-toggle"
+                aria-label={open ? 'Close menu' : 'Open menu'}
+                aria-expanded={open}
+                aria-controls="mobile-menu"
+                onClick={() => setOpen(!open)}
+              >
+                {open ? <XIcon /> : <MenuIcon />}
+              </button>
+            </GravityField>
+          </div>
+        </nav>
+        {open && (
+          <div id="mobile-menu" className="mobile-menu">
+            {links.map((link) => (
+              <Link key={link.to} to={link.to}>
+                {link.label}
+                <ArrowRightIcon />
+              </Link>
+            ))}
+            <Link to="/products?category=photo-prints">Explore prints</Link>
+            <Link to="/pricing">Pricing & delivery</Link>
+            <Link to="/contact">Contact us</Link>
+            {authenticated ? (
+              <>
+                <Link to="/orders">My Orders</Link>
+                <Link to="/account">Account</Link>
+                <button onClick={handleLogout}>Logout</button>
+              </>
+            ) : (
+              <Link to="/auth">Sign In</Link>
+            )}
+          </div>
+        )}
+      </header>
+    </>
   )
 }

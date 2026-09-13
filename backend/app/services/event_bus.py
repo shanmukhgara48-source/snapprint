@@ -33,6 +33,7 @@ CATALOG_TOPICS = {
     "coupon",
     "delivery_setting",
     "setting",
+    "review",
 }
 
 _SEND_TIMEOUT_SECONDS = 5  # slow/dead clients are dropped, they reconnect + refetch

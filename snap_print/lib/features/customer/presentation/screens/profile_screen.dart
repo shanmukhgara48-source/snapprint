@@ -143,9 +143,7 @@ class ProfileScreen extends ConsumerWidget {
           _MenuItem(
             icon: Icons.favorite_border_rounded,
             label: 'Wishlist',
-            onTap: () => ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Coming soon!'))),
+            onTap: () => context.push(AppRoutes.wishlist),
           ),
           _MenuItem(
             icon: Icons.local_offer_outlined,

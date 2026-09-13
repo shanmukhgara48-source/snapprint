@@ -2,7 +2,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -29,6 +29,44 @@ from ..services.r2_storage import owned_media_key
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
+ALLOWED_ORDER_SOURCES = {"mobile_app", "website", "admin", "unknown"}
+
+# Header aliases sent by older clients / proxies.
+_SOURCE_ALIASES = {
+    "app": "mobile_app",
+    "android": "mobile_app",
+    "ios": "mobile_app",
+    "flutter": "mobile_app",
+    "mobile": "mobile_app",
+    "web": "website",
+}
+
+
+def _resolve_order_source(payload_source: str | None, request: Request) -> str:
+    """Single choke point for purchase-channel attribution.
+
+    Priority: explicit payload field > X-Client-Source header >
+    User-Agent heuristic > "unknown". Always returns a canonical value so
+    the admin dashboard can group orders by channel (mobile_app vs website).
+    """
+    if payload_source:
+        candidate = _SOURCE_ALIASES.get(
+            payload_source.strip().lower(), payload_source.strip().lower()
+        )
+        if candidate in ALLOWED_ORDER_SOURCES:
+            return candidate
+    header = request.headers.get("x-client-source", "").strip().lower()
+    if header:
+        candidate = _SOURCE_ALIASES.get(header, header)
+        if candidate in ALLOWED_ORDER_SOURCES:
+            return candidate
+    ua = request.headers.get("user-agent", "").lower()
+    if any(token in ua for token in ("dart", "flutter", "okhttp", "iphone", "android")) and "mozilla" not in ua:
+        return "mobile_app"
+    if "mozilla" in ua or "chrome" in ua or "safari" in ua:
+        return "website"
+    return "unknown"
+
 
 def _order_to_out(order: Order) -> OrderOut:
     address_str = order.delivery_address_snapshot
@@ -45,6 +83,7 @@ def _order_to_out(order: Order) -> OrderOut:
         id=order.id,
         total_price=order.total_price,
         status=order.status,
+        source=getattr(order, "source", None) or "unknown",
         created_at=order.created_at,
         item_count=len(order.items),
         delivery_address=address_str,
@@ -59,9 +98,11 @@ def _order_to_out(order: Order) -> OrderOut:
 @router.post("", response_model=OrderOut, status_code=201)
 async def place_order(
     payload: OrderCreate,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_customer)],
 ) -> OrderOut:
+    order_source = _resolve_order_source(payload.source, request)
     # Validate address
     addr_result = await db.execute(
         select(Address).where(
@@ -259,6 +300,7 @@ async def place_order(
         razorpay_order_id=payload.razorpay_order_id,
         razorpay_payment_id=payload.razorpay_payment_id,
         status="confirmed",
+        source=order_source,
         estimated_delivery=datetime.now(timezone.utc) + timedelta(days=estimated_days),
     )
     db.add(order)
@@ -303,7 +345,7 @@ async def place_order(
     # Live update: user's other devices + admin panel (orders list, dashboard)
     await emit_event(
         "order", "created", order.id,
-        {"status": order.status, "total_price": order.total_price},
+        {"status": order.status, "total_price": order.total_price, "source": order.source},
         user_id=user.id,
     )
     # Broadcast new stock levels for tracked products (listings + admin panel)

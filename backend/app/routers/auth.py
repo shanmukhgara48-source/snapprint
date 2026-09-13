@@ -249,6 +249,14 @@ async def verify_user(
     )
 
 
+@router.get("/me", response_model=UserResponse)
+async def get_account(
+    current_user: User = Depends(get_current_user),
+) -> UserResponse:
+    """Return the authenticated customer's own profile (account page)."""
+    return UserResponse.model_validate(current_user)
+
+
 @router.delete("/me", status_code=204)
 @limiter.limit("3/minute")
 async def delete_account(

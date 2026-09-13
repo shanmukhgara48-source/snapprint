@@ -140,6 +140,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             .toList(),
         'address_id': widget.addressId,
         'delivery_type': widget.deliveryType,
+        // Channel attribution for the admin dashboard; backend stock
+        // decrements centrally regardless of channel.
+        'source': 'mobile_app',
         if (widget.couponCode != null) 'coupon_code': widget.couponCode,
         'razorpay_payment_id': payment.paymentId,
         'razorpay_order_id': payment.orderId,

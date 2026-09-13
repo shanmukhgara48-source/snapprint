@@ -1,12 +1,19 @@
 import { Link } from 'react-router-dom'
 import { PolicyLayout } from '../components/PolicyLayout'
-import { Placeholder } from '../components/Placeholder'
+import { BusinessValue } from '../components/BusinessValue'
+import { Seo } from '../components/Seo'
 
 export function Terms() {
   return (
+    <>
+    <Seo
+      title="Terms and Conditions | SnapPrint"
+      description="SnapPrint terms and conditions for orders and website use."
+      path="/terms"
+    />
     <PolicyLayout
       title="Terms and Conditions"
-      lastUpdated={<Placeholder label="publish date" example="1 August 2026" />}
+      lastUpdated={<BusinessValue field="policyLastUpdated" fallback="Last reviewed: pending owner confirmation" />}
       intro="These Terms and Conditions govern your use of the SnapPrint website and app, and any order you place with us."
       sections={[
         {
@@ -14,7 +21,7 @@ export function Terms() {
           body: (
             <p>
               SnapPrint is a photo-printing and personalised products service operated by{' '}
-              <Placeholder label="legal entity name" example="SnapPrint Private Limited" />. In
+              <BusinessValue field="legalEntityName" />. In
               these Terms, "SnapPrint", "we", "us", and "our" refer to that business entity.
             </p>
           ),
@@ -113,7 +120,7 @@ export function Terms() {
           body: (
             <p>
               These Terms are governed by the laws of India. Courts at{' '}
-              <Placeholder label="city / jurisdiction" example="Bengaluru, Karnataka" /> will
+              <BusinessValue field="jurisdiction" /> will
               have jurisdiction, subject to applicable law.
             </p>
           ),
@@ -123,12 +130,15 @@ export function Terms() {
           body: (
             <p>
               For questions about these Terms, contact{' '}
-              <Placeholder label="support email" example="support@snapprint.in" /> or write to{' '}
-              <Placeholder label="registered business address" />.
+              <BusinessValue
+                field="supportEmail"
+              /> or write to{' '}
+              <BusinessValue field="registeredAddress" />.
             </p>
           ),
         },
       ]}
     />
+    </>
   )
 }

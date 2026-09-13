@@ -25,7 +25,7 @@ from app.models.admin_user import AdminUser
 from app.models.category import Category
 from app.models.delivery_setting import DeliverySetting
 from app.models.product import Product
-from app.routers import admin, addresses, ai_editor, auth, banners, cart, categories, coupons, delivery, delivery_options, media, orders, payments, products, realtime, upload
+from app.routers import admin, addresses, ai_editor, auth, banners, cart, categories, contact, coupons, delivery, delivery_options, media, orders, payments, products, realtime, returns, reviews, upload, wishlist
 from app.seed_data import DEFAULT_CATEGORIES, DEFAULT_PRODUCTS
 from app.services.password import hash_password
 
@@ -256,6 +256,15 @@ async def security_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    # API serves JSON only (plus proxied image bytes on /media/*) — a strict
+    # resource policy is safe here and blocks content-injection misuse.
+    # NOTE: authentication is Authorization-Bearer based, not cookie based,
+    # so no CSRF token layer is required; state-changing endpoints require
+    # the bearer JWT and are origin-checked via the CORS allowlist.
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; "
+        "form-action 'none'"
+    )
     if _IS_PROD:
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
@@ -289,6 +298,7 @@ app.include_router(products.router)
 app.include_router(categories.router)
 app.include_router(banners.router)
 app.include_router(cart.router)
+app.include_router(contact.router)
 app.include_router(coupons.router)
 app.include_router(addresses.router)
 app.include_router(payments.router)
@@ -299,6 +309,9 @@ app.include_router(admin.router)
 app.include_router(upload.router)
 app.include_router(media.router)
 app.include_router(ai_editor.router)
+app.include_router(reviews.router)
+app.include_router(wishlist.router)
+app.include_router(returns.router)
 app.include_router(realtime.router)
 
 

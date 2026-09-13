@@ -102,6 +102,10 @@ class _AuthInterceptor extends Interceptor {
     } else if (_appAuthToken != null) {
       options.headers['Authorization'] = 'Bearer $_appAuthToken';
     }
+    // Purchase-channel attribution so the admin dashboard can show
+    // per-channel sales (mobile_app vs website) while stock decrements
+    // centrally on the backend.
+    options.headers['X-Client-Source'] = 'mobile_app';
     // If neither is set, proceed without a token; server will return 401.
     handler.next(options);
   }

@@ -11,6 +11,7 @@ const TOPIC_QUERY_KEYS: Record<string, string[]> = {
   delivery_setting: ["delivery-settings"],
   setting: ["settings"],
   order: ["orders", "order", "dashboard", "dashboard-charts", "analytics-charts"],
+  review: ["reviews", "dashboard"],
   payment: ["payments", "dashboard"],
   notification: ["notifications"],
   user: ["users", "user", "delivery-partners"],

@@ -19,6 +19,10 @@ class OrderCreate(BaseModel):
     razorpay_payment_id: str | None = Field(default=None, max_length=256)
     razorpay_order_id: str | None = Field(default=None, max_length=256)
     razorpay_signature: str | None = Field(default=None, max_length=512)
+    # Purchase channel: "mobile_app" | "website" | "admin".
+    # Optional for backward compat — backend falls back to the
+    # X-Client-Source header / User-Agent heuristic, then "unknown".
+    source: str | None = Field(default=None, max_length=32)
 
 
 class TrackingEventOut(BaseModel):
@@ -32,6 +36,7 @@ class OrderOut(BaseModel):
     id: str
     total_price: float
     status: str
+    source: str = "unknown"
     created_at: datetime
     item_count: int = 0
     delivery_address: str | None = None

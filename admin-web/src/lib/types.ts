@@ -15,6 +15,9 @@ export interface Product {
   sort_order: number;
   stock_quantity: number;
   tracks_inventory: boolean;
+  sku?: string | null;
+  compare_at_price?: number | null;
+  is_bestseller?: boolean;
   is_featured: boolean;
   is_trending: boolean;
   is_orderable: boolean;
@@ -44,6 +47,7 @@ export interface Banner {
 export interface OrderListItem {
   id: string;
   status: string;
+  source?: string;
   total_price: number;
   customer_phone: string | null;
   item_count: number;
@@ -69,6 +73,7 @@ export interface OrderTimelineEvent {
 export interface OrderDetail {
   id: string;
   status: string;
+  source?: string;
   notes: string | null;
   total_price: number;
   delivery_type: string;
@@ -176,11 +181,76 @@ export interface AdminUserRecord {
 
 export interface DashboardAnalytics {
   revenue: { today: number; week: number; month: number; year: number };
-  orders: { today: number; by_status: Record<string, number> };
+  orders: {
+    today: number;
+    by_status: Record<string, number>;
+    by_channel?: Record<string, number>;
+  };
   users: { total: number; new_this_month: number };
   payments: { failed: number };
   photos: { total_uploaded: number };
   top_products: { name: string; quantity: number }[];
+  low_stock?: { id: string; name: string; stock_quantity: number }[];
+  sales_30d?: { orders: number; revenue: number; units: number; avg_order_value: number };
+  refunds_30d?: { count: number; amount: number };
+  alerts?: {
+    out_of_stock: number;
+    low_stock: number;
+    awaiting_fulfilment: number;
+    inbox_unread: number;
+    failed_payments: number;
+    open_returns?: number;
+  };
+  health?: {
+    return_rate_30d: number;
+    cancel_rate_30d: number;
+    avg_fulfilment_days: number;
+    grade: string;
+  };
+}
+
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  user_id: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface AdminReview {
+  id: string;
+  product_id: string;
+  product_name: string | null;
+  user_id: string;
+  reviewer: string;
+  order_id: string | null;
+  rating: number;
+  title: string;
+  body: string;
+  verified_purchase: boolean;
+  helpful_count: number;
+  seller_response: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReturnRequest {
+  id: string;
+  order_id: string;
+  reason: string;
+  details: string | null;
+  status: string;
+  admin_note: string | null;
+  order_status: string;
+  order_total: number;
+  customer_phone: string | null;
+  item_count: number;
+  created_at: string;
+  decided_at: string | null;
 }
 
 export interface ChartsAnalytics {

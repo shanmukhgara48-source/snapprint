@@ -38,6 +38,10 @@ class Order(Base):
         String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     status: Mapped[str] = mapped_column(String, default="pending")
+    # Purchase channel: "mobile_app" | "website" | "admin" | "unknown".
+    # Set at order creation from payload.source / X-Client-Source header.
+    # Shared stock still decrements centrally regardless of channel.
+    source: Mapped[str] = mapped_column(String, default="unknown", server_default="unknown")
     total_price: Mapped[float] = mapped_column(Float)
     delivery_type: Mapped[str] = mapped_column(String, default="free")
     delivery_charge: Mapped[float] = mapped_column(Float, default=0)

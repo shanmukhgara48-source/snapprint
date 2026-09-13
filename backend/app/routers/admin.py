@@ -23,14 +23,18 @@ from ..models import (
     AppSetting,
     Banner,
     Category,
+    ContactMessage,
     Coupon,
     DeliveryTracking,
     Order,
     OrderItem,
     PaymentAttempt,
     Product,
+    ReturnRequest,
+    Review,
     User,
 )
+from ..models.review import _mask_phone
 from ..models.delivery_setting import DeliverySetting
 from ..services.firebase_service import get_firebase_app, send_broadcast_notification, notify_order_confirmed, set_user_role_claim
 from ..services.admin_audit import log_admin_action
@@ -42,6 +46,8 @@ from ..schemas.admin import CouponCreate, CouponOut, CouponUpdate
 from ..schemas.banner import BannerCreate, BannerOut, BannerUpdate
 from ..schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
 from ..schemas.product import ProductCreate, ProductOut, ProductUpdate
+from ..schemas.returns import AdminReturnDecision
+from ..schemas.review import AdminReviewUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -494,7 +500,14 @@ async def admin_list_orders(
     _: Annotated[dict, Depends(require_admin)],
     status: str | None = None,
     q: str | None = None,
+    source: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
 ) -> list[dict]:
+    """Order manager filters: status × channel × date range × phone search.
+
+    created_from/created_to accept YYYY-MM-DD (inclusive, UTC).
+    """
     query = select(Order).options(
         selectinload(Order.items),
         selectinload(Order.address),
@@ -502,6 +515,22 @@ async def admin_list_orders(
     )
     if status:
         query = query.where(Order.status == status)
+    if source:
+        query = query.where(Order.source == source)
+    if created_from:
+        try:
+            since = datetime.strptime(created_from, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="created_from must be YYYY-MM-DD")
+        query = query.where(Order.created_at >= since)
+    if created_to:
+        try:
+            until = datetime.strptime(created_to, "%Y-%m-%d").replace(
+                tzinfo=timezone.utc
+            ) + timedelta(days=1)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="created_to must be YYYY-MM-DD")
+        query = query.where(Order.created_at < until)
     if q:
         query = query.join(User, Order.user_id == User.id).where(User.phone.ilike(f"%{q}%"))
     query = query.order_by(Order.created_at.desc())
@@ -511,6 +540,7 @@ async def admin_list_orders(
         {
             "id": o.id,
             "status": o.status,
+            "source": getattr(o, "source", None) or "unknown",
             "total_price": o.total_price,
             "customer_phone": o.customer.phone if o.customer else None,
             "item_count": len(o.items),
@@ -526,8 +556,11 @@ async def admin_export_orders(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[dict, Depends(require_admin)],
     status: str | None = None,
+    source: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
 ) -> Response:
-    """Download the (optionally status-filtered) order list as CSV."""
+    """Download the (optionally filtered) order list as CSV."""
     query = select(Order).options(
         selectinload(Order.items),
         selectinload(Order.address),
@@ -535,6 +568,22 @@ async def admin_export_orders(
     )
     if status:
         query = query.where(Order.status == status)
+    if source:
+        query = query.where(Order.source == source)
+    if created_from:
+        try:
+            since = datetime.strptime(created_from, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="created_from must be YYYY-MM-DD")
+        query = query.where(Order.created_at >= since)
+    if created_to:
+        try:
+            until = datetime.strptime(created_to, "%Y-%m-%d").replace(
+                tzinfo=timezone.utc
+            ) + timedelta(days=1)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="created_to must be YYYY-MM-DD")
+        query = query.where(Order.created_at < until)
     query = query.order_by(Order.created_at.desc())
     result = await db.execute(query)
     orders = result.scalars().all()
@@ -542,7 +591,7 @@ async def admin_export_orders(
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow([
-        "order_id", "created_at", "status", "customer_phone", "items",
+        "order_id", "created_at", "status", "source", "customer_phone", "items",
         "item_count", "delivery_type", "delivery_charge", "discount",
         "coupon_code", "total_price", "razorpay_payment_id",
         "delivery_partner_id", "city", "pincode",
@@ -556,6 +605,7 @@ async def admin_export_orders(
             o.id,
             o.created_at.isoformat(),
             o.status,
+            getattr(o, "source", None) or "unknown",
             o.customer.phone if o.customer else "",
             items_desc,
             len(o.items),
@@ -571,6 +621,93 @@ async def admin_export_orders(
         ])
 
     filename = f"snapprint-orders-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}.csv"
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/products/export")
+async def admin_export_products(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+) -> Response:
+    """Inventory report: every product with live stock + all-time sell-through."""
+    sales = await db.execute(
+        select(
+            OrderItem.product_id,
+            func.coalesce(func.sum(OrderItem.quantity), 0).label("units"),
+            func.coalesce(func.sum(OrderItem.quantity * OrderItem.unit_price), 0).label("revenue"),
+        ).group_by(OrderItem.product_id)
+    )
+    sales_by_product = {pid: (int(u), float(r)) for pid, u, r in sales.all()}
+    result = await db.execute(select(Product).order_by(Product.category, Product.name))
+    products = result.scalars().all()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "product_id", "name", "category", "base_price", "stock_quantity",
+        "tracks_inventory", "is_orderable", "is_active",
+        "units_sold_all_time", "revenue_all_time",
+    ])
+    for p in products:
+        units, revenue = sales_by_product.get(p.id, (0, 0.0))
+        writer.writerow([
+            p.id, p.name, p.category, p.base_price, p.stock_quantity,
+            p.tracks_inventory, p.is_orderable, p.is_active, units, round(revenue, 2),
+        ])
+    filename = f"snapprint-inventory-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}.csv"
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/reports/sales-by-product")
+async def admin_report_sales_by_product(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+    created_from: str | None = None,
+    created_to: str | None = None,
+) -> Response:
+    """Business report: units + revenue per product for a date range (CSV)."""
+    query = (
+        select(
+            Product.id,
+            Product.name,
+            func.coalesce(func.sum(OrderItem.quantity), 0).label("units"),
+            func.coalesce(func.sum(OrderItem.quantity * OrderItem.unit_price), 0).label("revenue"),
+        )
+        .join(OrderItem, OrderItem.product_id == Product.id)
+        .join(Order, Order.id == OrderItem.order_id)
+        .where(Order.status != "cancelled")
+    )
+    if created_from:
+        try:
+            since = datetime.strptime(created_from, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="created_from must be YYYY-MM-DD")
+        query = query.where(Order.created_at >= since)
+    if created_to:
+        try:
+            until = datetime.strptime(created_to, "%Y-%m-%d").replace(
+                tzinfo=timezone.utc
+            ) + timedelta(days=1)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="created_to must be YYYY-MM-DD")
+        query = query.where(Order.created_at < until)
+    query = query.group_by(Product.id, Product.name).order_by(func.sum(OrderItem.quantity).desc())
+    result = await db.execute(query)
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["product_id", "product_name", "units_sold", "revenue"])
+    for pid, name, units, revenue in result.all():
+        writer.writerow([pid, name, int(units), round(float(revenue), 2)])
+    filename = f"snapprint-sales-by-product-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}.csv"
     return Response(
         content=buf.getvalue(),
         media_type="text/csv",
@@ -623,6 +760,99 @@ async def admin_assign_delivery(
     return {"ok": True, "order_id": order_id, "delivery_partner_id": payload.delivery_partner_id}
 
 
+class BulkOrderStatusRequest(BaseModel):
+    ids: list[str] = Field(min_length=1, max_length=200)
+    status: Literal["confirmed", "picked_up", "out_for_delivery", "delivered", "cancelled"]
+
+
+@router.post("/orders/bulk-status")
+async def admin_bulk_update_order_status(
+    request: Request,
+    payload: BulkOrderStatusRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[
+        dict,
+        Depends(
+            require_admin_role(
+                "super_admin", "manager", "support_staff", "printing_staff"
+            )
+        ),
+    ],
+) -> dict:
+    """Fulfilment bulk action: move many orders to the next status at once.
+
+    Mirrors the single-order transition rules. Bulk cancel skips orders with a
+    captured Razorpay payment (refund those individually so money movement
+    stays deliberate) and restores stock/coupon for the rest.
+    """
+    admin_role = admin.get("admin_role")
+    if payload.status == "cancelled" and admin_role not in {"super_admin", "manager"}:
+        raise HTTPException(403, "Only managers can cancel an order.")
+    if payload.status != "cancelled" and admin_role == "support_staff":
+        raise HTTPException(403, "Support staff can edit notes but not order status.")
+
+    updated: list[str] = []
+    failed: list[dict] = []
+    restocked_products: dict[str, Product] = {}
+    updated_user_ids: dict[str, str] = {}
+    for order_id in dict.fromkeys(payload.ids):
+        result = await db.execute(
+            select(Order)
+            .options(selectinload(Order.items).selectinload(OrderItem.product))
+            .where(Order.id == order_id)
+            .with_for_update()
+        )
+        order = result.scalar_one_or_none()
+        if order is None:
+            failed.append({"id": order_id, "reason": "Order not found"})
+            continue
+        try:
+            validate_order_status_transition(order.status, payload.status)
+        except HTTPException as exc:
+            failed.append({"id": order_id, "reason": exc.detail})
+            continue
+        if payload.status == "cancelled":
+            if order.razorpay_payment_id and not order.razorpay_refund_id:
+                failed.append({
+                    "id": order_id,
+                    "reason": "Has a captured payment — cancel individually to refund",
+                })
+                continue
+            for item in order.items:
+                if item.product and item.product.tracks_inventory:
+                    item.product.stock_quantity += item.quantity
+                    restocked_products[item.product.id] = item.product
+            if order.coupon_code:
+                coupon_result = await db.execute(
+                    select(Coupon).where(Coupon.code == order.coupon_code).with_for_update()
+                )
+                coupon = coupon_result.scalar_one_or_none()
+                if coupon is not None and coupon.used_count > 0:
+                    coupon.used_count -= 1
+        order.status = payload.status
+        db.add(DeliveryTracking(order_id=order.id, status=payload.status))
+        updated.append(order.id)
+        updated_user_ids[order.id] = order.user_id
+
+    await db.commit()
+    await log_admin_action(
+        db, admin["admin_user_id"], "order.bulk_status", "order", ",".join(updated[:20]),
+        details={"status": payload.status, "updated": len(updated), "failed": len(failed)},
+        ip_address=_client_ip(request),
+    )
+    for order_id in updated:
+        await emit_event(
+            "order", "status_changed", order_id,
+            {"status": payload.status}, user_id=updated_user_ids.get(order_id),
+        )
+    for product in restocked_products.values():
+        await emit_event(
+            "product", "updated", product.id,
+            ProductOut.model_validate(product).model_dump(mode="json"),
+        )
+    return {"updated": updated, "failed": failed}
+
+
 class OrderUpdateRequest(BaseModel):
     # Must match delivery.py's VALID_STATUS_TRANSITIONS states plus "cancelled".
     status: Literal["confirmed", "picked_up", "out_for_delivery", "delivered", "cancelled"] | None = None
@@ -651,6 +881,7 @@ async def admin_get_order(
     return {
         "id": order.id,
         "status": order.status,
+        "source": getattr(order, "source", None) or "unknown",
         "notes": order.notes,
         "total_price": order.total_price,
         "delivery_type": order.delivery_type,
@@ -860,6 +1091,55 @@ async def admin_get_user(
 
 class UserUpdateRequest(BaseModel):
     is_active: bool | None = None
+
+
+@router.get("/contact-messages")
+async def admin_list_contact_messages(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+    unread_only: bool = False,
+    limit: int = 50,
+) -> list[dict]:
+    """Support inbox: website contact-form messages, newest first."""
+    from ..models import ContactMessage
+
+    query = select(ContactMessage).order_by(ContactMessage.created_at.desc())
+    if unread_only:
+        query = query.where(ContactMessage.is_read.is_(False))
+    result = await db.execute(query.limit(max(1, min(limit, 200))))
+    messages = result.scalars().all()
+    return [
+        {
+            "id": m.id,
+            "name": m.name,
+            "email": m.email,
+            "subject": m.subject,
+            "message": m.message,
+            "user_id": m.user_id,
+            "is_read": m.is_read,
+            "created_at": m.created_at.isoformat(),
+        }
+        for m in messages
+    ]
+
+
+@router.patch("/contact-messages/{message_id}")
+async def admin_mark_contact_message(
+    message_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+) -> dict:
+    from ..models import ContactMessage
+
+    result = await db.execute(
+        select(ContactMessage).where(ContactMessage.id == message_id)
+    )
+    message = result.scalar_one_or_none()
+    if message is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    message.is_read = True
+    await db.commit()
+    return {"id": message.id, "is_read": True}
 
 
 @router.patch("/users/{user_id}")
@@ -1346,6 +1626,220 @@ async def admin_update_admin(
     return {"id": target.id, "username": target.username, "role": target.role, "is_active": target.is_active}
 
 
+# ── Reviews moderation ──────────────────────────────────────────────────────
+
+@router.get("/reviews")
+async def admin_list_reviews(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+    status: str | None = None,
+    product_id: str | None = None,
+) -> list[dict]:
+    """All customer reviews, newest first — hide abuse, reply as the seller."""
+    query = (
+        select(Review, Product.name, User.phone)
+        .join(Product, Product.id == Review.product_id)
+        .join(User, User.id == Review.user_id)
+        .order_by(Review.created_at.desc())
+        .limit(200)
+    )
+    if status:
+        query = query.where(Review.status == status)
+    if product_id:
+        query = query.where(Review.product_id == product_id)
+    result = await db.execute(query)
+    return [
+        {
+            "id": r.id,
+            "product_id": r.product_id,
+            "product_name": pname,
+            "user_id": r.user_id,
+            "reviewer": _mask_phone(phone),
+            "order_id": r.order_id,
+            "rating": r.rating,
+            "title": r.title,
+            "body": r.body,
+            "verified_purchase": r.verified_purchase,
+            "helpful_count": r.helpful_count,
+            "seller_response": r.seller_response,
+            "status": r.status,
+            "created_at": r.created_at.isoformat(),
+            "updated_at": r.updated_at.isoformat(),
+        }
+        for r, pname, phone in result.all()
+    ]
+
+
+@router.patch("/reviews/{review_id}")
+async def admin_moderate_review(
+    request: Request,
+    review_id: str,
+    payload: AdminReviewUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[dict, Depends(require_admin_role("super_admin", "manager", "support_staff"))],
+) -> dict:
+    review = await db.get(Review, review_id)
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    changes: dict = {}
+    if payload.status is not None:
+        if payload.status not in {"published", "hidden"}:
+            raise HTTPException(status_code=422, detail="status must be published or hidden")
+        review.status = payload.status
+        changes["status"] = payload.status
+    if payload.seller_response is not None:
+        review.seller_response = payload.seller_response or None
+        changes["seller_response"] = bool(payload.seller_response)
+    await db.commit()
+    await log_admin_action(db, admin["admin_user_id"], "review.moderate", "review", review_id, details=changes, ip_address=_client_ip(request))
+    await emit_event("review", "updated", review.product_id, {"status": review.status})
+    return {"id": review.id, "status": review.status}
+
+
+# ── Returns (RMA) center ──────────────────────────────────────────────────────
+
+@router.get("/returns")
+async def admin_list_returns(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict, Depends(require_admin)],
+    status: str | None = None,
+) -> list[dict]:
+    query = (
+        select(ReturnRequest, Order, User)
+        .join(Order, Order.id == ReturnRequest.order_id)
+        .join(User, User.id == ReturnRequest.user_id)
+        .order_by(ReturnRequest.created_at.desc())
+        .limit(200)
+    )
+    if status:
+        query = query.where(ReturnRequest.status == status)
+    result = await db.execute(query)
+    out = []
+    for req, order, user in result.all():
+        items_result = await db.execute(
+            select(func.count(OrderItem.id)).where(OrderItem.order_id == order.id)
+        )
+        out.append({
+            "id": req.id,
+            "order_id": req.order_id,
+            "reason": req.reason,
+            "details": req.details,
+            "status": req.status,
+            "admin_note": req.admin_note,
+            "order_status": order.status,
+            "order_total": order.total_price,
+            "customer_phone": user.phone,
+            "item_count": items_result.scalar_one(),
+            "created_at": req.created_at.isoformat(),
+            "decided_at": req.decided_at.isoformat() if req.decided_at else None,
+        })
+    return out
+
+
+@router.patch("/returns/{return_id}")
+async def admin_decide_return(
+    request: Request,
+    return_id: str,
+    payload: AdminReturnDecision,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    admin: Annotated[
+        dict,
+        Depends(require_admin_role("super_admin", "manager", "support_staff")),
+    ],
+) -> dict:
+    """Approve (accept the return), reject it, or refund it.
+
+    Refund moves money via Razorpay like an order cancel, restores stock and
+    coupon usage, and closes the order — the same guarantees as cancellation.
+    """
+    result = await db.execute(
+        select(ReturnRequest).where(ReturnRequest.id == return_id).with_for_update()
+    )
+    req = result.scalar_one_or_none()
+    if req is None:
+        raise HTTPException(status_code=404, detail="Return request not found")
+    if req.status not in {"requested", "approved"}:
+        raise HTTPException(status_code=409, detail=f"Return is already {req.status}")
+    if payload.action == "reject" and not (payload.admin_note or "").strip():
+        raise HTTPException(status_code=422, detail="A note is required when rejecting a return")
+    if payload.action == "refund" and admin.get("admin_role") not in {"super_admin", "manager"}:
+        raise HTTPException(403, "Only managers can refund a return.")
+
+    now = datetime.now(timezone.utc)
+    if payload.action in {"approve", "reject"}:
+        req.status = "approved" if payload.action == "approve" else "rejected"
+        req.admin_note = payload.admin_note
+        req.decided_at = now
+        await db.commit()
+        await log_admin_action(db, admin["admin_user_id"], f"return.{payload.action}", "return", return_id, details={"admin_note": payload.admin_note}, ip_address=_client_ip(request))
+        order_result = await db.execute(select(Order).where(Order.id == req.order_id))
+        order = order_result.scalar_one_or_none()
+        await emit_event(
+            "order", "return_updated", req.order_id,
+            {"return_id": return_id, "status": req.status},
+            user_id=order.user_id if order else None,
+        )
+        return {"id": req.id, "status": req.status}
+
+    # Refund path: only from requested/approved, mirrors order cancellation.
+    order_result = await db.execute(
+        select(Order)
+        .options(selectinload(Order.items).selectinload(OrderItem.product))
+        .where(Order.id == req.order_id)
+        .with_for_update()
+    )
+    order = order_result.scalar_one_or_none()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status == "cancelled":
+        raise HTTPException(status_code=409, detail="Order is already cancelled")
+    if order.razorpay_payment_id and not order.razorpay_refund_id:
+        try:
+            refund = await asyncio.to_thread(
+                refund_razorpay_payment,
+                order.razorpay_payment_id,
+                amount_to_paise(order.total_price),
+                receipt=f"snapprint-{order.id}",
+            )
+        except Exception as exc:
+            raise HTTPException(
+                502, "The payment could not be refunded; the return stays open."
+            ) from exc
+        if refund["amount"] != amount_to_paise(order.total_price):
+            raise HTTPException(502, "The payment provider returned an incomplete refund.")
+        order.razorpay_refund_id = refund["id"] or order.razorpay_refund_id
+        order.refund_status = refund["status"]
+    for item in order.items:
+        if item.product and item.product.tracks_inventory:
+            item.product.stock_quantity += item.quantity
+    if order.coupon_code:
+        coupon_result = await db.execute(
+            select(Coupon).where(Coupon.code == order.coupon_code).with_for_update()
+        )
+        coupon = coupon_result.scalar_one_or_none()
+        if coupon is not None and coupon.used_count > 0:
+            coupon.used_count -= 1
+    order.status = "cancelled"
+    db.add(DeliveryTracking(order_id=order.id, status="cancelled"))
+    req.status = "refunded"
+    req.admin_note = payload.admin_note
+    req.decided_at = now
+    await db.commit()
+    await log_admin_action(db, admin["admin_user_id"], "return.refund", "return", return_id, details={"order_id": order.id}, ip_address=_client_ip(request))
+    await emit_event(
+        "order", "return_updated", order.id,
+        {"return_id": return_id, "status": "refunded"},
+        user_id=order.user_id,
+    )
+    for item in order.items:
+        if item.product and item.product.tracks_inventory:
+            await emit_event(
+                "product", "updated", item.product.id,
+                ProductOut.model_validate(item.product).model_dump(mode="json"),
+            )
+    return {"id": req.id, "status": req.status}
+
+
 # ── Analytics ─────────────────────────────────────────────────────────────────
 
 @router.get("/analytics/dashboard")
@@ -1374,6 +1868,15 @@ async def admin_analytics_dashboard(
         select(Order.status, func.count(Order.id)).group_by(Order.status)
     )
     status_counts = {status: count for status, count in status_counts_result.all()}
+
+    # Purchase-channel breakdown: "1 bought from mobile app, 1 from website".
+    # Unknown covers orders placed before the source column existed.
+    channel_counts_result = await db.execute(
+        select(Order.source, func.count(Order.id)).group_by(Order.source)
+    )
+    channel_counts = {
+        (source or "unknown"): count for source, count in channel_counts_result.all()
+    }
 
     orders_today_result = await db.execute(
         select(func.count(Order.id)).where(Order.created_at >= today_start)
@@ -1407,6 +1910,105 @@ async def admin_analytics_dashboard(
     )
     top_products = [{"name": name, "quantity": int(qty)} for name, qty in top_products_result.all()]
 
+    # Live stock signal for the admin panel: tracked products running low.
+    # Shares the same stock_quantity that mobile + website decrement centrally,
+    # so e.g. 10 → 9 after the app sale → 8 after the website sale is visible here.
+    low_stock_result = await db.execute(
+        select(Product.id, Product.name, Product.stock_quantity)
+        .where(Product.tracks_inventory.is_(True), Product.is_active.is_(True))
+        .order_by(Product.stock_quantity.asc())
+        .limit(10)
+    )
+    low_stock = [
+        {"id": pid, "name": name, "stock_quantity": int(qty)}
+        for pid, name, qty in low_stock_result.all()
+    ]
+
+    # ── Seller-home signals: sales performance + things needing action ──
+    month_ago = today_start - timedelta(days=30)
+    sales_30d_result = await db.execute(
+        select(func.count(Order.id), func.coalesce(func.sum(Order.total_price), 0)).where(
+            Order.created_at >= month_ago, Order.status != "cancelled"
+        )
+    )
+    orders_30d, revenue_30d = sales_30d_result.one()
+    units_30d_result = await db.execute(
+        select(func.coalesce(func.sum(OrderItem.quantity), 0))
+        .join(Order, Order.id == OrderItem.order_id)
+        .where(Order.created_at >= month_ago, Order.status != "cancelled")
+    )
+    units_30d = int(units_30d_result.scalar_one())
+
+    refunds_30d_result = await db.execute(
+        select(func.count(Order.id), func.coalesce(func.sum(Order.total_price), 0)).where(
+            Order.created_at >= month_ago, Order.razorpay_refund_id.is_not(None)
+        )
+    )
+    refunds_30d_count, refunds_30d_amount = refunds_30d_result.one()
+
+    out_of_stock_result = await db.execute(
+        select(func.count(Product.id)).where(
+            Product.tracks_inventory.is_(True),
+            Product.is_active.is_(True),
+            Product.stock_quantity <= 0,
+        )
+    )
+    low_stock_count_result = await db.execute(
+        select(func.count(Product.id)).where(
+            Product.tracks_inventory.is_(True),
+            Product.is_active.is_(True),
+            Product.stock_quantity > 0,
+            Product.stock_quantity <= 5,
+        )
+    )
+    awaiting_fulfilment_result = await db.execute(
+        select(func.count(Order.id)).where(Order.status == "confirmed")
+    )
+    inbox_unread_result = await db.execute(
+        select(func.count(ContactMessage.id)).where(ContactMessage.is_read.is_(False))
+    )
+    inbox_unread = inbox_unread_result.scalar_one()
+
+    # ── Amazon-style account health: defect rates + fulfilment speed ──
+    base_30d = int(orders_30d)
+    returns_30d_result = await db.execute(
+        select(func.count(ReturnRequest.id)).where(
+            ReturnRequest.created_at >= month_ago,
+            ReturnRequest.status != "rejected",
+        )
+    )
+    returns_30d = int(returns_30d_result.scalar_one())
+    cancelled_30d_result = await db.execute(
+        select(func.count(Order.id)).where(
+            Order.created_at >= month_ago, Order.status == "cancelled"
+        )
+    )
+    cancelled_30d = int(cancelled_30d_result.scalar_one())
+    all_30d_result = await db.execute(
+        select(func.count(Order.id)).where(Order.created_at >= month_ago)
+    )
+    all_30d = int(all_30d_result.scalar_one())
+    fulfil_result = await db.execute(
+        select(Order.created_at, DeliveryTracking.timestamp)
+        .join(DeliveryTracking, DeliveryTracking.order_id == Order.id)
+        .where(Order.status == "delivered", DeliveryTracking.status == "delivered")
+        .order_by(Order.created_at.desc())
+        .limit(200)
+    )
+    fulfil_days = [
+        (delivered - created).total_seconds() / 86400
+        for created, delivered in fulfil_result.all()
+        if delivered and created
+    ]
+    avg_fulfil_days = round(sum(fulfil_days) / len(fulfil_days), 1) if fulfil_days else 0.0
+    return_rate = round(returns_30d / base_30d * 100, 1) if base_30d else 0.0
+    cancel_rate = round(cancelled_30d / all_30d * 100, 1) if all_30d else 0.0
+    open_returns_result = await db.execute(
+        select(func.count(ReturnRequest.id)).where(
+            ReturnRequest.status.in_(["requested", "approved"])
+        )
+    )
+
     return {
         "revenue": {
             "today": revenue_today,
@@ -1417,6 +2019,33 @@ async def admin_analytics_dashboard(
         "orders": {
             "today": orders_today,
             "by_status": status_counts,
+            "by_channel": channel_counts,
+        },
+        "sales_30d": {
+            "orders": int(orders_30d),
+            "revenue": float(revenue_30d),
+            "units": units_30d,
+            "avg_order_value": round(float(revenue_30d) / int(orders_30d), 2) if orders_30d else 0.0,
+        },
+        "refunds_30d": {
+            "count": int(refunds_30d_count),
+            "amount": float(refunds_30d_amount),
+        },
+        "alerts": {
+            "out_of_stock": out_of_stock_result.scalar_one(),
+            "low_stock": low_stock_count_result.scalar_one(),
+            "awaiting_fulfilment": awaiting_fulfilment_result.scalar_one(),
+            "inbox_unread": inbox_unread,
+            "failed_payments": failed_payments,
+            "open_returns": open_returns_result.scalar_one(),
+        },
+        "health": {
+            "return_rate_30d": return_rate,
+            "cancel_rate_30d": cancel_rate,
+            "avg_fulfilment_days": avg_fulfil_days,
+            "grade": "Good"
+            if return_rate < 5 and cancel_rate < 5
+            else "Needs review",
         },
         "users": {
             "total": total_users,
@@ -1429,6 +2058,7 @@ async def admin_analytics_dashboard(
             "total_uploaded": total_photos_uploaded,
         },
         "top_products": top_products,
+        "low_stock": low_stock,
     }
 
 

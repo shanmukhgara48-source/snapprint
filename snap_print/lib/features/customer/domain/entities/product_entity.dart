@@ -22,6 +22,9 @@ class ProductEntity {
     this.sortOrder = 0,
     this.stockQuantity = 0,
     this.tracksInventory = false,
+    this.sku,
+    this.compareAtPrice,
+    this.isBestseller = false,
     this.isFeatured = false,
     this.isTrending = false,
     this.isOrderable = true,
@@ -43,6 +46,9 @@ class ProductEntity {
   final int sortOrder;
   final int stockQuantity;
   final bool tracksInventory;
+  final String? sku;
+  final double? compareAtPrice;
+  final bool isBestseller;
   final bool isFeatured;
   final bool isTrending;
   final bool isOrderable;
@@ -74,4 +80,12 @@ class ProductEntity {
   bool get isInStock => !tracksInventory || stockQuantity > 0;
 
   bool get canOrder => isOrderable && hasKnownPrice && isInStock;
+
+  /// Amazon-style deal: strike-through MRP + % off (display-only).
+  bool get hasSale =>
+      compareAtPrice != null && compareAtPrice! > effectivePrice && effectivePrice > 0;
+
+  int get discountPercent => !hasSale
+      ? 0
+      : (((compareAtPrice! - effectivePrice) / compareAtPrice!) * 100).round();
 }

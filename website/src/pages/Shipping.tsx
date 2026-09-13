@@ -1,12 +1,19 @@
 import { deliveryOptions, formatDeliveryPrice, sameDayDeliveryNote } from '../data/delivery'
 import { PolicyLayout } from '../components/PolicyLayout'
-import { Placeholder } from '../components/Placeholder'
+import { BusinessValue } from '../components/BusinessValue'
+import { Seo } from '../components/Seo'
 
 export function Shipping() {
   return (
+    <>
+    <Seo
+      title="Shipping Policy | SnapPrint"
+      description="SnapPrint delivery options, timelines and charges."
+      path="/shipping"
+    />
     <PolicyLayout
       title="Shipping Policy"
-      lastUpdated={<Placeholder label="publish date" example="1 August 2026" />}
+      lastUpdated={<BusinessValue field="policyLastUpdated" fallback="Last reviewed: pending owner confirmation" />}
       intro="This policy explains delivery options, timelines, and charges for SnapPrint orders."
       sections={[
         {
@@ -81,12 +88,13 @@ export function Shipping() {
           body: (
             <p>
               If a shipment is delayed, damaged, incorrectly delivered, or not delivered, contact{' '}
-              <Placeholder label="support email" example="support@snapprint.in" /> with the
+              <BusinessValue field="supportEmail" /> with the
               order ID and relevant photos or details so the issue can be investigated.
             </p>
           ),
         },
       ]}
     />
+    </>
   )
 }
