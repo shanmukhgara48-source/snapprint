@@ -34,6 +34,10 @@ export interface CheckoutData {
   /** Coupon code applied at checkout (validated server-side). */
   couponCode?: string
   deliveryType?: string
+  /** Gift wrap for the whole order (fee is server-authoritative). */
+  giftWrap?: boolean
+  /** Optional gift message (max 500 chars, stored with the order). */
+  giftMessage?: string
 }
 
 interface PlanContext {

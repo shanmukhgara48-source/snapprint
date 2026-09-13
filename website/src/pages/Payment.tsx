@@ -21,6 +21,7 @@ export function Payment() {
   const [serverTotal, setServerTotal] = useState<number>(0)
   const [serverSubtotal, setServerSubtotal] = useState<number>(0)
   const [serverDiscount, setServerDiscount] = useState<number>(0)
+  const [serverGiftCharge, setServerGiftCharge] = useState<number>(0)
   const [quoteFailed, setQuoteFailed] = useState(false)
   const finalizedRef = useRef(false)
 
@@ -30,6 +31,8 @@ export function Payment() {
     deliveryOptions[0]!
   const addressId = checkoutData?.addressId || ''
   const couponCode = checkoutData?.couponCode || ''
+  const giftWrap = checkoutData?.giftWrap || false
+  const giftMessage = checkoutData?.giftMessage || ''
 
   // Guard: must arrive here with auth + checkout data + a real address id.
   useEffect(() => {
@@ -58,10 +61,12 @@ export function Payment() {
           cartItems,
           deliveryType,
           couponCode || undefined,
+          giftWrap,
         )
         setServerTotal(quote.total)
         setServerSubtotal(quote.subtotal)
         setServerDiscount(quote.discount || 0)
+        setServerGiftCharge(quote.gift_wrap_charge || 0)
       } catch (err: any) {
         setQuoteFailed(true)
         setPaymentError(
@@ -108,6 +113,7 @@ export function Payment() {
         addressId,
         deliveryType,
         couponCode || undefined,
+        giftWrap,
       )
 
       const options: any = {
@@ -161,6 +167,8 @@ export function Payment() {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_signature: response.razorpay_signature,
               source: 'website',
+              gift_wrap: giftWrap,
+              ...(giftWrap && giftMessage ? { gift_message: giftMessage } : {}),
             })
             finalizedRef.current = true
             // 4. Only now: clear the cart and show the REAL order.
@@ -201,6 +209,8 @@ export function Payment() {
     addressId,
     deliveryType,
     couponCode,
+    giftWrap,
+    giftMessage,
     navigate,
     clearCart,
     toast,
@@ -293,6 +303,12 @@ export function Payment() {
                           : formatPrice(selectedDelivery.price)}
                       </span>
                     </div>
+                    {serverGiftCharge > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted">🎁 Gift wrap</span>
+                        <span>{formatPrice(serverGiftCharge)}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="font-display mt-4 flex items-center justify-between border-t border-border pt-4 text-lg">
                     <span>Total</span>

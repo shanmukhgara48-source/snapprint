@@ -5,6 +5,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Coupon, Product
+from ..models.app_setting import AppSetting
 from ..models.delivery_setting import DeliverySetting
 from ..schemas.cart import (
     CartCalculateRequest,
@@ -12,6 +13,42 @@ from ..schemas.cart import (
     CartItemResult,
     DeliveryOption,
 )
+
+
+#: Fallback gift-wrap offer when no admin-configured AppSetting exists.
+#: Admins control the live values via PUT /admin/settings/gift_wrap with
+#: {"price": 49, "enabled": true}. Never trust a client-supplied fee.
+GIFT_WRAP_DEFAULT = {"price": 49.0, "enabled": True}
+
+
+async def get_gift_wrap_config(db: AsyncSession) -> dict:
+    """Admin-controlled gift-wrap offer: {"price": float, "enabled": bool}."""
+    result = await db.execute(
+        select(AppSetting).where(AppSetting.key == "gift_wrap")
+    )
+    setting = result.scalar_one_or_none()
+    if setting is None or not isinstance(setting.value, dict):
+        return dict(GIFT_WRAP_DEFAULT)
+    try:
+        price = float(setting.value.get("price", GIFT_WRAP_DEFAULT["price"]))
+    except (TypeError, ValueError):
+        price = float(GIFT_WRAP_DEFAULT["price"])
+    return {
+        "price": max(0.0, price),
+        "enabled": bool(setting.value.get("enabled", True)),
+    }
+
+
+async def resolve_gift_wrap_charge(
+    db: AsyncSession, gift_wrap: bool
+) -> float:
+    """Server-authoritative gift-wrap fee. Raises 400 if unavailable."""
+    if not gift_wrap:
+        return 0.0
+    config = await get_gift_wrap_config(db)
+    if not config["enabled"]:
+        raise HTTPException(status_code=400, detail="Gift wrap is currently unavailable")
+    return config["price"]
 
 
 async def _get_delivery_options(db: AsyncSession) -> list[DeliveryOption]:
@@ -55,6 +92,7 @@ async def calculate_cart(
             items=[],
             subtotal=0,
             delivery_charge=0,
+            gift_wrap_charge=0,
             discount=0,
             total=0,
             coupon_applied=False,
@@ -116,6 +154,9 @@ async def calculate_cart(
 
     delivery_charge = delivery_charges.get(payload.delivery_type, 0)
 
+    # Order-level gift wrap: flat server-side fee, never client-supplied.
+    gift_wrap_charge = await resolve_gift_wrap_charge(db, payload.gift_wrap)
+
     # Coupon validation
     discount = 0.0
     coupon_applied = False
@@ -143,12 +184,13 @@ async def calculate_cart(
                     discount = min(coupon.value, subtotal)
                 coupon_applied = True
 
-    total = max(0.0, subtotal + delivery_charge - discount)
+    total = max(0.0, subtotal + delivery_charge + gift_wrap_charge - discount)
 
     return CartCalculateResponse(
         items=item_results,
         subtotal=round(subtotal, 2),
         delivery_charge=delivery_charge,
+        gift_wrap_charge=round(gift_wrap_charge, 2),
         discount=round(discount, 2),
         total=round(total, 2),
         coupon_applied=coupon_applied,

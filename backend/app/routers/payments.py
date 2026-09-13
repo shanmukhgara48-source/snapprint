@@ -34,6 +34,7 @@ class RazorpayOrderRequest(BaseModel):
     address_id: str = Field(min_length=1, max_length=128)
     delivery_type: str = Field(default="free", min_length=1, max_length=50)
     coupon_code: str | None = Field(default=None, max_length=64)
+    gift_wrap: bool = False
 
 
 class RazorpayVerifyRequest(BaseModel):
@@ -66,6 +67,7 @@ async def create_order(
             items=payload.items,
             delivery_type=payload.delivery_type,
             coupon_code=payload.coupon_code,
+            gift_wrap=payload.gift_wrap,
         ),
         user_id=user.id,
     )

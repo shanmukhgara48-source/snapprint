@@ -49,6 +49,9 @@ class CartState {
     this.deliveryPrice,
     this.couponCode,
     this.discount = 0,
+    this.giftWrap = false,
+    this.giftMessage,
+    this.giftWrapCharge = 0,
   });
 
   final List<CartItemEntity> items;
@@ -62,12 +65,21 @@ class CartState {
   final String? couponCode;
   final double discount;
 
+  /// Order-level gift wrap (Amazon-style). The fee is server-authoritative —
+  /// [giftWrapCharge] is refreshed from POST /cart/calculate and the backend
+  /// re-verifies it at payment time, so this is display-only.
+  final bool giftWrap;
+  final String? giftMessage;
+  final double giftWrapCharge;
+
   double get subtotal => items.fold(0, (sum, item) => sum + item.totalPrice);
 
   double get deliveryCharge => deliveryPrice ?? deliveryType.price;
 
-  double get total =>
-      (subtotal + deliveryCharge - discount).clamp(0, double.infinity);
+  double get giftCharge => giftWrap ? giftWrapCharge : 0;
+
+  double get total => (subtotal + deliveryCharge + giftCharge - discount)
+      .clamp(0, double.infinity);
 
   int get itemCount => items.fold(0, (sum, item) => sum + item.quantity);
 
@@ -78,6 +90,9 @@ class CartState {
     double? deliveryPrice,
     String? couponCode,
     double? discount,
+    bool? giftWrap,
+    String? giftMessage,
+    double? giftWrapCharge,
   }) {
     return CartState(
       items: items ?? this.items,
@@ -86,6 +101,23 @@ class CartState {
       deliveryPrice: deliveryPrice ?? this.deliveryPrice,
       couponCode: couponCode ?? this.couponCode,
       discount: discount ?? this.discount,
+      giftWrap: giftWrap ?? this.giftWrap,
+      giftMessage: giftMessage ?? this.giftMessage,
+      giftWrapCharge: giftWrapCharge ?? this.giftWrapCharge,
+    );
+  }
+
+  /// Explicitly clear the gift message (copyWith can't set it back to null).
+  CartState withoutGiftMessage() {
+    return CartState(
+      items: items,
+      deliveryType: deliveryType,
+      deliveryTypeKey: deliveryTypeKey,
+      deliveryPrice: deliveryPrice,
+      couponCode: couponCode,
+      discount: discount,
+      giftWrap: giftWrap,
+      giftWrapCharge: giftWrapCharge,
     );
   }
 
@@ -95,6 +127,9 @@ class CartState {
     'deliveryPrice': deliveryPrice,
     'couponCode': couponCode,
     'discount': discount,
+    'giftWrap': giftWrap,
+    'giftMessage': giftMessage,
+    'giftWrapCharge': giftWrapCharge,
   };
 
   factory CartState.fromJson(Map<String, dynamic> json) {
@@ -113,6 +148,9 @@ class CartState {
       deliveryPrice: (json['deliveryPrice'] as num?)?.toDouble(),
       couponCode: json['couponCode'] as String?,
       discount: (json['discount'] as num?)?.toDouble() ?? 0,
+      giftWrap: json['giftWrap'] as bool? ?? false,
+      giftMessage: json['giftMessage'] as String?,
+      giftWrapCharge: (json['giftWrapCharge'] as num?)?.toDouble() ?? 0,
     );
   }
 }
@@ -235,8 +273,25 @@ class CartNotifier extends Notifier<CartState> {
       deliveryType: state.deliveryType,
       deliveryTypeKey: state.deliveryTypeKey,
       deliveryPrice: state.deliveryPrice,
+      giftWrap: state.giftWrap,
+      giftMessage: state.giftMessage,
+      giftWrapCharge: state.giftWrapCharge,
       // couponCode and discount reset to defaults (null / 0)
     );
+  }
+
+  /// Gift wrap toggle from checkout. [charge] is the server-quoted fee.
+  void setGiftWrap(bool enabled, {String? message, double? charge}) {
+    var next = state.copyWith(
+      giftWrap: enabled,
+      giftWrapCharge: charge ?? state.giftWrapCharge,
+    );
+    if (message != null) {
+      next = next.copyWith(giftMessage: message);
+    } else if (!enabled) {
+      next = next.withoutGiftMessage();
+    }
+    state = next;
   }
 
   void clearCart() {

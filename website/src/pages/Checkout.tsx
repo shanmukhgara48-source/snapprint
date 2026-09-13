@@ -38,6 +38,9 @@ export function Checkout() {
   const [addresses, setAddresses] = useState<any[]>([])
   const [couponCode, setCouponCode] = useState(checkoutData?.couponCode || '')
   const [couponApplied, setCouponApplied] = useState(false)
+  const [giftWrap, setGiftWrap] = useState(checkoutData?.giftWrap || false)
+  const [giftMessage, setGiftMessage] = useState(checkoutData?.giftMessage || '')
+  const [serverGiftCharge, setServerGiftCharge] = useState(0)
   const [quoteError, setQuoteError] = useState('')
   const [quoteKey, setQuoteKey] = useState(0)
 
@@ -85,10 +88,12 @@ export function Checkout() {
           cartItems,
           deliveryType,
           couponCode.trim() || undefined,
+          giftWrap,
         )
         setServerTotal(result.total)
         setServerSubtotal(result.subtotal)
         setServerDiscount(result.discount || 0)
+        setServerGiftCharge(result.gift_wrap_charge || 0)
         setCouponApplied(result.coupon_applied)
       } catch (err: any) {
         setQuoteError(
@@ -99,7 +104,7 @@ export function Checkout() {
     }
     quote()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, deliveryType, quoteKey])
+  }, [items, deliveryType, giftWrap, quoteKey])
 
   async function applyCoupon() {
     if (!couponCode.trim()) return
@@ -165,6 +170,8 @@ export function Checkout() {
         addressId: resolvedAddressId,
         couponCode: couponCode.trim() || undefined,
         deliveryType,
+        giftWrap,
+        giftMessage: giftWrap ? giftMessage.trim().slice(0, 500) || undefined : undefined,
       })
       navigate('/payment')
     } catch (err: any) {
@@ -514,6 +521,53 @@ export function Checkout() {
               </section>
             </Reveal>
 
+            <Reveal delay={250}>
+              <section aria-label="Gift options">
+                <h2 className="text-2xl font-display mb-4">
+                  Gift wrap <small className="text-muted text-sm">Optional</small>
+                </h2>
+                <label className="flex cursor-pointer items-start gap-3 rounded border border-border bg-surface p-4">
+                  <input
+                    type="checkbox"
+                    checked={giftWrap}
+                    onChange={(e) => setGiftWrap(e.target.checked)}
+                    className="mt-1 h-4 w-4 accent-[#966c24]"
+                  />
+                  <span>
+                    <strong className="block text-sm">
+                      🎁 Wrap this order as a gift
+                      {serverGiftCharge > 0 && giftWrap
+                        ? ` · ${formatPrice(serverGiftCharge)}`
+                        : ''}
+                    </strong>
+                    <span className="text-muted text-sm">
+                      Premium wrapping for all the photos in this order. Add a
+                      personal message for the card.
+                    </span>
+                  </span>
+                </label>
+                {giftWrap && (
+                  <div className="mt-3">
+                    <label
+                      htmlFor="gift-message"
+                      className="text-muted mb-1 block text-sm"
+                    >
+                      Gift message (optional, max 500 characters)
+                    </label>
+                    <textarea
+                      id="gift-message"
+                      value={giftMessage}
+                      onChange={(e) => setGiftMessage(e.target.value.slice(0, 500))}
+                      placeholder="Happy birthday! Love, …"
+                      rows={3}
+                      maxLength={500}
+                      className="w-full rounded border border-border bg-surface p-3 outline-none focus:border-accent"
+                    />
+                  </div>
+                )}
+              </section>
+            </Reveal>
+
             <Reveal delay={300}>
               <button
                 type="submit"
@@ -577,6 +631,12 @@ export function Checkout() {
                         : formatPrice(selectedDelivery.price)}
                     </span>
                   </div>
+                  {serverGiftCharge > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted">🎁 Gift wrap</span>
+                      <span>{formatPrice(serverGiftCharge)}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="font-display mt-4 flex items-center justify-between border-t border-border pt-4 text-lg">
                   <span>Total</span>

@@ -283,6 +283,7 @@ export const api = {
     addressId: string,
     deliveryType: string,
     couponCode?: string,
+    giftWrap?: boolean,
   ) {
     const data = await request<{
       razorpay_order_id: string
@@ -296,6 +297,7 @@ export const api = {
         address_id: addressId,
         delivery_type: deliveryType,
         coupon_code: couponCode || undefined,
+        gift_wrap: giftWrap || false,
       }),
     })
     return data
@@ -328,11 +330,13 @@ export const api = {
     }>,
     deliveryType: string,
     couponCode?: string,
+    giftWrap?: boolean,
   ) {
     return request<{
       items: any[]
       subtotal: number
       delivery_charge: number
+      gift_wrap_charge: number
       discount: number
       total: number
       coupon_applied: boolean
@@ -343,6 +347,7 @@ export const api = {
         items,
         delivery_type: deliveryType,
         coupon_code: couponCode || undefined,
+        gift_wrap: giftWrap || false,
       }),
     })
   },
@@ -362,6 +367,8 @@ export const api = {
     razorpay_order_id?: string
     razorpay_signature?: string
     source?: string
+    gift_wrap?: boolean
+    gift_message?: string
   }) {
     return request<{ id: string; total_price: number; status: string }>(
       '/orders',

@@ -12,6 +12,7 @@ class CartCalculateRequest(BaseModel):
     items: list[CartItemInput] = Field(max_length=100)
     delivery_type: str = Field(default="free", min_length=1, max_length=50)
     coupon_code: str | None = None
+    gift_wrap: bool = False
 
 
 class CartItemResult(BaseModel):
@@ -35,6 +36,7 @@ class CartCalculateResponse(BaseModel):
     items: list[CartItemResult]
     subtotal: float
     delivery_charge: float
+    gift_wrap_charge: float = 0
     discount: float
     total: float
     coupon_applied: bool

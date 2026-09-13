@@ -541,6 +541,7 @@ async def admin_list_orders(
             "id": o.id,
             "status": o.status,
             "source": getattr(o, "source", None) or "unknown",
+            "gift_wrap": bool(getattr(o, "gift_wrap", False)),
             "total_price": o.total_price,
             "customer_phone": o.customer.phone if o.customer else None,
             "item_count": len(o.items),
@@ -591,7 +592,8 @@ async def admin_export_orders(
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow([
-        "order_id", "created_at", "status", "source", "customer_phone", "items",
+        "order_id", "created_at", "status", "source", "gift_wrap", "gift_message",
+        "customer_phone", "items",
         "item_count", "delivery_type", "delivery_charge", "discount",
         "coupon_code", "total_price", "razorpay_payment_id",
         "delivery_partner_id", "city", "pincode",
@@ -606,6 +608,8 @@ async def admin_export_orders(
             o.created_at.isoformat(),
             o.status,
             getattr(o, "source", None) or "unknown",
+            bool(getattr(o, "gift_wrap", False)),
+            getattr(o, "gift_message", None) or "",
             o.customer.phone if o.customer else "",
             items_desc,
             len(o.items),
@@ -882,6 +886,9 @@ async def admin_get_order(
         "id": order.id,
         "status": order.status,
         "source": getattr(order, "source", None) or "unknown",
+        "gift_wrap": bool(getattr(order, "gift_wrap", False)),
+        "gift_wrap_charge": getattr(order, "gift_wrap_charge", 0) or 0,
+        "gift_message": getattr(order, "gift_message", None),
         "notes": order.notes,
         "total_price": order.total_price,
         "delivery_type": order.delivery_type,

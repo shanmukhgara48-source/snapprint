@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, String, text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
@@ -42,6 +42,12 @@ class Order(Base):
     # Set at order creation from payload.source / X-Client-Source header.
     # Shared stock still decrements centrally regardless of channel.
     source: Mapped[str] = mapped_column(String, default="unknown", server_default="unknown")
+    # Order-level gift wrap (Amazon-style): flat fee + optional message.
+    # Fee is server-authoritative (AppSetting "gift_wrap"), never trusted
+    # from the client.
+    gift_wrap: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    gift_wrap_charge: Mapped[float] = mapped_column(Float, default=0)
+    gift_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     total_price: Mapped[float] = mapped_column(Float)
     delivery_type: Mapped[str] = mapped_column(String, default="free")
     delivery_charge: Mapped[float] = mapped_column(Float, default=0)

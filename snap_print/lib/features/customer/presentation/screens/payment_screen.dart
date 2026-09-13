@@ -21,6 +21,8 @@ class PaymentScreen extends ConsumerStatefulWidget {
     required this.addressId,
     required this.deliveryType,
     required this.couponCode,
+    this.giftWrap = false,
+    this.giftMessage,
   });
 
   final double amount;
@@ -28,6 +30,8 @@ class PaymentScreen extends ConsumerStatefulWidget {
   final String addressId;
   final String deliveryType;
   final String? couponCode;
+  final bool giftWrap;
+  final String? giftMessage;
 
   @override
   ConsumerState<PaymentScreen> createState() => _PaymentScreenState();
@@ -143,6 +147,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         // Channel attribution for the admin dashboard; backend stock
         // decrements centrally regardless of channel.
         'source': 'mobile_app',
+        // Gift wrap travels with the order; the fee is re-verified
+        // server-side against the admin-configured price.
+        if (widget.giftWrap) 'gift_wrap': true,
+        if (widget.giftWrap &&
+            widget.giftMessage != null &&
+            widget.giftMessage!.trim().isNotEmpty)
+          'gift_message': widget.giftMessage!.trim(),
         if (widget.couponCode != null) 'coupon_code': widget.couponCode,
         'razorpay_payment_id': payment.paymentId,
         'razorpay_order_id': payment.orderId,

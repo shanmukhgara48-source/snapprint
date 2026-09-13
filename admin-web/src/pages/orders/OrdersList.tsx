@@ -210,8 +210,7 @@ export default function OrdersList() {
               <Th>Total</Th>
               <Th>Status</Th>
               <Th>Placed</Th>
-              <Th>Slip</Th>
-            </tr>
+              <Th>Slip</Th>            </tr>
           </thead>
           <tbody>
             {data?.map((o) => (
@@ -230,7 +229,7 @@ export default function OrdersList() {
                     {(o.source ?? "unknown").replaceAll("_", " ")}
                   </Badge>
                 </Td>
-                <Td>{o.item_count}</Td>
+                <Td>{o.item_count}{o.gift_wrap ? " 🎁" : ""}</Td>
                 <Td>₹{o.total_price}</Td>
                 <Td>
                   <Badge tone={statusTone[o.status] ?? "neutral"}>{o.status.replaceAll("_", " ")}</Badge>

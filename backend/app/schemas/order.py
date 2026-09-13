@@ -23,6 +23,9 @@ class OrderCreate(BaseModel):
     # Optional for backward compat — backend falls back to the
     # X-Client-Source header / User-Agent heuristic, then "unknown".
     source: str | None = Field(default=None, max_length=32)
+    # Gift wrap for the whole order + optional message (max 500 chars).
+    gift_wrap: bool = False
+    gift_message: str | None = Field(default=None, max_length=500)
 
 
 class TrackingEventOut(BaseModel):
@@ -37,6 +40,9 @@ class OrderOut(BaseModel):
     total_price: float
     status: str
     source: str = "unknown"
+    gift_wrap: bool = False
+    gift_wrap_charge: float = 0
+    gift_message: str | None = None
     created_at: datetime
     item_count: int = 0
     delivery_address: str | None = None

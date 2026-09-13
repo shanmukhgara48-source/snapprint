@@ -24,6 +24,7 @@ from ..schemas.order import OrderCreate, OrderOut
 from ..schemas.product import ProductOut
 from ..services.event_bus import emit_event
 from ..services.firebase_service import notify_order_placed
+from ..services.order_service import resolve_gift_wrap_charge
 from ..services.payment_service import amount_to_paise
 from ..services.r2_storage import owned_media_key
 
@@ -84,6 +85,9 @@ def _order_to_out(order: Order) -> OrderOut:
         total_price=order.total_price,
         status=order.status,
         source=getattr(order, "source", None) or "unknown",
+        gift_wrap=bool(getattr(order, "gift_wrap", False)),
+        gift_wrap_charge=getattr(order, "gift_wrap_charge", 0) or 0,
+        gift_message=getattr(order, "gift_message", None),
         created_at=order.created_at,
         item_count=len(order.items),
         delivery_address=address_str,
@@ -221,6 +225,14 @@ async def place_order(
 
     total = max(0.0, items_total + delivery_charge - discount)
 
+    # Gift wrap uses the same server-authoritative fee as cart calculation,
+    # so the amount the customer paid always matches what is stored.
+    gift_wrap_charge = await resolve_gift_wrap_charge(db, payload.gift_wrap)
+    total = max(0.0, total + gift_wrap_charge)
+    gift_message = (payload.gift_message or "").strip() or None
+    if not payload.gift_wrap:
+        gift_message = None
+
     # Payment is mandatory whenever there's actually something to pay for.
     # razorpay_* fields are optional in the schema only so a 100%-coupon
     # order (total == 0) can skip Razorpay entirely — for any nonzero total,
@@ -301,6 +313,9 @@ async def place_order(
         razorpay_payment_id=payload.razorpay_payment_id,
         status="confirmed",
         source=order_source,
+        gift_wrap=payload.gift_wrap,
+        gift_wrap_charge=gift_wrap_charge,
+        gift_message=gift_message,
         estimated_delivery=datetime.now(timezone.utc) + timedelta(days=estimated_days),
     )
     db.add(order)

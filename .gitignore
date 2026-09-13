@@ -59,6 +59,10 @@ Thumbs.db
 *.temp
 nohup.out
 
+# ── Firebase deploy caches (regenerated on every deploy) ─────────────────────
+.firebase/
+hosting.*.cache
+
 # ── Misc ───────────────────────────────────────────────────────────────────────
 "New Text Document.txt"
 test-results/

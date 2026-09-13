@@ -245,6 +245,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             addressId: extra['addressId'] as String,
             deliveryType: extra['deliveryType'] as String,
             couponCode: extra['couponCode'] as String?,
+            giftWrap: extra['giftWrap'] as bool? ?? false,
+            giftMessage: extra['giftMessage'] as String?,
           );
         },
       ),

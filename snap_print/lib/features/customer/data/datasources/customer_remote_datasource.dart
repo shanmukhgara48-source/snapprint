@@ -64,11 +64,20 @@ class CustomerRemoteDataSource {
   }
 
   Future<Map<String, dynamic>> calculateCart(
-    List<Map<String, dynamic>> items,
-  ) async {
+    List<Map<String, dynamic>> items, {
+    String deliveryType = 'free',
+    String? couponCode,
+    bool giftWrap = false,
+  }) async {
+    final body = <String, dynamic>{
+      'items': items,
+      'delivery_type': deliveryType,
+      'coupon_code': couponCode,
+      'gift_wrap': giftWrap,
+    };
     final response = await _client.post(
       ApiEndpoints.cartCalculate,
-      data: {'items': items},
+      data: body,
     );
     return response.data as Map<String, dynamic>;
   }

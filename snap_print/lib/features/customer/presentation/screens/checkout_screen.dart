@@ -26,6 +26,64 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _isPlacing = false;
+  bool _quotingGift = false;
+  late final TextEditingController _giftMessageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _giftMessageController = TextEditingController(
+      text: ref.read(cartProvider).giftMessage ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _giftMessageController.dispose();
+    super.dispose();
+  }
+
+  /// Toggle gift wrap, refreshing the fee from the server quote so the
+  /// total shown here always matches what payment will charge.
+  Future<void> _toggleGiftWrap(bool enabled) async {
+    final notifier = ref.read(cartProvider.notifier);
+    final cart = ref.read(cartProvider);
+    if (enabled == cart.giftWrap && !enabled) return;
+    notifier.setGiftWrap(enabled, charge: cart.giftWrapCharge);
+    if (!enabled) return;
+    setState(() => _quotingGift = true);
+    try {
+      final ds = ref.read(customerDataSourceProvider);
+      final quote = await ds.calculateCart(
+        cart.items
+            .map(
+              (item) => {
+                'product_id': item.productId,
+                'qty': item.quantity,
+                'size': item.selectedSize,
+                'image_url': item.customizationImageUrl,
+              },
+            )
+            .toList(),
+        deliveryType: cart.deliveryTypeKey,
+        couponCode: cart.couponCode,
+        giftWrap: true,
+      );
+      final charge = ((quote['gift_wrap_charge'] as num?) ?? 0).toDouble();
+      ref.read(cartProvider.notifier).setGiftWrap(true, charge: charge);
+    } catch (_) {
+      // Offline/failed quote: revert the toggle rather than show a stale fee.
+      ref.read(cartProvider.notifier).setGiftWrap(false);
+      if (mounted) {
+        showErrorSnackbar(
+          context,
+          'Could not confirm gift wrap pricing. Please try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _quotingGift = false);
+    }
+  }
 
   Future<void> _placeOrder() async {
     final cart = ref.read(cartProvider);
@@ -60,6 +118,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           'address_id': selectedAddress.id,
           'delivery_type': cart.deliveryTypeKey,
           'source': 'mobile_app',
+          if (cart.giftWrap) 'gift_wrap': true,
+          if (cart.giftWrap &&
+              cart.giftMessage != null &&
+              cart.giftMessage!.trim().isNotEmpty)
+            'gift_message': cart.giftMessage!.trim(),
           if (cart.couponCode != null) 'coupon_code': cart.couponCode,
         });
         ref.read(cartProvider.notifier).clearCart();
@@ -83,6 +146,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'address_id': selectedAddress.id,
         'delivery_type': cart.deliveryTypeKey,
         if (cart.couponCode != null) 'coupon_code': cart.couponCode,
+        if (cart.giftWrap) 'gift_wrap': true,
       };
       final razorpayOrder = await ds.createRazorpayOrder(checkoutPayload);
 
@@ -95,6 +159,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             'addressId': selectedAddress.id,
             'deliveryType': cart.deliveryTypeKey,
             'couponCode': cart.couponCode,
+            'giftWrap': cart.giftWrap,
+            'giftMessage': cart.giftMessage,
           },
         );
       }
@@ -231,6 +297,100 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         ),
                       );
                     }).toList(),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Gift wrap for the whole order (fee + optional message).
+                Text(
+                  'Gift options',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: _checkoutCardDecoration(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppColors.accentLight,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(
+                                Icons.card_giftcard_rounded,
+                                color: AppColors.accent,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Wrap as a gift',
+                                    style: TextStyle(fontWeight: FontWeight.w800),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'Premium wrapping for every photo in this order.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: cart.giftWrap,
+                              activeThumbColor: AppColors.accent,
+                              onChanged: _quotingGift ? null : _toggleGiftWrap,
+                            ),
+                          ],
+                        ),
+                        if (_quotingGift) ...[
+                          const SizedBox(height: 8),
+                          const LinearProgressIndicator(
+                            color: AppColors.accent,
+                          ),
+                        ],
+                        if (cart.giftWrap) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            cart.giftCharge > 0
+                                ? 'Gift wrap · ₹${cart.giftCharge.toStringAsFixed(0)}'
+                                : 'Gift wrap · confirming price…',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: _giftMessageController,
+                            maxLength: 500,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              labelText: 'Gift message (optional)',
+                              hintText: 'Happy birthday! Love, …',
+                              border: OutlineInputBorder(),
+                            ),
+                            onChanged: (v) => ref
+                                .read(cartProvider.notifier)
+                                .setGiftWrap(true, message: v),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
 
@@ -374,6 +534,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             label: AppStrings.discount,
                             value: '- ₹${cart.discount.toStringAsFixed(0)}',
                             valueColor: AppColors.success,
+                          ),
+                        ],
+                        if (cart.giftWrap) ...[
+                          const SizedBox(height: 8),
+                          _SummaryRow(
+                            label: 'Gift wrap',
+                            value:
+                                '₹${cart.giftCharge.toStringAsFixed(0)}',
                           ),
                         ],
                         const Divider(height: 20),

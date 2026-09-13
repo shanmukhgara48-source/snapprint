@@ -48,6 +48,7 @@ export interface OrderListItem {
   id: string;
   status: string;
   source?: string;
+  gift_wrap?: boolean;
   total_price: number;
   customer_phone: string | null;
   item_count: number;
@@ -74,6 +75,9 @@ export interface OrderDetail {
   id: string;
   status: string;
   source?: string;
+  gift_wrap?: boolean;
+  gift_wrap_charge?: number;
+  gift_message?: string | null;
   notes: string | null;
   total_price: number;
   delivery_type: string;

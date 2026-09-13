@@ -60,6 +60,7 @@ export default function OrderDetail({ id }: { id: string }) {
       <p><strong>Order:</strong> #${order.id.slice(0, 8).toUpperCase()} &nbsp; <strong>Status:</strong> ${order.status}<br/>
       <strong>Customer:</strong> ${order.customer_phone ?? "—"}<br/>
       <strong>Deliver to:</strong> ${order.address ?? "—"}</p>
+      ${order.gift_wrap ? `<p style="border:2px solid #000;padding:8px"><strong>🎁 GIFT WRAP THIS ORDER</strong>${order.gift_message ? `<br/>Message: ${order.gift_message.replace(/</g, "&lt;")}` : ""}</p>` : ""}
       <table><thead><tr><th>Item</th><th>Size</th><th>Qty</th><th>Price</th></tr></thead><tbody>${rows}</tbody></table>
       <p><strong>Total: ₹${order.total_price}</strong> (${order.delivery_type})</p>
       <p>Packed by: __________ &nbsp; Checked: __________</p>
@@ -151,6 +152,17 @@ export default function OrderDetail({ id }: { id: string }) {
             <div className="mb-3 text-sm text-white">{order.customer_phone ?? "—"}</div>
             <div className="mb-2 text-xs text-neutral-500">Address</div>
             <div className="mb-3 text-sm text-neutral-300">{order.address ?? "—"}</div>
+            {order.gift_wrap && (
+              <>
+                <div className="mb-2 text-xs text-neutral-500">Gift wrap</div>
+                <div className="mb-1 text-sm text-white">
+                  🎁 Yes (+₹{order.gift_wrap_charge ?? 0})
+                </div>
+                <div className="mb-3 rounded-lg border border-border bg-surface-2 p-2 text-sm text-neutral-300">
+                  {order.gift_message || <span className="text-neutral-500">No message</span>}
+                </div>
+              </>
+            )}
             <div className="mb-2 text-xs text-neutral-500">Total</div>
             <div className="text-sm text-white">
               ₹{order.total_price} ({order.delivery_type}, +₹{order.delivery_charge}

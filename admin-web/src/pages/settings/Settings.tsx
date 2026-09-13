@@ -67,6 +67,7 @@ function AppSettingsTab() {
 
   return (
     <div className="space-y-4">
+      <GiftWrapCard />
       <Card>
         <div className="mb-3 text-sm font-medium text-white">Add / update a setting</div>
         <div className="flex gap-2">
@@ -96,6 +97,69 @@ function AppSettingsTab() {
         </tbody>
       </Table>
     </div>
+  );
+}
+
+function GiftWrapCard() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => (await api.get<AppSetting[]>("/admin/settings")).data,
+  });
+  const current = (data?.find((s) => s.key === "gift_wrap")?.value ?? {}) as {
+    price?: number;
+    enabled?: boolean;
+  };
+  const [price, setPrice] = useState<string | null>(null);
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+
+  const saveMut = useMutation({
+    mutationFn: () =>
+      api.put("/admin/settings/gift_wrap", {
+        value: {
+          price: Number(price ?? current.price ?? 49),
+          enabled: enabled ?? current.enabled ?? true,
+        },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["settings"] });
+      setPrice(null);
+      setEnabled(null);
+    },
+  });
+
+  if (isLoading) return <Spinner />;
+
+  return (
+    <Card>
+      <div className="mb-1 text-sm font-medium text-white">🎁 Gift wrap offer</div>
+      <p className="mb-3 text-xs text-neutral-500">
+        Order-level option at checkout. The fee is always taken from here — customers can never set their own price.
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="text-xs text-neutral-400">
+          Price (₹)
+          <Input
+            type="number"
+            min={0}
+            value={price ?? String(current.price ?? 49)}
+            onChange={(e) => setPrice(e.target.value)}
+            className="mt-1 w-28"
+          />
+        </label>
+        <label className="flex items-center gap-2 text-xs text-neutral-400">
+          <input
+            type="checkbox"
+            checked={enabled ?? current.enabled ?? true}
+            onChange={(e) => setEnabled(e.target.checked)}
+          />
+          Offer gift wrap at checkout
+        </label>
+        <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
+          {saveMut.isPending ? "Saving…" : "Save"}
+        </Button>
+      </div>
+    </Card>
   );
 }
 

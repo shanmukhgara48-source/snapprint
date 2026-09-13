@@ -300,6 +300,12 @@ function OrdersDetail() {
         </p>
         <p>Total: ₹{order.total_price?.toLocaleString('en-IN')}</p>
         <p>Date: {new Date(order.created_at).toLocaleDateString('en-IN')}</p>
+        {order.gift_wrap && (
+          <p>
+            🎁 Gift wrapped
+            {order.gift_message ? ` — “${order.gift_message}”` : ''}
+          </p>
+        )}
         {order.delivery_address && <p>Address: {order.delivery_address}</p>}
         {order.estimated_delivery && (
           <p>

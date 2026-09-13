@@ -12,6 +12,8 @@ interface OrderDetail {
   id: string
   total_price: number
   status: string
+  gift_wrap?: boolean
+  gift_message?: string | null
   created_at: string
   item_count: number
   delivery_address: string | null
@@ -153,6 +155,15 @@ export function Success() {
               <dt className="text-muted">Items</dt>
               <dd>{order.item_count}</dd>
             </div>
+            {order.gift_wrap && (
+              <div>
+                <dt className="text-muted">Gift wrap</dt>
+                <dd>
+                  🎁 Yes
+                  {order.gift_message ? ` — “${order.gift_message}”` : ''}
+                </dd>
+              </div>
+            )}
             {order.delivery_address && (
               <div>
                 <dt className="text-muted">Delivering to</dt>

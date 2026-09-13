@@ -158,6 +158,19 @@ async def lifespan(app: FastAPI):
                     days_label=setting.days_label,
                 ))
 
+        # Seed the gift-wrap offer (flat fee + message). Admin edits win after
+        # this — the seed only fills the gap when no setting exists yet.
+        # Managed live via PUT /admin/settings/gift_wrap.
+        from app.models.app_setting import AppSetting
+
+        gift_wrap_row = await db.execute(
+            select(AppSetting).where(AppSetting.key == "gift_wrap")
+        )
+        if gift_wrap_row.scalar_one_or_none() is None:
+            db.add(AppSetting(
+                key="gift_wrap",
+                value={"price": 49.0, "enabled": True},
+            ))
         # Seed default categories
         category_ids: dict[str, str] = {}
         for category_data in DEFAULT_CATEGORIES:
