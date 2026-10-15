@@ -3,7 +3,7 @@ slowapi==0.1.9
 sqlalchemy[asyncio]>=2.0.51
 asyncpg==0.31.0
 alembic==1.13.3
-pydantic-settings==2.5.2
+pydantic-settings==2.14.2
 firebase-admin==6.5.0
 razorpay>=2.0.1
 PyJWT[crypto]==2.13.0
