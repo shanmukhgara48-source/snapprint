@@ -20,7 +20,7 @@ dependencies:
 
   # UI
   data_table_2: ^2.5.13
-  fl_chart: ^0.69.0
+  fl_chart: ^1.2.0
   cached_network_image: ^3.4.1
 
   # File picking (web-compatible image upload)
